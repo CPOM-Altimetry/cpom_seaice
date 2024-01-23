@@ -202,6 +202,6 @@ class Algorithm(BaseAlgorithm):
         # Add finalization steps here \/
         # ---------------------------------------------------------------------
 
-        # None required for this algorithm
+        # No finalization required for this algorithm
 
         # ---------------------------------------------------------------------
