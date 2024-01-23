@@ -26,13 +26,13 @@ repos:
 #       language: script
 #       pass_filenames: false
 
--   repo: local
-    hooks:
-    - id: pdocs_build
-      name: pdocs_build
-      entry: pdocs_build.sh
-      language: script
-      pass_filenames: false
+# -   repo: local
+#     hooks:
+#     - id: pdocs_build
+#       name: pdocs_build
+#       entry: pdocs_build.sh
+#       language: script
+#       pass_filenames: false
 
 -   repo: https://github.com/pycqa/isort
     rev: 5.12.0

@@ -1,0 +1,12 @@
+# Algorithm list for chain: seaice
+
+# Optional file selector modules
+l1b_file_selectors:
+#  - your_finder
+#  - your_finder2
+#  - ...
+
+# List of algorithms to call in order
+algorithms:
+  - alg_ingest_cs2
+  - alg_area_filter

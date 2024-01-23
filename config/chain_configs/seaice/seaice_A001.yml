@@ -1,0 +1,40 @@
+# CPOM sea ice chain settings
+
+# Set breakpoint file directory
+breakpoint_files:
+  default_dir: /tmp
+  
+# Default locations for log files
+log_files:
+  append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
+                                   # or <logtype>_YYYY.log (if only year specified) 
+  errors: ${CT_LOG_DIR}/errors.log  # or errors_MMYYYY.log
+  info:   ${CT_LOG_DIR}/info.log
+  debug:  ${CT_LOG_DIR}/debug.log
+
+# CS2 instrument parameters
+instrument:
+  num_range_bins_lrm: 128
+  # etc
+
+# Geophysical parameters
+geophysical:
+  earth_semi_major: 6378137.0
+  eccentricity: 0.08181919078479198
+  speed_light: 299792458.0
+
+# Algorithm configuration settings
+
+alg_ingest:
+  allow_lrm: false
+  allow_sar: true
+  allow_sin: True
+
+alg_area_filter:
+  min_latitude: 60.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
+
+# Resource Locators
+

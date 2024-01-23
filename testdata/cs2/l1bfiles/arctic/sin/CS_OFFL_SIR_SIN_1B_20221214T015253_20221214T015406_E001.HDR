@@ -1,0 +1,556 @@
+<?xml version ="1.0" encoding="UTF-8"?>
+<Earth_Explorer_Header Schema_Server_Url="http://earth.esa.int/Earth.Explorer/CRYOSAT/xml">
+   <Fixed_Header>
+      <File_Name>CS_OFFL_SIR_SIN_1B_20221214T015253_20221214T015406_E001</File_Name>
+      <File_Description>Level-1 SARin Mode</File_Description>
+      <Notes></Notes>
+      <Mission>CryoSat</Mission>
+      <File_Class>Off-Line Processing</File_Class>
+      <File_Type>SIR_SIN_1B</File_Type>
+      <Validity_Period>
+         <Validity_Start>UTC=2022-12-14T01:52:53</Validity_Start>
+         <Validity_Stop>UTC=2022-12-14T01:54:06</Validity_Stop>
+      </Validity_Period>
+      <File_Version>0001</File_Version>
+      <Source>
+         <System>PDS</System>
+         <Creator>SARIN</Creator>
+         <Creator_Version>7.1</Creator_Version>
+         <Creation_Date>UTC=2023-01-12T07:49:09</Creation_Date>
+      </Source>
+   </Fixed_Header>
+   <Variable_Header>
+      <MPH>
+         <Product>CS_OFFL_SIR_SIN_1B_20221214T015253_20221214T015406_E001</Product>
+         <Proc_Stage_Code>OFFL</Proc_Stage_Code>
+         <Ref_Doc>CS-RS-ACS-ESL-5364 2.0</Ref_Doc>
+         <Proc_Time>UTC=2023-01-12T07:49:08.709529</Proc_Time>
+         <Software_Version>SARIN/7.1</Software_Version>
+         <Phase>4</Phase>
+         <Cycle>+028</Cycle>
+         <Rel_Orbit>+04336</Rel_Orbit>
+         <Abs_Orbit>+67226</Abs_Orbit>
+         <State_Vector_Time>UTC=2022-12-14T01:53:29.871625</State_Vector_Time>
+         <Delta_UT1  unit="s">-.016979</Delta_UT1>
+         <X_Position  unit="m">-2136831.250</X_Position>
+         <Y_Position  unit="m">-1290117.000</Y_Position>
+         <Z_Position  unit="m">+6634199.000</Z_Position>
+         <X_Velocity  unit="m/s">+5495.363770</X_Velocity>
+         <Y_Velocity  unit="m/s">+4409.615234</Y_Velocity>
+         <Z_Velocity  unit="m/s">+2625.133057</Z_Velocity>
+         <State_Vector_Source>DP</State_Vector_Source>
+         <Product_Err>0</Product_Err>
+         <Tot_Size  unit="bytes">000000000000010450332</Tot_Size>
+      </MPH>
+      <SPH>
+         <SPH_Descriptor>SIR_SIN_1B SPECIFIC HEADER</SPH_Descriptor>
+         <Time_Information>
+            <Start_Record_Time>TAI=2022-12-14T01:53:30.429811</Start_Record_Time>
+            <Stop_Record_Time>TAI=2022-12-14T01:54:43.313439</Stop_Record_Time>
+         </Time_Information>
+         <Orbit_Information>
+            <ABS_Orbit_Start>067226</ABS_Orbit_Start>
+            <Rel_Time_ASC_Node_Start  unit="s">1110.280884</Rel_Time_ASC_Node_Start>
+            <ABS_Orbit_Stop>067226</ABS_Orbit_Stop>
+            <Rel_Time_ASC_Node_Stop  unit="s">1183.164551</Rel_Time_ASC_Node_Stop>
+            <Equator_Cross_Time>UTC=2022-12-14T01:34:23.143904</Equator_Cross_Time>
+            <Equator_Cross_Long  unit="10-6 deg">-0138696214</Equator_Cross_Long>
+            <Ascending_Flag>A</Ascending_Flag>
+         </Orbit_Information>
+         <Product_Location>
+            <Start_Lat  unit="10-6 deg">+0067305910</Start_Lat>
+            <Start_Long  unit="10-6 deg">-0148154612</Start_Long>
+            <Stop_Lat  unit="10-6 deg">+0071681094</Stop_Lat>
+            <Stop_Long  unit="10-6 deg">-0149732067</Stop_Long>
+         </Product_Location>
+         <Level_0_Confidence_Data>
+            <L0_Proc_Flag>0</L0_Proc_Flag>
+            <L0_Processing_Quality  unit="10-2 %">+10000</L0_Processing_Quality>
+            <L0_Proc_Thresh  unit="10-2 %">+00500</L0_Proc_Thresh>
+            <L0_Gaps_Flag>0</L0_Gaps_Flag>
+            <L0_Gaps_Num>+0000000</L0_Gaps_Num>
+         </Level_0_Confidence_Data>
+         <SIR_Instrument_Configuration>
+            <Instrument_Identifier>A</Instrument_Identifier>
+            <SIR_Op_Mode>SARIN_____</SIR_Op_Mode>
+            <SIR_Configuration>BOTH___</SIR_Configuration>
+         </SIR_Instrument_Configuration>
+         <Surface_Statistics>
+            <Open_Ocean_Percent  unit="10-2 %">+02805</Open_Ocean_Percent>
+            <Close_Sea_Percent  unit="10-2 %">+00366</Close_Sea_Percent>
+            <Continent_Ice_Percent  unit="10-2 %">+00000</Continent_Ice_Percent>
+            <Land_Percent  unit="10-2 %">+06829</Land_Percent>
+         </Surface_Statistics>
+         <Level_1_Confidence_Data>
+            <L1B_Prod_Status>0</L1B_Prod_Status>
+            <L1B_Proc_Flag>0</L1B_Proc_Flag>
+            <L1B_Processing_Quality  unit="10-2 %">+10000</L1B_Processing_Quality>
+            <L1B_Proc_Thresh  unit="10-2 %">+00500</L1B_Proc_Thresh>
+         </Level_1_Confidence_Data>
+         <DSDs>
+            <List_of_DSDs count="46">
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SIR_L1B_SARIN</Data_Set_Name>
+                  <Data_Set_Type>M</Data_Set_Type>
+                  <File_Name></File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000015239</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000010450332</Data_Set_Size>
+                  <Num_of_Records>+0000000082</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000170932</Record_Size>
+                  <Byte_Order>3210</Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>ORBIT_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_MPL_ORBPRE_20221214T001000_20230113T001000_0001.EEF</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>PROC_CONFIG_PARAMS_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_PCONF_IPF1_20161001T000000_99999999T000000_0001.XML</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>CONSTANTS_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>Geophysical_Constants_5.0.xml</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>IPF_RA_DATABASE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_IPFDBA_20100701T000000_99999999T999999_0003.EEF</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>DORIS_USO_DRIFT_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_DORUSO_20100411T040029_20230111T031732_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>STAR_TRACKER_ATTREF_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OFFL_STR_ATTREF_20221213T215523_20221215T002322_E001.EEF</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>ORBIT_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_ORBDOR_20221213T215523_20221215T002323_F001.EEF</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>CALIBRATION_TYPE_1_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OFFL_SIR_SIC11B_20221214T021002_20221214T021005_E001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SIRAL_LEVEL_0_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_SIR1SIN_0__20221214T015253_20221214T015407_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SIRAL_LEVEL_0_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_SIR2SIN_0__20221214T015253_20221214T015407_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SIRAL_LEVEL_0_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_SIR1TKSI0__20221214T015253_20221214T015407_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SIR_COMPLEX_CAL1_SARIN</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OFFL_SIR_SICC1B_20221213T154455_20221213T154607_E001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SCENARIO_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_MPL_ORBREF_20220704T000103_20231224T225544_0001.EEF</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>CALIBRATION_TYPE_2_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OFFL_SIR1SIC21B_20221207T122847_20221207T123813_E001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>CALIBRATION_TYPE_2_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OFFL_SIR2SIC21B_20221207T122847_20221207T123813_E001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SURFACE_PRESSURE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_SURFPS_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SURFACE_PRESSURE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_SURFPS_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>MEAN_PRESSURE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_SEAMPS_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>MEAN_PRESSURE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_SEAMPS_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>WET_TROPOSPHERE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_WETTRP_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>WET_TROPOSPHERE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_WETTRP_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>U_WIND_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_U_WIND_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>U_WIND_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_U_WIND_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>V_WIND_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_V_WIND_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>V_WIND_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_V_WIND_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>METEO_GRID_DEF_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_ALTGRD_20110504T100000_20301231T235959_0003.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1S2_PRESSURE_00H_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_PRSS00_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1S2_PRESSURE_06H_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_PRSS06_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1S2_PRESSURE_12H_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_PRSS12_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1S2_PRESSURE_18H_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_PRSS18_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1_TIDE_AMPLITUDE_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_S1AMPL_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S1_TIDE_PHASE_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_S1PHAS_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S2_TIDE_AMPLITUDE_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_S2AMPL_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>S2_TIDE_PHASE_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_S2PHAS_00000000T000000_99999999T999999_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>GPS_IONO_MAP</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_IONGIM_20221214T000000_20221214T235959_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>MODIFIED_DIP_MAP_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_DIPMAP_00000000T000000_99999999T999999_0002.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>IONO_COEFFICENTS_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_MICOEF_00000000T000000_99999999T999999_0002.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SAI_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_SUNACT_19910101T000000_20240101T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>OCEAN_TIDE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_OCTIDE_00000000T000000_99999999T999999_0003.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>TIDAL_LOADING_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_TDLOAD_00000000T000000_99999999T999999_0003.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>EARTH_TIDE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_CARTWR_00000000T000000_99999999T999999_0002.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>POLE_TIDE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_POLLOC_19870101T000000_20240110T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>SURFACE_TYPE_FILE</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_LS_MAP_00000000T000000_99999999T999999_0002.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>AUX_MOG2D</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_MOG_2D_20221214T000000_20221214T000000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+               <Data_Set_Descriptor>
+                  <Data_Set_Name>AUX_MOG2D</Data_Set_Name>
+                  <Data_Set_Type>R</Data_Set_Type>
+                  <File_Name>CS_OPER_AUX_MOG_2D_20221214T060000_20221214T060000_0001.DBL</File_Name>
+                  <Data_Set_Offset  unit="bytes">+00000000000000000000</Data_Set_Offset>
+                  <Data_Set_Size  unit="bytes">+00000000000000000000</Data_Set_Size>
+                  <Num_of_Records>+0000000000</Num_of_Records>
+                  <Record_Size  unit="bytes">+0000000000</Record_Size>
+                  <Byte_Order></Byte_Order>
+               </Data_Set_Descriptor>
+            </List_of_DSDs>
+         </DSDs>
+      </SPH>
+   </Variable_Header>
+</Earth_Explorer_Header>
