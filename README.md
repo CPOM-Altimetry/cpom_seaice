@@ -125,4 +125,62 @@ poetry shell
 
 You should now be setup to run processing chains, etc.
 
+## Run a simple chain test example
+
+The following command will run a simple example test chain which dynamically loads
+2 template algorithms and runs them on a set of CryoSat L1b files in a test data directory. 
+The algorithms do not perform any actual processing as they are just template examples.
+Make sure you have the virtual environment already loaded using `poetry shell` before
+running this command.
+
+`run_chain.py -n testchain -d $CLEV2ER_BASE_DIR/testdata/cs2/l1bfiles`
+
+There should be no errors.
+
+Note that the algorithms that are dynamically run are located in 
+$CLEV2ER_BASE_DIR/src/clev2er/algorithms/testchain/alg_template1.py, alg_template2.py
+
+The list of algorithms (and their order) for *testchain* are defined in 
+$CLEV2ER_BASE_DIR/config/algorithm_lists/testchain/testchain_A002.xml
+
+Algorithm configuration settings are defined in
+$CLEV2ER_BASE_DIR/config/main_config.xml and
+$CLEV2ER_BASE_DIR/config/chain_configs/testchain/testchain_A002.xml
+
+To find all the command line options for *run_chain.py*, type:
+
+`python run_chain.py -h`
+
+For further info, please see `clev2er.tools`
+
+## Developer Requirements
+
+This section details additional installation requirements for developers who will develop/adapt 
+new chains or algorithms.
+
+### Install pre-commit hooks
+
+pre-commit hooks are static code analysis scripts which are run (and must be passed) before
+each git commit. For this project they include pylint, ruff, mypy, black, isort, pdocs.
+
+To install pre-commit hooks, do the following: (note that the second line is not necessary if 
+you have already loaded the virtual environment using `poetry shell`)
+
+```
+cd $CLEV2ER_BASE_DIR
+poetry shell
+pre-commit install
+pre-commit run --all-files
+```
+
+Now, whenever you make changes to your code, it is recommended to run the following
+in your current code directory.  
+
+```pre-commit run --all-files```
+
+This will check that your code passes all static code
+tests prior to running git commit. Note that these same tests are also run when
+you do a new commit, ie using `git commit -a -m "commit message"`. If the tests fail
+you must correct the errors before proceeding, and then rerun the pre-commit and/or git commit.
+
 
