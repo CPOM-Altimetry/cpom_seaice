@@ -129,6 +129,9 @@ class Algorithm(BaseAlgorithm):
         # Returns (True,'') if success
         return (success, error_str)
 
+    def dummy(self,var):  # dummy func without docstring to fail linter
+        print(var)
+
     def finalize(self, stage: int = 0) -> None:
         """Algorithm finalization function - called after all processing completed
 
