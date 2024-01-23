@@ -1,11 +1,9 @@
-# CLEV2ER Algorithm Framework
+# CPOM Sea Ice Chain 
 
-An generic algorithm framework in python for L1b to L2 chains. Designed to be used for radar altimetry L2 processing
-of CryoSat or CRISTAL missions (but is not mission specific). 
+Sea ice altimetry chain **in development**
 
-**Documentation and API at : <https://cpomsoft.github.io/clev2er/>**
+Developed using the generic CLEV2ER algorithm framework (documentation for this at ** : <https://cpomsoft.github.io/clev2er/>******
 
-Developed at UCL's Mullard Space Science Laboratory (MSSL)
 
 
 
