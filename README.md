@@ -28,7 +28,7 @@ operations.
 
 In a bash shell this might be done by adding export lines to your $HOME/.bashrc file.  
 
-- Set the *CLEV2ER_BASE_DIR* environment variable to the root of the cpom sea ice package.  
+- Set the *CLEV2ER_BASE_DIR* environment variable to the root of the cpom sea ice package (ie path ending with ...../cpom_seaice)
 - Add $CLEV2ER_BASE_DIR/src to *PYTHONPATH*.   
 - Add ${CLEV2ER_BASE_DIR}/src/clev2er/tools to the *PATH*.   
 - Set the shell's *ulimit -n* to allow enough file descriptors to be available for
