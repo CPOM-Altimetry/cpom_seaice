@@ -6,7 +6,7 @@ Developed using a fork of the generic CLEV2ER algorithm framework <https://githu
 
 # Installation
 
-cd to directory where you want the software installed. A directory called cpom_seaice will be created in this directory.
+cd to a directory where you want the software installed. A directory called cpom_seaice will be created in this directory.
 Run the command:
 
 ```git clone https://github.com/CPOM-Altimetry/cpom_seaice.git```
