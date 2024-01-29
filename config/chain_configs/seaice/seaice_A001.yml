@@ -7,10 +7,10 @@ breakpoint_files:
 # Default locations for log files
 log_files:
   append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
-                                   # or <logtype>_YYYY.log (if only year specified) 
-  errors: ${CT_LOG_DIR}/errors.log  # or errors_MMYYYY.log
-  info:   ${CT_LOG_DIR}/info.log
-  debug:  ${CT_LOG_DIR}/debug.log
+                                      # or <logtype>_YYYY.log (if only year specified) 
+  errors: ${SI_LOG_DIR}/errors.log    # or errors_MMYYYY.log
+  info:   ${SI_LOG_DIR}/info.log
+  debug:  ${SI_LOG_DIR}/debug.log
 
 # CS2 instrument parameters
 instrument:

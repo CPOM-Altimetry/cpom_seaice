@@ -166,7 +166,10 @@ class Algorithm(BaseAlgorithm):
 
         if num_points_inside == 0:
             self.log.info("No points inside area filter")
-            return (False, "SKIP_OK")  # Returning False with 'SKIP_OK' means no further algorithms
+            return (
+                False,
+                "SKIP_OK",
+            )  # Returning False with 'SKIP_OK' means no further algorithms
             # will be run for this L1b file, but that it is not an error
             # The chain will skip to the next L1b file (if there is one)
 
@@ -176,7 +179,21 @@ class Algorithm(BaseAlgorithm):
         # filter the input parameter based on the area indices inside
         shared_dict["sat_lat"] = shared_dict["sat_lat"][indices_inside]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][indices_inside]
-        # Add other parameters to filter here
+        shared_dict["measurements_time"] = shared_dict["measurement_time"][indices_inside]
+        shared_dict["sat_altitude"] = shared_dict["sat_altitude"][indices_inside]
+        shared_dict["window_del_20_ku"] = shared_dict["window_del_20_ku"][indices_inside]
+        shared_dict["waveform"] = shared_dict["waveform"][indices_inside]
+        shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][indices_inside]
+        shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][indices_inside]
+        shared_dict["wet_trop_correction"] = shared_dict["wet_trop_correction"][indices_inside]
+        shared_dict["inv_baro_correction"] = shared_dict["inv_baro_correction"][indices_inside]
+        shared_dict["iono_correction"] = shared_dict["iono_correction"][indices_inside]
+        shared_dict["ocean_tide"] = shared_dict["ocean_tide"][indices_inside]
+        shared_dict["long_period_tide"] = shared_dict["long_period_tide"][indices_inside]
+        shared_dict["loading_tide"] = shared_dict["loading_tide"][indices_inside]
+        shared_dict["earth_tide"] = shared_dict["earth_tide"][indices_inside]
+        shared_dict["pole_tide"] = shared_dict["pole_tide"][indices_inside]
+        shared_dict["surface_type"] = shared_dict["surface_type"][indices_inside]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
