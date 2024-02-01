@@ -17,12 +17,31 @@
 
     #Contribution to shared_dict
 
-    shared_dict["twice_ocean_tide_01"] (np.array[int]) : example contains 2 x the L1b ocean_tide_01 
-                                                         parameter
+    shared_dict["indices_inside"] (np.array[int]) : indices of original arrays that are located 
+                                                    within lat lon filter
+    shared_dict["num_points_inside_area"] (np.array[int]) : the number of points inside area filter
+
 
     #Requires from shared_dict
+    
+    shared_dict["sat_lat"]
+    shared_dict["sat_lon"]
+    shared_dict["sat_altitude"]
+    shared_dict["measurement_time"]
+    shared_dict["window_del_20_ku"]
+    shared_dict["waveform"]
+    shared_dict["waveform_ssd"]
+    shared_dict["dry_trop_correction"]
+    shared_dict["wet_trop_correction"]
+    shared_dict["inv_baro_correction"]
+    shared_dict["iono_correction"]
+    shared_dict["ocean_tide"]
+    shared_dict["long_period_tide"]
+    shared_dict["loading_tide"]
+    shared_dict["earth_tide"]
+    shared_dict["pole_tide"]
+    shared_dict["surface_type"]
 
-    None
 """
 
 from typing import Tuple
@@ -176,6 +195,8 @@ class Algorithm(BaseAlgorithm):
         # Outputs of the algorithm saved to the shared_dict
 
         shared_dict["num_points_inside_area"] = num_points_inside
+        shared_dict["indices_inside"] = indices_inside
+
         # filter the input parameter based on the area indices inside
         shared_dict["sat_lat"] = shared_dict["sat_lat"][indices_inside]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][indices_inside]

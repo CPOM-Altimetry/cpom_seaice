@@ -13,15 +13,48 @@
 
     #Main process() function steps
 
+    Read 20Hz variables to memory
     lat_20_ku -> sat_lat
     lon_20_ku -> sat_lon
+    time_20_ku --> measurement_time
+    alt_20_ku --> sat_altitude
+    window_del_20_ku --> window_del_20_ku
+    pwr_waveform_20_ku --> waveform
+    stack_std_20_ku --> waveform_ssd
+    
+    Read 1Hz variables to memory and extrapolate to 20Hz 
+    mod_dry_tropo_cor_01 --> dry_trop_correction
+    mod_wet_tropo_cor_01 --> wet_trop_correction
+    iono_cor_01 --> inv_baro_correction
+    inv_bar_cor_01 --> iono_correction
+    ocean_tide_01 --> ocean_tide
+    ocean_tide_eq_01 --> long_period_tide
+    load_tide_01 --> loading_tide
+    solid_earth_tide_01 --> earth_tide
+    pole_tide_01 --> pole_tide
+    surf_type_01 --> surface_type
 
 
     #Contribution to shared_dict
 
     shared_dict["sat_lat"] (np.array[int]) : latitude of measurements in degs N (-90,90)
     shared_dict["sat_lon"] (np.array[int]) : longitude of measurements in degs E (0..360)
-                                 
+    shared_dict["sat_altitude"] (np.array[int]) : array of reading altitudes
+    shared_dict["measurement_time"] (np.array[int]) : array of reading times
+    shared_dict["window_del_20_ku"] (np.array[int]) : array of window delays
+    shared_dict["waveform"] (np.array[int]) : array of waveform power samples
+    shared_dict["waveform_ssd"] (np.array[int]) : array of stack standard devations 
+                                                for each waveform
+    shared_dict["dry_trop_correction"] (np.array[int]) : array of dry tropospheric corrections
+    shared_dict["wet_trop_correction"] (np.array[int]) : array of wet tropospheric corrections
+    shared_dict["inv_baro_correction"] (np.array[int]) : array of inverse barometer corrections
+    shared_dict["iono_correction"] (np.array[int]) : array of ionospheric corrections
+    shared_dict["ocean_tide"] (np.array[int]) : array of ocean tides
+    shared_dict["long_period_tide"] (np.array[int]) : array of long period tides
+    shared_dict["loading_tide"] (np.array[int]) : array of loading tides
+    shared_dict["earth_tide"] (np.array[int]) : array of solid earth tides
+    shared_dict["pole_tide"] (np.array[int]) : array of pole tides
+    shared_dict["surface_type"] (np.array[int]) : array of surface type flags
 
     #Requires from shared_dict
 
