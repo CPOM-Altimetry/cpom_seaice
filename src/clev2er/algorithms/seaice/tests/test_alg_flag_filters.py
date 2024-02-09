@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_area_filter
+    clev2er.algorithms.seaice.alg_flag_filter
 """
 
 import logging
@@ -36,7 +36,7 @@ def test_flag_filters() -> None:
     # Set to Sequential Processing
     config["chain"]["use_multi_processing"] = False
 
-    # Initialise the alg_ingest_cs2 algorithm
+    # Initialise the previous chain steps (needed to test current step properly)
     try:
         ingest_cs2 = IngestCS2(config, logger)  # no config used for this alg
         area_filter = AreaFilter(config, logger)
@@ -71,7 +71,7 @@ def test_flag_filters() -> None:
 
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
-    # check if all lats and lons are within the target area
+    # check if indices_flags array is in shared_dict
     assert "indices_flags" in shared_dict and isinstance(
         shared_dict["indices_flags"], ndarray
     ), "SAR - Flag indices not returned in shared_dict"
@@ -82,7 +82,7 @@ def test_flag_filters() -> None:
     # check if surface_type only contains 0s
     assert sum(shared_dict["surface_type"]) == 0, "SAR - Surface type flag contains non-zero values"
 
-    # check if all fields from the file have been filtered to the same size as sat_lat
+    # check if all fields from the file have been filtered to the same size
     assert all(
         len(shared_dict["sat_lat"]) == len(val)
         for key, val in shared_dict.items()

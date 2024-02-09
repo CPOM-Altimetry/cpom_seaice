@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_area_filter
+    clev2er.algorithms.seaice.alg_crop_waveform
 """
 
 import logging
@@ -35,7 +35,7 @@ def test_crop_waveform() -> None:
     # Set to Sequential Processing
     config["chain"]["use_multi_processing"] = False
 
-    # Initialise the alg_ingest_cs2 algorithm
+    # Initialise the previous chain steps (needed to test current step properly)
     try:
         ingest_cs2 = IngestCS2(config, logger)  # no config used for this alg
         area_filter = AreaFilter(config, logger)
