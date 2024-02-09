@@ -18,13 +18,12 @@ from clev2er.utils.config.load_config_settings import load_config_files
 logger = logging.getLogger(__name__)
 
 
-def test_flag_filters() -> None:
-    """test alg_flag_filters.py
+def test_crop_waveform() -> None:
+    """test alg_crop_waveform.py
     Load an SAR and an SARIn files
     run Algorithm.process() on each
     test that the files return (True, "")
-    check that indexes are within shared_dict
-    check if all arrays have been filtered to the same size as sat_lon and sat_lat
+    check that the length of "waveform"'s second axis is equal to 128
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
