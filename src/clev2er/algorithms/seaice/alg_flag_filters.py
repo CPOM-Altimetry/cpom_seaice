@@ -1,29 +1,29 @@
-""" clev2er.algorithms.seaice.alg_area_filter.py
+""" clev2er.algorithms.seaice.alg_ingest_cs2.py
 
     Algorithm class module, used to implement a single chain algorithm
 
     #Description of this Algorithm's purpose
     
-    Provides an area filter, using the latitude and longitude values
-    in shared_dict['sat_lat'], shared_dict['sat_lon']
-
+    Filter records by discarding records which do not have the required flags:
+        measurement confidence flag = 0
+        surface type flag = 0
+    
     #Main initialization (init() function) steps/resources required
 
     None
 
     #Main process() function steps
 
+    Find index of the mcd_flag and surface_type arrays where both are 0.
+    Use the index to filter all arrays so that all records where both flags != 0 are removed.
     
-
     #Contribution to shared_dict
 
-    shared_dict["indices_inside"] (np.array[int]) : indices of original arrays that are located 
-                                                    within lat lon filter
-    shared_dict["num_points_inside_area"] (np.array[int]) : the number of points inside area filter
-
+    shared_dict["flag_index"] (np.array[int]) : indices of area-filtered arrays that have mcd and
+                                                surface type flags == 0
 
     #Requires from shared_dict
-    
+
     shared_dict["sat_lat"]
     shared_dict["sat_lon"]
     shared_dict["sat_altitude"]
@@ -42,7 +42,6 @@
     shared_dict["pole_tide"]
     shared_dict["surface_type"]
     shared_dict["mcd_flag"]
-
 """
 
 from typing import Tuple
@@ -98,35 +97,6 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.min_latitude = self.config["alg_area_filter"]["min_latitude"]
-        self.max_latitude = self.config["alg_area_filter"]["max_latitude"]
-        self.min_longitude = self.config["alg_area_filter"]["min_longitude"]
-        self.max_longitude = self.config["alg_area_filter"]["max_longitude"]
-
-        # Test configuration settings
-        if self.min_latitude < -90.0 or self.min_latitude > 90.0:
-            raise ValueError(
-                f"config[alg_area_filter][min_latitude] {self.min_latitude} out of range"
-            )
-        if self.max_latitude < -90.0 or self.max_latitude > 90.0:
-            raise ValueError(
-                f"config[alg_area_filter][max_latitude] {self.max_latitude} out of range"
-            )
-        if self.max_latitude < self.min_latitude:
-            raise ValueError("config[alg_area_filter][max_latitude] should not be < [min_latitude]")
-        if self.min_longitude < 0.0 or self.min_longitude > 360.0:
-            raise ValueError(
-                f"config[alg_area_filter][min_longitude] {self.min_longitude} out of range 0..360"
-            )
-        if self.max_longitude < 0.0 or self.max_longitude > 360.0:
-            raise ValueError(
-                f"config[alg_area_filter][max_longitude] {self.max_longitude} out of range 0..360"
-            )
-        if self.max_longitude < self.min_longitude:
-            raise ValueError(
-                "config[alg_area_filter][max_longitude] should not be < [min_longitude]"
-            )
-
         # --- End of initialization steps ---
 
         return (True, "")
@@ -164,59 +134,61 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        # Creating boolean masks for each condition
-        lat_condition = (shared_dict["sat_lat"] >= self.min_latitude) & (
-            shared_dict["sat_lat"] <= self.max_latitude
+        total_points = shared_dict["sat_lat"].size
+
+        # filter by mcd_flag
+        # make a boolean index so we can combine later
+        mcd_index = shared_dict["mcd_flag"] == 0
+        num_confident = sum(mcd_index)  # find number of True values
+
+        self.log.info(
+            "Number of unconfident points = %d of %d",
+            num_confident - total_points,
+            total_points,
         )
-        lon_condition = (shared_dict["sat_lon"] >= self.min_longitude) & (
-            shared_dict["sat_lon"] <= self.max_longitude
-        )
 
-        combined_condition = lat_condition & lon_condition
+        if num_confident == 0:
+            self.log.info("No confident samples.")
+            return (False, "SKIP_OK")
 
-        # Getting the indices of the filtered values
-        indices_inside = np.nonzero(lat_condition & lon_condition)[0]
+        # filter by surface type
+        # make a boolean index so we can combine later
+        ocean_index = shared_dict["surface_type"] == 0
+        num_ocean = sum(ocean_index)  # find number of True values
 
-        # Counting the number of points inside the area
-        num_points_inside = len(indices_inside)
-        total_points = len(shared_dict["sat_lon"])
+        self.log.info("Number of ocean points = %d of %d", num_ocean, total_points)
 
-        self.log.info("Number of points inside area = %d of %d", num_points_inside, total_points)
-        self.log.info("%% of points inside area = %.2f%%", 100.0 * np.mean(combined_condition))
+        if num_ocean == 0:
+            self.log.info("No samples from ocean surfaces.")
+            return (False, "SKIP_OK")
 
-        if num_points_inside == 0:
-            self.log.info("No points inside area filter")
-            return (
-                False,
-                "SKIP_OK",
-            )  # Returning False with 'SKIP_OK' means no further algorithms
-            # will be run for this L1b file, but that it is not an error
-            # The chain will skip to the next L1b file (if there is one)
+        # combine boolean indexes to int index
+        combined_filter = np.where(ocean_index & mcd_index)[0]
 
         # Outputs of the algorithm saved to the shared_dict
 
-        shared_dict["num_points_inside_area"] = num_points_inside
-        shared_dict["indices_inside"] = indices_inside
+        shared_dict["num_points_ocean"] = num_ocean
+        shared_dict["indices_flags"] = combined_filter
 
         # filter the input parameter based on the area indices inside
-        shared_dict["sat_lat"] = shared_dict["sat_lat"][indices_inside]
-        shared_dict["sat_lon"] = shared_dict["sat_lon"][indices_inside]
-        shared_dict["measurements_time"] = shared_dict["measurement_time"][indices_inside]
-        shared_dict["sat_altitude"] = shared_dict["sat_altitude"][indices_inside]
-        shared_dict["window_del_20_ku"] = shared_dict["window_del_20_ku"][indices_inside]
-        shared_dict["waveform"] = shared_dict["waveform"][indices_inside]
-        shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][indices_inside]
-        shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][indices_inside]
-        shared_dict["wet_trop_correction"] = shared_dict["wet_trop_correction"][indices_inside]
-        shared_dict["inv_baro_correction"] = shared_dict["inv_baro_correction"][indices_inside]
-        shared_dict["iono_correction"] = shared_dict["iono_correction"][indices_inside]
-        shared_dict["ocean_tide"] = shared_dict["ocean_tide"][indices_inside]
-        shared_dict["long_period_tide"] = shared_dict["long_period_tide"][indices_inside]
-        shared_dict["loading_tide"] = shared_dict["loading_tide"][indices_inside]
-        shared_dict["earth_tide"] = shared_dict["earth_tide"][indices_inside]
-        shared_dict["pole_tide"] = shared_dict["pole_tide"][indices_inside]
-        shared_dict["surface_type"] = shared_dict["surface_type"][indices_inside]
-        shared_dict["mcd_flag"] = shared_dict["mcd_flag"][indices_inside]
+        shared_dict["sat_lat"] = shared_dict["sat_lat"][combined_filter]
+        shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
+        shared_dict["measurements_time"] = shared_dict["measurement_time"][combined_filter]
+        shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]
+        shared_dict["window_del_20_ku"] = shared_dict["window_del_20_ku"][combined_filter]
+        shared_dict["waveform"] = shared_dict["waveform"][combined_filter]
+        shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][combined_filter]
+        shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][combined_filter]
+        shared_dict["wet_trop_correction"] = shared_dict["wet_trop_correction"][combined_filter]
+        shared_dict["inv_baro_correction"] = shared_dict["inv_baro_correction"][combined_filter]
+        shared_dict["iono_correction"] = shared_dict["iono_correction"][combined_filter]
+        shared_dict["ocean_tide"] = shared_dict["ocean_tide"][combined_filter]
+        shared_dict["long_period_tide"] = shared_dict["long_period_tide"][combined_filter]
+        shared_dict["loading_tide"] = shared_dict["loading_tide"][combined_filter]
+        shared_dict["earth_tide"] = shared_dict["earth_tide"][combined_filter]
+        shared_dict["pole_tide"] = shared_dict["pole_tide"][combined_filter]
+        shared_dict["surface_type"] = shared_dict["surface_type"][combined_filter]
+        shared_dict["mcd_flag"] = shared_dict["mcd_flag"][combined_filter]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -242,6 +214,6 @@ class Algorithm(BaseAlgorithm):
         # Add finalization steps here \/
         # ---------------------------------------------------------------------
 
-        # No finalization required for this algorithm
+        # none required in this algorithm
 
         # ---------------------------------------------------------------------

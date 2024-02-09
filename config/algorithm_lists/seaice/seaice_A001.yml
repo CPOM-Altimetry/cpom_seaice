@@ -10,3 +10,5 @@ l1b_file_selectors:
 algorithms:
   - alg_ingest_cs2
   - alg_area_filter
+  - alg_flag_filters
+  - alg_crop_waveform
