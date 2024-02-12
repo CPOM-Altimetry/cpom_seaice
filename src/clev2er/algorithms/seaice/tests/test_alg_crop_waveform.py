@@ -76,6 +76,9 @@ def test_crop_waveform() -> None:
     # check if all lats and lons are within the target area
     assert shared_dict["waveform"].shape[1] == 128, "SAR - waveform isn't in shape of Nx128"
 
+    # check that bin_shift is within shared_dict
+    assert "bin_shift" in shared_dict, "SAR - bin_shift not within shared dictionary"
+
     # ================================== SIN FILE TESTING ==========================================
     logger.info("Testing SIN file:")
     # load SARIn file
@@ -100,3 +103,6 @@ def test_crop_waveform() -> None:
 
     # check if all lats and lons are within the target area
     assert shared_dict["waveform"].shape[1] == 128, "SIN - waveform isn't in shape of Nx128"
+
+    # check that bin_shift is within shared_dict
+    assert "bin_shift" in shared_dict, "SIN - bin_shift not within shared dictionary"
