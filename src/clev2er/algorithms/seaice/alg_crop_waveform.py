@@ -16,6 +16,11 @@
     Crops the original waveforms to 128 using the bin number with maxiumum amplitude (bin_max).
     
     #Contribution to shared_dict
+    
+    shared_dict["bin_shift"] (np.array[int]) : the number of bins by 
+                which the centre of the original range gate (bin 128 or 512)
+                is now pushed backwards with respect to the centre of the
+                new range gate (bin 64)
 
     None
 
@@ -113,6 +118,13 @@ class Algorithm(BaseAlgorithm):
         # Perform the algorithm processing, store results that need to be passed
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
+
+        # bin_shift = original_cetre - ((bin_max - 50) + (128/2))
+        bin_shift = (shared_dict["waveform"].shape[-1] / 2) - (
+            (np.nanargmax(shared_dict["waveform"], axis=1) + 14)
+        )
+
+        shared_dict["bin_shift"] = bin_shift
 
         def crop_waveform(waveform):
             "Crops waveform to length 128 around the bin with maximum amplitude."
