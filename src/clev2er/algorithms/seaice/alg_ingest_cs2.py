@@ -42,7 +42,7 @@
     shared_dict["sat_lon"] (np.array[int]) : longitude of measurements in degs E (0..360)
     shared_dict["sat_altitude"] (np.array[int]) : array of reading altitudes
     shared_dict["measurement_time"] (np.array[int]) : array of reading times
-    shared_dict["window_del_20_ku"] (np.array[int]) : array of window delays
+    shared_dict["window_delay"] (np.array[int]) : array of window delays
     shared_dict["waveform"] (np.array[int]) : array of waveform power samples
     shared_dict["waveform_ssd"] (np.array[int]) : array of stack standard devations 
                                                 for each waveform
@@ -175,7 +175,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["sat_lon"] = unpack("lon_20_ku", l1b) % 360.0
         shared_dict["measurement_time"] = unpack("time_20_ku", l1b)
         shared_dict["sat_altitude"] = unpack("alt_20_ku", l1b)
-        shared_dict["window_del_20_ku"] = unpack("window_del_20_ku", l1b)
+        shared_dict["window_delay"] = unpack("window_del_20_ku", l1b)
         shared_dict["waveform"] = unpack("pwr_waveform_20_ku", l1b)
         shared_dict["waveform_ssd"] = unpack("stack_std_20_ku", l1b)
         shared_dict["mcd_flag"] = unpack("flag_mcd_20_ku", l1b)
