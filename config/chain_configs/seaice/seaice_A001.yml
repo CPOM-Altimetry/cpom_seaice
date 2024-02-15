@@ -36,5 +36,12 @@ alg_area_filter:
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
 
+alg_flag_filters:
+  surf_ocean_flag: 0
+  mcd_confident_flag: 0
+
+alg_crop_waveform:
+  cropped_length: 128 
+  crop_before_max: 50
 # Resource Locators
 

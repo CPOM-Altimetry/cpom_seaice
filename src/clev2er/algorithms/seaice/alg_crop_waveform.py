@@ -82,6 +82,9 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        self.cropped_length = self.config["alg_crop_waveform"]["cropped_length"]
+        self.crop_before_max = self.config["alg_crop_waveform"]["crop_before_max"]
+
         # --- End of initialization steps ---
 
         return (True, "")
@@ -119,22 +122,26 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        # bin_shift = original_cetre - ((bin_max - 50) + (128/2))
+        # bin_shift = original_cetre - new_rangegate_centre
         bin_shift = (shared_dict["waveform"].shape[-1] / 2) - (
-            (np.nanargmax(shared_dict["waveform"], axis=1) + 14)
+            (np.nanargmax(shared_dict["waveform"], axis=1))
+            - self.crop_before_max
+            + (self.cropped_length / 2)
         )
 
         shared_dict["bin_shift"] = bin_shift
 
         def crop_waveform(waveform):
-            "Crops waveform to length 128 around the bin with maximum amplitude."
-            b_max = np.nanargmax(waveform)  # find max amplitude of wave
-            cropped_waveform = waveform[b_max - 50 : b_max + 78]  # crop to 128
+            "Crops waveform around the bin with maximum amplitude."
+            b_max = np.nanargmax(waveform)
+            cropped_waveform = waveform[
+                b_max - self.crop_before_max : b_max + (self.cropped_length - self.crop_before_max)
+            ]
             return cropped_waveform
 
         shared_dict["waveform"] = np.apply_along_axis(crop_waveform, 1, shared_dict["waveform"])
 
-        self.log.info("All waves cropped to 128? - %s", shared_dict["waveform"].shape[1] == 128)
+        self.log.info("New waveform shape - (%d,%d)", *shared_dict["waveform"].shape)
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

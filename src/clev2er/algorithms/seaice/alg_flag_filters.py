@@ -97,6 +97,9 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        self.surf_ocean_flag = self.config["alg_flag_filters"]["surf_ocean_flag"]
+        self.mcd_confident_flag = self.config["alg_flag_filters"]["mcd_confident_flag"]
+
         # --- End of initialization steps ---
 
         return (True, "")
@@ -138,7 +141,7 @@ class Algorithm(BaseAlgorithm):
 
         # filter by mcd_flag
         # make a boolean index so we can combine later
-        mcd_index = shared_dict["mcd_flag"] == 0
+        mcd_index = shared_dict["mcd_flag"] == self.mcd_confident_flag
         num_confident = sum(mcd_index)  # find number of True values
 
         self.log.info(
@@ -153,7 +156,7 @@ class Algorithm(BaseAlgorithm):
 
         # filter by surface type
         # make a boolean index so we can combine later
-        ocean_index = shared_dict["surface_type"] == 0
+        ocean_index = shared_dict["surface_type"] == self.surf_ocean_flag
         num_ocean = sum(ocean_index)  # find number of True values
 
         self.log.info("Number of ocean points = %d of %d", num_ocean, total_points)
