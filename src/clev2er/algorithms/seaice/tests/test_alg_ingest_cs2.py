@@ -1,6 +1,7 @@
 """pytest for algorithm
    clev2er.algorithms.seaice.alg_ingest_cs2.py
 """
+
 import logging
 import os
 from pathlib import Path
@@ -28,7 +29,7 @@ def test_alg_ingest_cs2() -> None:
         "sat_lon",
         "measurement_time",
         "sat_altitude",
-        "window_del_20_ku",
+        "window_delay",
         "waveform",
         "waveform_ssd",
         "dry_trop_correction",

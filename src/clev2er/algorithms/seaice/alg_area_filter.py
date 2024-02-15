@@ -28,7 +28,7 @@
     shared_dict["sat_lon"]
     shared_dict["sat_altitude"]
     shared_dict["measurement_time"]
-    shared_dict["window_del_20_ku"]
+    shared_dict["window_delay"]
     shared_dict["waveform"]
     shared_dict["waveform_ssd"]
     shared_dict["dry_trop_correction"]
@@ -41,6 +41,7 @@
     shared_dict["earth_tide"]
     shared_dict["pole_tide"]
     shared_dict["surface_type"]
+    shared_dict["mcd_flag"]
 
 """
 
@@ -202,7 +203,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["sat_lon"] = shared_dict["sat_lon"][indices_inside]
         shared_dict["measurements_time"] = shared_dict["measurement_time"][indices_inside]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][indices_inside]
-        shared_dict["window_del_20_ku"] = shared_dict["window_del_20_ku"][indices_inside]
+        shared_dict["window_delay"] = shared_dict["window_delay"][indices_inside]
         shared_dict["waveform"] = shared_dict["waveform"][indices_inside]
         shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][indices_inside]
         shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][indices_inside]
@@ -215,6 +216,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["earth_tide"] = shared_dict["earth_tide"][indices_inside]
         shared_dict["pole_tide"] = shared_dict["pole_tide"][indices_inside]
         shared_dict["surface_type"] = shared_dict["surface_type"][indices_inside]
+        shared_dict["mcd_flag"] = shared_dict["mcd_flag"][indices_inside]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

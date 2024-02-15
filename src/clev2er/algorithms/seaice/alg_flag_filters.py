@@ -1,11 +1,12 @@
-""" clev2er.algorithms.seaice.alg_ingest_cs2.py
+""" clev2er.algorithms.seaice.alg_flag_filters.py
 
     Algorithm class module, used to implement a single chain algorithm
 
     #Description of this Algorithm's purpose
     
-    To ingest CryoSat L1b files and extract the necessary parameters to a common
-    set of parameter names
+    Filter records by discarding records which do not have the required flags:
+        measurement confidence flag = 0
+        surface type flag = 0
     
     #Main initialization (init() function) steps/resources required
 
@@ -13,53 +14,34 @@
 
     #Main process() function steps
 
-    Read 20Hz variables to memory
-    lat_20_ku -> sat_lat
-    lon_20_ku -> sat_lon
-    time_20_ku --> measurement_time
-    alt_20_ku --> sat_altitude
-    window_delay --> window_delay
-    pwr_waveform_20_ku --> waveform
-    stack_std_20_ku --> waveform_ssd
-    flag_mcd_20_ku --> mcd_flag
+    Find index of the mcd_flag and surface_type arrays where both are 0.
+    Use the index to filter all arrays so that all records where both flags != 0 are removed.
     
-    Read 1Hz variables to memory and extrapolate to 20Hz 
-    mod_dry_tropo_cor_01 --> dry_trop_correction
-    mod_wet_tropo_cor_01 --> wet_trop_correction
-    iono_cor_01 --> inv_baro_correction
-    inv_bar_cor_01 --> iono_correction
-    ocean_tide_01 --> ocean_tide
-    ocean_tide_eq_01 --> long_period_tide
-    load_tide_01 --> loading_tide
-    solid_earth_tide_01 --> earth_tide
-    pole_tide_01 --> pole_tide
-    surf_type_01 --> surface_type
-
-
     #Contribution to shared_dict
 
-    shared_dict["sat_lat"] (np.array[int]) : latitude of measurements in degs N (-90,90)
-    shared_dict["sat_lon"] (np.array[int]) : longitude of measurements in degs E (0..360)
-    shared_dict["sat_altitude"] (np.array[int]) : array of reading altitudes
-    shared_dict["measurement_time"] (np.array[int]) : array of reading times
-    shared_dict["window_delay"] (np.array[int]) : array of window delays
-    shared_dict["waveform"] (np.array[int]) : array of waveform power samples
-    shared_dict["waveform_ssd"] (np.array[int]) : array of stack standard devations 
-                                                for each waveform
-    shared_dict["dry_trop_correction"] (np.array[int]) : array of dry tropospheric corrections
-    shared_dict["wet_trop_correction"] (np.array[int]) : array of wet tropospheric corrections
-    shared_dict["inv_baro_correction"] (np.array[int]) : array of inverse barometer corrections
-    shared_dict["iono_correction"] (np.array[int]) : array of ionospheric corrections
-    shared_dict["ocean_tide"] (np.array[int]) : array of ocean tides
-    shared_dict["long_period_tide"] (np.array[int]) : array of long period tides
-    shared_dict["loading_tide"] (np.array[int]) : array of loading tides
-    shared_dict["earth_tide"] (np.array[int]) : array of solid earth tides
-    shared_dict["pole_tide"] (np.array[int]) : array of pole tides
-    shared_dict["surface_type"] (np.array[int]) : array of surface type flags
+    shared_dict["flag_index"] (np.array[int]) : indices of area-filtered arrays that have mcd and
+                                                surface type flags == 0
 
     #Requires from shared_dict
 
-    None
+    shared_dict["sat_lat"]
+    shared_dict["sat_lon"]
+    shared_dict["sat_altitude"]
+    shared_dict["measurement_time"]
+    shared_dict["window_del_20_ku"]
+    shared_dict["waveform"]
+    shared_dict["waveform_ssd"]
+    shared_dict["dry_trop_correction"]
+    shared_dict["wet_trop_correction"]
+    shared_dict["inv_baro_correction"]
+    shared_dict["iono_correction"]
+    shared_dict["ocean_tide"]
+    shared_dict["long_period_tide"]
+    shared_dict["loading_tide"]
+    shared_dict["earth_tide"]
+    shared_dict["pole_tide"]
+    shared_dict["surface_type"]
+    shared_dict["mcd_flag"]
 """
 
 from typing import Tuple
@@ -67,7 +49,6 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.interpolate import interp1d
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -116,6 +97,9 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        self.surf_ocean_flag = self.config["alg_flag_filters"]["surf_ocean_flag"]
+        self.mcd_confident_flag = self.config["alg_flag_filters"]["mcd_confident_flag"]
+
         # --- End of initialization steps ---
 
         return (True, "")
@@ -153,44 +137,61 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        def unpack(variable: str, l1b: Dataset):
-            "Reads a CS2 variable from the L1b file. If its 1Hz, expands to 20Hz."
-            time_20_hz = np.ma.filled(l1b.variables["time_20_ku"], np.nan)
-            time_1_hz = np.ma.filled(l1b.variables["time_cor_01"], np.nan)
+        total_points = shared_dict["sat_lat"].size
 
-            var = (l1b.variables[variable][:]).astype(float)
+        # filter by mcd_flag
+        # make a boolean index so we can combine later
+        mcd_index = shared_dict["mcd_flag"] == self.mcd_confident_flag
+        num_confident = sum(mcd_index)  # find number of True values
 
-            if var.size == time_1_hz.size:
-                var = interp1d(time_1_hz, var, fill_value="extrapolate")(time_20_hz)
-            return var
+        self.log.info(
+            "Number of unconfident points = %d of %d",
+            num_confident - total_points,
+            total_points,
+        )
 
-        # self.log.debug("example of a debug message")
-        # self.log.info("example of an info message")
-        # self.log.error("example of an error message")
+        if num_confident == 0:
+            self.log.info("No confident samples.")
+            return (False, "SKIP_OK")
 
-        # Read L1b variables and store in the shared dictionary using common names
-        # 20 Hz variables
-        shared_dict["sat_lat"] = unpack("lat_20_ku", l1b)
-        # convert longitude to 0..360 (from -180,180)
-        shared_dict["sat_lon"] = unpack("lon_20_ku", l1b) % 360.0
-        shared_dict["measurement_time"] = unpack("time_20_ku", l1b)
-        shared_dict["sat_altitude"] = unpack("alt_20_ku", l1b)
-        shared_dict["window_delay"] = unpack("window_del_20_ku", l1b)
-        shared_dict["waveform"] = unpack("pwr_waveform_20_ku", l1b)
-        shared_dict["waveform_ssd"] = unpack("stack_std_20_ku", l1b)
-        shared_dict["mcd_flag"] = unpack("flag_mcd_20_ku", l1b)
+        # filter by surface type
+        # make a boolean index so we can combine later
+        ocean_index = shared_dict["surface_type"] == self.surf_ocean_flag
+        num_ocean = sum(ocean_index)  # find number of True values
 
-        # 1 Hz variables
-        shared_dict["dry_trop_correction"] = unpack("mod_dry_tropo_cor_01", l1b)
-        shared_dict["wet_trop_correction"] = unpack("mod_wet_tropo_cor_01", l1b)
-        shared_dict["inv_baro_correction"] = unpack("iono_cor_01", l1b)
-        shared_dict["iono_correction"] = unpack("inv_bar_cor_01", l1b)
-        shared_dict["ocean_tide"] = unpack("ocean_tide_01", l1b)
-        shared_dict["long_period_tide"] = unpack("ocean_tide_eq_01", l1b)
-        shared_dict["loading_tide"] = unpack("load_tide_01", l1b)
-        shared_dict["earth_tide"] = unpack("solid_earth_tide_01", l1b)
-        shared_dict["pole_tide"] = unpack("pole_tide_01", l1b)
-        shared_dict["surface_type"] = unpack("surf_type_01", l1b)
+        self.log.info("Number of ocean points = %d of %d", num_ocean, total_points)
+
+        if num_ocean == 0:
+            self.log.info("No samples from ocean surfaces.")
+            return (False, "SKIP_OK")
+
+        # combine boolean indexes to int index
+        combined_filter = np.where(ocean_index & mcd_index)[0]
+
+        # Outputs of the algorithm saved to the shared_dict
+
+        shared_dict["num_points_ocean"] = num_ocean
+        shared_dict["indices_flags"] = combined_filter
+
+        # filter the input parameter based on the area indices inside
+        shared_dict["sat_lat"] = shared_dict["sat_lat"][combined_filter]
+        shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
+        shared_dict["measurements_time"] = shared_dict["measurement_time"][combined_filter]
+        shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]
+        shared_dict["window_delay"] = shared_dict["window_delay"][combined_filter]
+        shared_dict["waveform"] = shared_dict["waveform"][combined_filter]
+        shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][combined_filter]
+        shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][combined_filter]
+        shared_dict["wet_trop_correction"] = shared_dict["wet_trop_correction"][combined_filter]
+        shared_dict["inv_baro_correction"] = shared_dict["inv_baro_correction"][combined_filter]
+        shared_dict["iono_correction"] = shared_dict["iono_correction"][combined_filter]
+        shared_dict["ocean_tide"] = shared_dict["ocean_tide"][combined_filter]
+        shared_dict["long_period_tide"] = shared_dict["long_period_tide"][combined_filter]
+        shared_dict["loading_tide"] = shared_dict["loading_tide"][combined_filter]
+        shared_dict["earth_tide"] = shared_dict["earth_tide"][combined_filter]
+        shared_dict["pole_tide"] = shared_dict["pole_tide"][combined_filter]
+        shared_dict["surface_type"] = shared_dict["surface_type"][combined_filter]
+        shared_dict["mcd_flag"] = shared_dict["mcd_flag"][combined_filter]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
