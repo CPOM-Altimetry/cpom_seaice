@@ -175,7 +175,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
         shared_dict["measurements_time"] = shared_dict["measurement_time"][combined_filter]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]
-        shared_dict["window_del_20_ku"] = shared_dict["window_del_20_ku"][combined_filter]
+        shared_dict["window_delay"] = shared_dict["window_delay"][combined_filter]
         shared_dict["waveform"] = shared_dict["waveform"][combined_filter]
         shared_dict["waveform_ssd"] = shared_dict["waveform_ssd"][combined_filter]
         shared_dict["dry_trop_correction"] = shared_dict["dry_trop_correction"][combined_filter]

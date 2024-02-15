@@ -18,7 +18,7 @@
     lon_20_ku -> sat_lon
     time_20_ku --> measurement_time
     alt_20_ku --> sat_altitude
-    window_del_20_ku --> window_del_20_ku
+    window_delay --> window_delay
     pwr_waveform_20_ku --> waveform
     stack_std_20_ku --> waveform_ssd
     flag_mcd_20_ku --> mcd_flag
