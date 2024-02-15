@@ -1,4 +1,4 @@
-""" clev2er.algorithms.seaice.alg_ingest_cs2.py
+""" clev2er.algorithms.seaice.crop_waveform.py
 
     Algorithm class module, used to implement a single chain algorithm
 
