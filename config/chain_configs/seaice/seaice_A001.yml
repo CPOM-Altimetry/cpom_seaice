@@ -42,6 +42,11 @@ alg_flag_filters:
 
 alg_crop_waveform:
   cropped_length: 128 
-  crop_before_max: 50
+  crop_before_max: 50 # number of bins to take before max
+
+alg_pulse_peakiness:
+  noise_floor_start_bin: 10 # bin no. where noise floor starts
+  noise_floor_end_bin: 19 # bin no. where noise floor ends. This is inclusive (don't do end + 1 for array indexing)
+
 # Resource Locators
 
