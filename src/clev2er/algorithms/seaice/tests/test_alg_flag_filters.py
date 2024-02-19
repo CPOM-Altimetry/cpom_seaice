@@ -76,11 +76,15 @@ def test_flag_filters() -> None:
         shared_dict["indices_flags"], ndarray
     ), "SAR - Flag indices not returned in shared_dict"
 
-    # check if mcd_flags only contains 0s
-    assert sum(shared_dict["mcd_flag"]) == 0, "SAR - Confidence flag contains non-zero values"
+    # check if mcd_flags only contains values for blocks which are not fatally degraded
+    assert (
+        sum((shared_dict["mcd_flag"]) % 2) == 0
+    ), "SIN - Confidence flag contain values for unusable measurements"
 
     # check if surface_type only contains 0s
-    assert sum(shared_dict["surface_type"]) == 0, "SAR - Surface type flag contains non-zero values"
+    assert (
+        sum(shared_dict["surface_type"]) == 0
+    ), "SAR - Surface type flag contains values for other surfaces"
 
     # check if all fields from the file have been filtered to the same size
     assert all(
@@ -114,15 +118,19 @@ def test_flag_filters() -> None:
         shared_dict["indices_flags"], ndarray
     ), "SIN - Flag indices not returned in shared_dict"
 
-    # check if mcd_flags only contains 0s
-    assert sum(shared_dict["mcd_flag"]) == 0, "SIN - Confidence flag contains non-zero values"
+    # check if mcd_flags only contains values for blocks which are not fatally degraded
+    assert (
+        sum((shared_dict["mcd_flag"]) % 2) == 0
+    ), "SIN - Confidence flag contain values for unusable measurements"
 
     # check if surface_type only contains 0s
-    assert sum(shared_dict["surface_type"]) == 0, "SIN - Surface type flag contains non-zero values"
+    assert (
+        sum(shared_dict["surface_type"]) == 0
+    ), "SIN - Surface type flag contains values for other surfaces"
 
     # check if all fields from the file have been filtered to the same size as sat_lat
-    assert all(
-        len(shared_dict["sat_lat"]) == len(val)
-        for key, val in shared_dict.items()
-        if isinstance(val, ndarray) and "indices" not in key
-    ), "SIN - Not all fields the same length"
+    for i, (key, val) in enumerate(shared_dict.items()):
+        if isinstance(val, ndarray) and "indices" not in key:
+            assert len(val) == len(
+                shared_dict["sat_lat"]
+            ), f"SIN - Shared_dict pair {i}: {key} not the same length as lat"
