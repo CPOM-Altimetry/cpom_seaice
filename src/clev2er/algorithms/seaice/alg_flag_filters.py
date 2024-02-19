@@ -176,7 +176,7 @@ class Algorithm(BaseAlgorithm):
         # filter the input parameter based on the area indices inside
         shared_dict["sat_lat"] = shared_dict["sat_lat"][combined_filter]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
-        shared_dict["measurements_time"] = shared_dict["measurement_time"][combined_filter]
+        shared_dict["measurement_time"] = shared_dict["measurement_time"][combined_filter]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]
         shared_dict["window_delay"] = shared_dict["window_delay"][combined_filter]
         shared_dict["waveform"] = shared_dict["waveform"][combined_filter]
