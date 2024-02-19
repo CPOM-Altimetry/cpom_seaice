@@ -83,7 +83,7 @@ def test_crop_waveform() -> None:
     logger.info("Testing SIN file:")
     # load SARIn file
     l1b_sin_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sin").glob("*.nc")
     )[0]
     try:
         l1b = Dataset(l1b_sin_file)
