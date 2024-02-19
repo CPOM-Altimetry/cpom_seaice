@@ -48,5 +48,11 @@ alg_pulse_peakiness:
   noise_floor_start_bin: 10 # bin no. where noise floor starts
   noise_floor_end_bin: 19 # bin no. where noise floor ends. This is inclusive (don't do end + 1 for array indexing)
 
+alg_wave_discrimination:
+  diffuse_peakiness: 9.00 # peakiness threshold for diffuse waves
+  specular_peakiness: 18.00 # peakiness threshold for specular waves
+  sar_ssd: 6.29 # ssd threshold for waves found during SAR operating mode (SAR file)
+  sin_ssd: 4.62 # ssd threshold for waves found during SARIn operating mode (SIN file)
+
 # Resource Locators
 

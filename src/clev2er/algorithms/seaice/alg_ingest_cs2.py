@@ -168,6 +168,18 @@ class Algorithm(BaseAlgorithm):
         # self.log.info("example of an info message")
         # self.log.error("example of an error message")
 
+        try:
+            if "SARIN" in l1b.sir_op_mode:
+                shared_dict["instr_mode"] = "SIN"
+            elif "SAR" in l1b.sir_op_mode:
+                shared_dict["instr_mode"] = "SAR"
+            else:
+                return (False, f"Invalid mode attribute .sir_op_mode in L1b file {l1b.sir_op_mode}")
+        except AttributeError:
+            return (False, "Missing attribute .sir_op_mode in L1b file")
+
+        self.log.info("Found file operating mode - %s", shared_dict["instr_mode"])
+
         # Read L1b variables and store in the shared dictionary using common names
         # 20 Hz variables
         shared_dict["sat_lat"] = unpack("lat_20_ku", l1b)

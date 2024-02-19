@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_pulse_peakiness.py
+    clev2er.algorithms.seaice.alg_cs2_wave_discrimination.py
 """
 
 import logging
@@ -7,20 +7,22 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
 from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWaveform
+from clev2er.algorithms.seaice.alg_cs2_wave_discimination import Algorithm
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
-from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm
+from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
 
 
-def test_pulse_peakiness() -> None:
-    """test alg_crop_waveform.py
+def test_cs2_wave_discrimination() -> None:
+    """test alg_cs2_wave_discrimination.py
     Load an SAR and an SARIn files
     run Algorithm.process() on each
     test that the files return (True, "")
@@ -38,10 +40,13 @@ def test_pulse_peakiness() -> None:
 
     # Initialise the previous chain steps (needed to test current step properly)
     try:
-        ingest_cs2 = IngestCS2(config, logger)  # no config used for this alg
-        area_filter = AreaFilter(config, logger)
-        flag_filter = FlagFilter(config, logger)
-        crop_waveform = CropWaveform(config, logger)
+        previous_steps = {
+            "ingest_cs2": IngestCS2(config, logger),  # no config used for this alg
+            "area_filter": AreaFilter(config, logger),
+            "flag_filter": FlagFilter(config, logger),
+            "crop_waveform": CropWaveform(config, logger),
+            "pulse_peakiness": PulsePeakiness(config, logger),
+        }
     except KeyError as exc:
         assert False, f"Could not initialize previous steps in chain {exc}"
 
@@ -67,24 +72,26 @@ def test_pulse_peakiness() -> None:
 
     shared_dict: Dict[str, Any] = {}
 
-    _, _ = ingest_cs2.process(l1b, shared_dict)
-    _, _ = area_filter.process(l1b, shared_dict)
-    _, _ = flag_filter.process(l1b, shared_dict)
-    _, _ = crop_waveform.process(l1b, shared_dict)
+    for title, step in previous_steps.items():
+        success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
+        if not success:
+            logger.error("SAR - Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
-    # check that pulse_peakiness is within shared_dict
-    assert "pulse_peakiness" in shared_dict, "SAR - pulse_peakiness not within shared dictionary"
+    for key in ["specular_index", "diffuse_index", "lead_floe_class"]:
+        # check that specular_index, diffuse_index and lead_floe_class are within shared_dict
+        assert key in shared_dict, f"SAR - {key} not within shared dictionary"
 
-    # check that pulse_peakiness values are floats
-    assert (
-        shared_dict["pulse_peakiness"].dtype == "float64"
-    ), "SAR - pulse_peakiness values are not floats"
+        # check that the above values are arrays of ints
+        assert isinstance(shared_dict[key], np.ndarray)
+        assert (
+            "int" in str(shared_dict[key].dtype).lower()
+        ), f"SAR - {key} is not an array of ints - {shared_dict[key].dtype}"
 
-    # ================================== SIN FILE TESTING ==========================================
+    # ================================== SIN FILE TESTING ========================================
     logger.info("Testing SIN file:")
     # load SARIn file
     l1b_sin_file = list(
@@ -98,19 +105,21 @@ def test_pulse_peakiness() -> None:
 
     shared_dict.clear()  # clear shared dictionary to reset it without reassignment
 
-    _, _ = ingest_cs2.process(l1b, shared_dict)  # ingest file
-    _, _ = area_filter.process(l1b, shared_dict)  # filter area
-    _, _ = flag_filter.process(l1b, shared_dict)  # filter by flags
-    _, _ = crop_waveform.process(l1b, shared_dict)
+    for title, step in previous_steps.items():
+        success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
+        if not success:
+            logger.error("SAR - Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
-    # check that pulse_peakiness is within shared_dict
-    assert "pulse_peakiness" in shared_dict, "SIN - pulse_peakiness not within shared dictionary"
+    for key in ["specular_index", "diffuse_index", "lead_floe_class"]:
+        # check that specular_index, diffuse_index and lead_floe_class are within shared_dict
+        assert key in shared_dict, f"SIN - {key} not within shared dictionary"
 
-    # check that pulse_peakiness values are floats
-    assert (
-        shared_dict["pulse_peakiness"].dtype == "float64"
-    ), "SIN - pulse_peakiness values are not floats"
+        # check that the above values are arrays of ints
+        assert isinstance(shared_dict[key], np.ndarray)
+        assert "int" in str(
+            shared_dict[key].dtype
+        ), f"SIN - {key} is not an array of ints - {shared_dict[key].dtype}"
