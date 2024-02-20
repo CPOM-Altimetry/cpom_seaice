@@ -59,8 +59,11 @@ def test_alg_ingest_cs2() -> None:
     except KeyError as exc:
         assert False, f"Could not initialize algorithm {exc}"
 
+    # ========================================================================================
     logger.info("Testing SAR file:")
+
     # load SAR file
+
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
     )[0]
@@ -81,10 +84,12 @@ def test_alg_ingest_cs2() -> None:
         len(shared_dict[ingested_fields[0]]) == len(shared_dict[key]) for key in ingested_fields
     ), "SAR - Not all fields the same length"
 
+    # ==============================================================================
     logger.info("Testing SIN file:")
+
     # load SARIn file
     l1b_sin_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sin").glob("*.nc")
     )[0]
     try:
         l1b = Dataset(l1b_sin_file)
