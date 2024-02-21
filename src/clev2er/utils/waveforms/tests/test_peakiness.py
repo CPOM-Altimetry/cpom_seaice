@@ -15,10 +15,9 @@ def test_peakiness() -> None:
     """test peakiness.py
 
     Test plan:
-    Run peakiness() on many arrays of samples from normal distributions
-    Check if one of the values is a float
-    Find mean value returned from peakiness() of sample arrays
-    Value should not exceed 1.75+-0.05 if peakiness function works
+    Run peakiness on sample waveform that has a known peakiness value
+    Check if result is a float
+    Check if result is close to the known value
     """
 
     logger.info("Testing peakiness function")
