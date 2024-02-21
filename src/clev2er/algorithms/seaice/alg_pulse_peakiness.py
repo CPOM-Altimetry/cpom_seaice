@@ -34,6 +34,7 @@ from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.waveforms.peakiness import peakiness
 
 # each algorithm shares some common class code, so pylint: disable=duplicate-code
 
@@ -83,26 +84,6 @@ class Algorithm(BaseAlgorithm):
         self.noise_floor_start = self.config["alg_pulse_peakiness"]["noise_floor_start_bin"]
         self.noise_floor_end = self.config["alg_pulse_peakiness"]["noise_floor_end_bin"]
 
-        def peakiness(waveform):
-            "calculate the peakiness of a waveform"
-
-            peaky = np.nan
-
-            noise_floor = np.nanmean(waveform[self.noise_floor_start : self.noise_floor_end + 1])
-            where_above_nf = np.where(waveform > noise_floor)[0]
-
-            if where_above_nf.size > 0:
-                above_nf = waveform[where_above_nf]
-
-                nf_max = np.nanmax(above_nf)
-                nf_mean = np.nanmean(above_nf)
-
-                peaky = nf_max / nf_mean
-
-            return peaky
-
-        self.peakiness = peakiness
-
         # --- End of initialization steps ---
 
         return (True, "")
@@ -140,7 +121,13 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        pp = np.apply_along_axis(self.peakiness, 1, shared_dict["waveform"])
+        pp = np.apply_along_axis(
+            peakiness,
+            1,
+            shared_dict["waveform"],
+            noise_floor_start=self.noise_floor_start,
+            noise_floor_end=self.noise_floor_end + 1,
+        )
 
         self.log.info("Number of peakiness values - %d", pp.shape[0])
         self.log.info("Number of NaN values returned - %d", sum(np.isnan(pp)))
