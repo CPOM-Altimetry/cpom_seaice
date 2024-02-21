@@ -158,6 +158,11 @@ class Algorithm(BaseAlgorithm):
 
         self.log.info("Number of specular waves - %d", sum(specular_waves))
 
+        self.log.info(
+            "Number of samples that won't be processed - %d",
+            sum(np.invert(specular_waves | diffuse_waves)),
+        )
+
         # make indexes for each
         shared_dict["specular_index"] = np.where(specular_waves)[0]
         shared_dict["diffuse_index"] = np.where(diffuse_waves)[0]
