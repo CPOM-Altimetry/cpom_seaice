@@ -161,7 +161,9 @@ def test_peakiness() -> None:
     logger.info("Returned value - %f (Expected for this sample = 44.512216)", pp)
 
     # check that the returned value is a float
-    assert isinstance(pp, float)
+    assert isinstance(pp, float), f"Peakiness returned a {type(pp)}, should be a float"
 
     # check that the function returns a value close to what is expected from the sample
-    assert (pp - 44.5) < 0.2
+    assert np.isclose(
+        pp, 44.5, atol=0.2
+    ), f"Value {pp} is not close to 44.5 within tolerance of 0.2"
