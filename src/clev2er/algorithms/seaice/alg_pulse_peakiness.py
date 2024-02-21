@@ -1,4 +1,4 @@
-""" clev2er.algorithms.seaice.pulse_peakiness.py
+""" clev2er.algorithms.seaice.alg_pulse_peakiness.py
 
     Algorithm class module, used to implement a single chain algorithm
 

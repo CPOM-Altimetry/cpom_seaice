@@ -1,4 +1,4 @@
-""" clev2er.algorithms.seaice.waveform_discrimination.py
+""" clev2er.algorithms.seaice.cs2_waveform_discrimination.py
 
     Algorithm class module, used to implement a single chain algorithm
 
