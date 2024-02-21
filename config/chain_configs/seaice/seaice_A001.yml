@@ -38,7 +38,6 @@ alg_area_filter:
 
 alg_flag_filters:
   surf_ocean_flag: 0
-  mcd_confident_flag: 0
 
 alg_crop_waveform:
   cropped_length: 128 

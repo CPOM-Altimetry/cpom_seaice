@@ -59,10 +59,13 @@ def test_alg_ingest_cs2() -> None:
     except KeyError as exc:
         assert False, f"Could not initialize algorithm {exc}"
 
+    # ========================================================================================
     # TESTING WITH SAR FILE
 
     logger.info("Testing SAR file:")
+
     # load SAR file
+
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
     )[0]
@@ -84,9 +87,11 @@ def test_alg_ingest_cs2() -> None:
     ), "SAR - Not all fields the same length"
     assert shared_dict["instr_mode"] == "SAR", "SAR - Did not correctly identify instrument mode"
 
+    # ==============================================================================
     # TESTING WITH SIN FILE
-
+    
     logger.info("Testing SIN file:")
+
     # load SARIn file
     l1b_sin_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sin").glob("*.nc")

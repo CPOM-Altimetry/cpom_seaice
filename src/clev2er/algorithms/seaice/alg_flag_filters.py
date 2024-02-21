@@ -5,7 +5,7 @@
     #Description of this Algorithm's purpose
     
     Filter records by discarding records which do not have the required flags:
-        measurement confidence flag = 0
+        least significant bit of measurement flag = 0
         surface type flag = 0
     
     #Main initialization (init() function) steps/resources required
@@ -14,13 +14,14 @@
 
     #Main process() function steps
 
-    Find index of the mcd_flag and surface_type arrays where both are 0.
-    Use the index to filter all arrays so that all records where both flags != 0 are removed.
+    Find index of mcd_flag array where value of least significant bit is 0
+    Find the index of surface_type array where value is 0.
+    Use the index to filter all arrays to remove unwanted records.
     
     #Contribution to shared_dict
 
-    shared_dict["flag_index"] (np.array[int]) : indices of area-filtered arrays that have mcd and
-                                                surface type flags == 0
+    shared_dict["flag_index"] (np.array[int]) : indices of area-filtered arrays that have correct 
+                                                mcd and surface type flags
 
     #Requires from shared_dict
 
@@ -98,7 +99,6 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         self.surf_ocean_flag = self.config["alg_flag_filters"]["surf_ocean_flag"]
-        self.mcd_confident_flag = self.config["alg_flag_filters"]["mcd_confident_flag"]
 
         # --- End of initialization steps ---
 
@@ -140,8 +140,9 @@ class Algorithm(BaseAlgorithm):
         total_points = shared_dict["sat_lat"].size
 
         # filter by mcd_flag
-        # make a boolean index so we can combine later
-        mcd_index = shared_dict["mcd_flag"] == self.mcd_confident_flag
+        # if lsb is set, then mcd_flag is odd, even if unset -> can use %
+        # making a boolean index so we can combine later
+        mcd_index = (shared_dict["mcd_flag"] % 2) == 0
         num_confident = sum(mcd_index)  # find number of True values
 
         self.log.info(
@@ -176,7 +177,7 @@ class Algorithm(BaseAlgorithm):
         # filter the input parameter based on the area indices inside
         shared_dict["sat_lat"] = shared_dict["sat_lat"][combined_filter]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
-        shared_dict["measurements_time"] = shared_dict["measurement_time"][combined_filter]
+        shared_dict["measurement_time"] = shared_dict["measurement_time"][combined_filter]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]
         shared_dict["window_delay"] = shared_dict["window_delay"][combined_filter]
         shared_dict["waveform"] = shared_dict["waveform"][combined_filter]
