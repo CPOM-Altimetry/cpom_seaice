@@ -60,6 +60,8 @@ def test_alg_ingest_cs2() -> None:
         assert False, f"Could not initialize algorithm {exc}"
 
     # ========================================================================================
+    # TESTING WITH SAR FILE
+
     logger.info("Testing SAR file:")
 
     # load SAR file
@@ -83,8 +85,11 @@ def test_alg_ingest_cs2() -> None:
     assert all(
         len(shared_dict[ingested_fields[0]]) == len(shared_dict[key]) for key in ingested_fields
     ), "SAR - Not all fields the same length"
+    assert shared_dict["instr_mode"] == "SAR", "SAR - Did not correctly identify instrument mode"
 
     # ==============================================================================
+    # TESTING WITH SIN FILE
+    
     logger.info("Testing SIN file:")
 
     # load SARIn file
@@ -108,3 +113,4 @@ def test_alg_ingest_cs2() -> None:
         len(shared_dict[ingested_fields[0]]) == len(shared_dict[key]) and len(shared_dict[key]) != 0
         for key in ingested_fields
     ), "SIN - Not all fields the same length"
+    assert shared_dict["instr_mode"] == "SIN", "SIN - Did not correctly identify instrument mode"
