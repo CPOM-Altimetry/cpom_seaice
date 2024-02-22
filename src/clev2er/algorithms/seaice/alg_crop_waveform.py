@@ -36,6 +36,7 @@ from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.waveforms.crop_waveform import crop_waveform
 
 # each algorithm shares some common class code, so pylint: disable=duplicate-code
 
@@ -131,15 +132,13 @@ class Algorithm(BaseAlgorithm):
 
         shared_dict["bin_shift"] = bin_shift
 
-        def crop_waveform(waveform):
-            "Crops waveform around the bin with maximum amplitude."
-            b_max = np.nanargmax(waveform)
-            cropped_waveform = waveform[
-                b_max - self.crop_before_max : b_max + (self.cropped_length - self.crop_before_max)
-            ]
-            return cropped_waveform
-
-        shared_dict["waveform"] = np.apply_along_axis(crop_waveform, 1, shared_dict["waveform"])
+        shared_dict["waveform"] = np.apply_along_axis(
+            crop_waveform,
+            1,
+            shared_dict["waveform"],
+            length_before_max=self.crop_before_max,
+            cropped_length=self.cropped_length,
+        )
 
         self.log.info("New waveform shape - (%d,%d)", *shared_dict["waveform"].shape)
 
