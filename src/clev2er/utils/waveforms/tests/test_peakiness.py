@@ -1,5 +1,5 @@
-"""pytest for algorithm
-    clev2er.algorithms.seaice.alg_crop_waveform
+"""pytest for utils functions
+    clev2er.utils.waveforms.peakiness
 """
 
 import logging
