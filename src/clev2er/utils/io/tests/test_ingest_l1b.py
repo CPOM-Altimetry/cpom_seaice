@@ -2,14 +2,11 @@
 clev2er.utis.io.ingest_l1b
 """
 
-import logging
 import os
 
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.utils.io.ingest_l1b import unpack
-
-logger = logging.getLevelName(__name__)
 
 
 def test_unpack() -> None:
