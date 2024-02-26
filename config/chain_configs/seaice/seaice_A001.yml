@@ -56,5 +56,10 @@ alg_wave_discrimination:
 alg_smooth_waveform:
   moving_average_width: 3
 
+alg_threshold_retrack:
+  threshold_high: 0.7
+  threshold_low: 0.3
+  lew_max: 3.0
+
 # Resource Locators
 
