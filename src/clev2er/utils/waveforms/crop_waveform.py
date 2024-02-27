@@ -7,6 +7,8 @@ Author: Ben Palmer
 Date: 22 Feb 2024
 """
 
+import warnings
+
 import numpy as np
 
 
@@ -25,8 +27,13 @@ def crop_waveform(waveform: np.ndarray, length_before_max: int, cropped_length: 
         A numpy array of the cropped waveform.
     """
 
+    # will convert masked value to np.nan, so supress this error
+    warnings.simplefilter("ignore", UserWarning)
+
     b_max = np.nanargmax(waveform)
+
     cropped_waveform = waveform[
         b_max - length_before_max : b_max + (cropped_length - length_before_max)
     ]
+
     return cropped_waveform
