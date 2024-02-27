@@ -30,6 +30,10 @@ alg_ingest:
   allow_sar: true
   allow_sin: True
 
+alg_ingest_cs2:
+  time_var_20Hz: time_20_ku
+  time_var_01Hz: time_cor_01
+
 alg_area_filter:
   min_latitude: 60.00 # minimum latitude in degs N
   max_latitude: 90.00 # maximum latitude in deg N
