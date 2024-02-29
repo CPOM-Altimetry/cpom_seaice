@@ -34,9 +34,9 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from scipy.ndimage import uniform_filter
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.waveforms.smooth import smooth_waveform
 
 
 class Algorithm(BaseAlgorithm):
@@ -127,11 +127,7 @@ class Algorithm(BaseAlgorithm):
         diffuse_waves = shared_dict["waveform"][shared_dict["diffuse_index"]]
 
         smoothed_waves = np.apply_along_axis(
-            smooth_waveform,
-            1,
-            diffuse_waves,
-            moving_average_width=self.moving_average_width,
-            fill_value=self.fill_value,
+            uniform_filter, 1, diffuse_waves, size=(self.moving_average_width)
         )
 
         shared_dict["waveform_smooth"] = np.asarray(smoothed_waves)
