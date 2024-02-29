@@ -32,13 +32,13 @@ def unpack(variable: str, l1b: Dataset, time_var_1: str, time_var_2: str) -> np.
         KeyError: time_var_1 and time_var_2 are the wrong way round.
     """
 
-    time_var_long = np.ma.filled(l1b.variables[time_var_1], np.nan)
-    time_var_short = np.ma.filled(l1b.variables[time_var_2], np.nan)
+    time_var_long = np.ma.filled(l1b[time_var_1][:].data, np.nan)
+    time_var_short = np.ma.filled(l1b[time_var_2][:].data, np.nan)
 
     if time_var_long.size < time_var_short.size:
         raise KeyError("time_var_1 is shorter than time_var_2. Swap these!")
 
-    var = (l1b.variables[variable][:]).astype(float)
+    var = (l1b[variable][:].data).astype(float)
 
     if var.size == time_var_short.size:
         var = interp1d(time_var_short, var, fill_value="extrapolate")(time_var_long)
