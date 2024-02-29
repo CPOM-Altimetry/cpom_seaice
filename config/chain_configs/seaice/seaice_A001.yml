@@ -59,7 +59,6 @@ alg_wave_discrimination:
 
 alg_smooth_waveform:
   moving_average_width: 3
-  fill_value: 65535.00
 
 alg_threshold_retrack:
   threshold_high: 0.7

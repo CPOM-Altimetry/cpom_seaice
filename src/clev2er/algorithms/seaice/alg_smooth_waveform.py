@@ -83,7 +83,6 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         self.moving_average_width = self.config["alg_smooth_waveform"]["moving_average_width"]
-        self.fill_value = self.config["alg_smooth_waveform"]["fill_value"]
 
         self.log.info("     Number of points in moving average - %d", self.moving_average_width)
 
