@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
@@ -79,6 +80,10 @@ def test_crop_waveform() -> None:
     # check that bin_shift is within shared_dict
     assert "bin_shift" in shared_dict, "SAR - bin_shift not within shared dictionary"
 
+    assert (
+        sum(np.nanargmax(shared_dict["waveform"], axis=1) != 50) == 0
+    ), "SAR - Max bin is not always at 50."
+
     # ================================== SIN FILE TESTING ==========================================
     logger.info("Testing SIN file:")
     # load SARIn file
@@ -106,3 +111,7 @@ def test_crop_waveform() -> None:
 
     # check that bin_shift is within shared_dict
     assert "bin_shift" in shared_dict, "SIN - bin_shift not within shared dictionary"
+
+    assert (
+        sum(np.nanargmax(shared_dict["waveform"], axis=1) != 50) == 0
+    ), "SIN - Max bin is not always at 50."

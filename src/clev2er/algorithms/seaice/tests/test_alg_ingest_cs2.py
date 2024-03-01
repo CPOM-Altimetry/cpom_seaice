@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm
@@ -86,10 +87,11 @@ def test_alg_ingest_cs2() -> None:
         len(shared_dict[ingested_fields[0]]) == len(shared_dict[key]) for key in ingested_fields
     ), "SAR - Not all fields the same length"
     assert shared_dict["instr_mode"] == "SAR", "SAR - Did not correctly identify instrument mode"
+    assert np.sum(np.isnan(shared_dict["waveform"])) == 0, "SAR - Waveforms contains NaN values"
 
     # ==============================================================================
     # TESTING WITH SIN FILE
-    
+
     logger.info("Testing SIN file:")
 
     # load SARIn file
@@ -114,3 +116,4 @@ def test_alg_ingest_cs2() -> None:
         for key in ingested_fields
     ), "SIN - Not all fields the same length"
     assert shared_dict["instr_mode"] == "SIN", "SIN - Did not correctly identify instrument mode"
+    assert np.sum(np.isnan(shared_dict["waveform"])) == 0, "SIN - Waveforms contains NaN values"

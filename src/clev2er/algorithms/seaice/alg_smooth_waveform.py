@@ -129,7 +129,7 @@ class Algorithm(BaseAlgorithm):
             uniform_filter, 1, diffuse_waves, size=(self.moving_average_width)
         )
 
-        shared_dict["waveform_smooth"] = smoothed_waves
+        shared_dict["waveform_smooth"] = np.asarray(smoothed_waves)
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
