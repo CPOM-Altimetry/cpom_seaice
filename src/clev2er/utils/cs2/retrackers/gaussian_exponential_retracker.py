@@ -36,6 +36,8 @@ def gauss_plus_exp_tracker(waveform: npt.NDArray, max_iterations: int = 3000) ->
 
     x: npt.NDArray = np.arange(waveform.size).astype(float)
 
+    tracking_point = np.nan
+
     x0: np.intp = np.argmax(waveform)
     a: float = waveform[x0]
 
@@ -43,11 +45,9 @@ def gauss_plus_exp_tracker(waveform: npt.NDArray, max_iterations: int = 3000) ->
         popt, _ = curve_fit(  # pylint: disable=unbalanced-tuple-unpacking
             _gauss_plus_exp, x, waveform[:], p0=[a, x0, 1, 1], maxfev=max_iterations, method="lm"
         )
+        tracking_point = popt[1]  # Update tracking point if successful, otherwise returns NaN
     except RuntimeError:
-        return np.nan
-
-    if "popt" in locals():
-        tracking_point = popt[1]
+        pass
 
     return tracking_point
 
