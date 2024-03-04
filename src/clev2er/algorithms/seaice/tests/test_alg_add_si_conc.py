@@ -145,7 +145,7 @@ def test_add_si_conc_sar(
             & (shared_dict["seaice_concentration"] >= 0.0)
         )
         > 0
-    ), "SIN - 'seaice_concentration' contains incorrect values"
+    ), "SAR - 'seaice_concentration' contains incorrect values"
 
 
 def test_add_si_conc_sin(

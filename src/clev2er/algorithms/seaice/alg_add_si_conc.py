@@ -168,42 +168,54 @@ class Algorithm(BaseAlgorithm):
 
         si_concentration = np.zeros(shared_dict["sat_lat"].size) * np.nan
 
-        # for each timestamp, lat and lon in memory:
+        # for each timestamp, lat and lon in shared memory:
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
             zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
         ):
             file_date = datetime.fromtimestamp(wv_timestamp).strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
-                # If new name is the most recent file name, get values from dict
+                # If date is the same as the most recent file date, get values from dict
                 file_point_tree = self.most_recent_file["tree"]
                 file_values = self.most_recent_file["values"]
 
             else:
-                # Else, read the file and store the values in most recent file dict
-                self.log.info("Loading new concentration data file %s", file_date)
+                # Else, read the file, create the KDTree and store the values
+                # in most recent file dict for later use
+                self.log.info("Loading new concentration data file  - %s", file_date)
 
-                # nt_20221214_f18_nrt_n.dat
+                # Find the correct file for the data
+
                 file_paths = glob.glob(os.path.join(self.conc_file_dir, f"nt_{file_date}*.dat"))
 
+                # There should be 1 match for each date. If not, return an error
                 if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching %s", file_date)
+                    self.log.error("Could not locate file matching - %s", file_date)
                     return (False, "CONC_FILE_NOT_FOUND")
                 if len(file_paths) > 1:
-                    self.log.error("Too many files found that match %s. Only one should be found.")
+                    self.log.error(
+                        "Too many files found that match - %s. Only one should be found.", file_date
+                    )
                     return (False, "CONC_FILE_TOO_MANY_FOUND")
 
                 file_path = file_paths[0]
 
+                # Read the external file
+
                 sea_ice_conc = np.transpose(np.genfromtxt(file_path))
                 file_lats = sea_ice_conc[2]
-                # convert to 0->360 to match shared_dict values
+                # convert to 0..360 to match shared_dict values
                 file_lons = sea_ice_conc[3] % 360.0
                 file_values = sea_ice_conc[4]
 
+                # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
                 file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
                 file_points = np.transpose((file_x, file_y))
                 file_point_tree = cKDTree(file_points)
+
+                # Save the loaded date, KDTree, and values
+                # Faster to save the tree than save the lon + lat values and recreate
+                # the tree every time
 
                 self.most_recent_file["date"] = file_date
                 self.most_recent_file["tree"] = file_point_tree
@@ -242,6 +254,7 @@ class Algorithm(BaseAlgorithm):
         # Add finalization steps here \/
         # ---------------------------------------------------------------------
 
+        # clear file memory and remove lonlat transformer
         self.most_recent_file.clear()
         del self.lonlat_to_xy
 
