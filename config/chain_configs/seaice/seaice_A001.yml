@@ -65,5 +65,8 @@ alg_threshold_retrack:
   threshold_low: 0.3
   lew_max: 3.0
 
+alg_giles_retrack:
+  max_iterations: 3000
+
 # Resource Locators
 
