@@ -68,5 +68,11 @@ alg_threshold_retrack:
 alg_giles_retrack:
   max_iterations: 3000
 
+alg_elev_calculations:
+  speed_of_light: 299792458
+  bin_width: 0.2342
+  nom_bin_sar: 128
+  nom_bin_sir: 512
+
 # Resource Locators
 
