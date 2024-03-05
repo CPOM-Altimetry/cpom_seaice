@@ -22,8 +22,8 @@
     #Contribution to shared_dict
 
     shared_dict["floe_retracking_points"] (np.ndarray[float]) : array of retracking points for floes
-    shared_dict["idx_lew_gt_max"] (np.ndarray[int]) :   index array of samples with leading edge 
-                                                        width greater than limit
+    shared_dict["idx_lew_lt_max"] (np.ndarray[int]) :   index array of samples with leading edge 
+                                                        width less than limit
 
     #Requires from shared_dict
 
@@ -144,13 +144,16 @@ class Algorithm(BaseAlgorithm):
         lews = np.abs(points_higher - points_lower)
 
         # only keep points with leading edge width < max value
-        idx_lew_gt_max = np.where(lews >= self.lew_max)[0]
-        points_higher = points_higher[idx_lew_gt_max]
+        idx_lew_lt_max = np.where(lews < self.lew_max)[0]
+        points_higher = points_higher[idx_lew_lt_max]
 
-        self.log.info("Number of samples that exceeded LEW limit - %d", idx_lew_gt_max.size)
+        self.log.info(
+            "Number of samples that exceeded LEW limit - %d",
+            shared_dict["waveform_smooth"].shape[0] - idx_lew_lt_max.size,
+        )
 
         shared_dict["floe_retracking_points"] = points_higher
-        shared_dict["idx_lew_gt_max"] = idx_lew_gt_max
+        shared_dict["idx_lew_lt_max"] = idx_lew_lt_max
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
