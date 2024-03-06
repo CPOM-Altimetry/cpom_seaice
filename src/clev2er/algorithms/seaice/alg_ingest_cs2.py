@@ -62,6 +62,7 @@
     None
 """
 
+from datetime import datetime
 from functools import partial
 from typing import Tuple
 
@@ -178,8 +179,11 @@ class Algorithm(BaseAlgorithm):
         # 20 Hz variables
         shared_dict["sat_lat"] = self.unpack("lat_20_ku", l1b)
         # convert longitude to 0..360 (from -180,180)
-        shared_dict["sat_lon"] = self.unpack("lon_20_ku", l1b) % 360.0
-        shared_dict["measurement_time"] = self.unpack("time_20_ku", l1b)
+        shared_dict["sat_lon"] = self.unpack("lon_20_ku", l1b) % 360.0  #
+        # timestamps in file are seconds from 1/1/2000, convert to seconds from 1/1/1970
+        shared_dict["measurement_time"] = (
+            self.unpack("time_20_ku", l1b) + datetime(2000, 1, 1).timestamp()
+        )
         shared_dict["sat_altitude"] = self.unpack("alt_20_ku", l1b)
         shared_dict["window_delay"] = self.unpack("window_del_20_ku", l1b)
         shared_dict["waveform"] = self.unpack("pwr_waveform_20_ku", l1b)
