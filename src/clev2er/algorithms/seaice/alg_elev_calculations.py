@@ -1,36 +1,50 @@
-""" clev2er.algorithms.seaice.alg_threshold_retrack.py
+""" clev2er.algorithms.seaice.alg_elev_calculations.py
 
     Algorithm class module, used to implement a single chain algorithm
 
     #Description of this Algorithm's purpose
 
-    Algorithm for retracking the smoothed diffuse waveforms which represent ice floes in sea
-    ice processing. Retracks waveform to X% of the waveform, then Y% of the waveform, where X < Y. 
-    We measure the bin distance between the retracking values, and any sample which has a distance
-    greater than the limit will not be processed further. 
+    Calculates the elevation for each sample.
 
     #Main initialization (init() function) steps/resources required
 
-    Get threshold and leading edge width settings from config file
+    Set the satellite bin width and speed of light variables
 
     #Main process() function steps
 
-    Retrack to lower threshold point
-    Retrack to higher threshold point
-    Generate index of which samples have a LEW less than the limit
+    Calculate the total geophysical corrections by adding all corrections together.
+    Calculate the range of the satellite to the surface using the window delay.
+    Calculate the retracking correction.
+    Calculate the elevation using the satellite range, geophysical corrections, and retracking 
+        correction.
+    Save elevations to dict.
 
     #Contribution to shared_dict
 
-    shared_dict["floe_retracking_points"] (np.ndarray[float]) : array of retracking points for floes
-    shared_dict["idx_lew_lt_max"] (np.ndarray[int]) :   index array of samples with leading edge 
-                                                        width less than limit
+    'elevation' (np.array[float]) : the elevation of the surface above the WGS84 reference ellipsoid
 
     #Requires from shared_dict
 
-    shared_dict["waveform_smooth"]
+    'window_delay'
+    'sat_altitude'
+    'wet_trop_correction'
+    'dry_trop_correction'
+    'inv_baro_correction'
+    'iono_correction'
+    'ocean_tide'
+    'long_period_tide'
+    'loading_tide'
+    'earth_tide'
+    'pole_tide'
+    'specular_index'
+    'diffuse_index'
+    'idx_lew_lt_max'
+    'lead_retracking_points'
+    'floe_retracking_points'
+    'bin_shift'
 
     Author: Ben Palmer
-    Date: 23 Feb 2024
+    Date: 05 Mar 2024
 """
 
 from typing import Tuple
@@ -40,23 +54,22 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.cs2.retrackers.threshold_retracker import threshold_retracker
 
 
 class Algorithm(BaseAlgorithm):
     """CLEV2ER Algorithm class
 
     contains:
-        .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
-        .config (dict) : configuration dictionary, set by BaseAlgorithm
+            .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
+            .config (dict) : configuration dictionary, set by BaseAlgorithm
 
-    functions that need completing:
-        .init() : Algorithm initialization function (run once at start of chain)
-        .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
-        .finalize() :   Algorithm finalization/closure function (run after all chain
-                        processing completed)
+        functions that need completing:
+            .init() : Algorithm initialization function (run once at start of chain)
+            .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
+            .finalize() :   Algorithm finalization/closure function (run after all chain
+                            processing completed)
 
-    Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
+        Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
 
     """
 
@@ -86,15 +99,10 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.threshold_high = self.config["alg_threshold_retrack"]["threshold_high"]
-        self.threshold_low = self.config["alg_threshold_retrack"]["threshold_low"]
-
-        self.lew_max = self.config["alg_threshold_retrack"]["lew_max"]
-
-        if self.threshold_high <= self.threshold_low:
-            raise ValueError(
-                "Threshold config values for alg_threshold_retrack are in the wrong order."
-            )
+        self.c = self.config["alg_elev_calculations"]["speed_of_light"]
+        self.bin_width = self.config["alg_elev_calculations"]["bin_width"]
+        self.nom_bin_sar = self.config["alg_elev_calculations"]["nom_bin_sar"]
+        self.nom_bin_sir = self.config["alg_elev_calculations"]["nom_bin_sir"]
 
         # --- End of initialization steps ---
 
@@ -133,27 +141,47 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        points_higher = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_high
+        geophysical_corrections = (
+            shared_dict["wet_trop_correction"]
+            + shared_dict["dry_trop_correction"]
+            + shared_dict["inv_baro_correction"]
+            + shared_dict["iono_correction"]
+            + shared_dict["ocean_tide"]
+            + shared_dict["long_period_tide"]
+            + shared_dict["loading_tide"]
+            + shared_dict["earth_tide"]
+            + shared_dict["pole_tide"]
         )
 
-        points_lower = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_low
+        sat_range = (self.c / 2) * shared_dict["window_delay"]
+
+        retracking_points = np.zeros(shared_dict["sat_lat"].size) * np.nan
+        retracking_points[shared_dict["specular_index"]] = shared_dict["lead_retracking_points"]
+        retracking_points[shared_dict["diffuse_index"]][
+            shared_dict["idx_lew_lt_max"]
+        ] = shared_dict["floe_retracking_points"]
+
+        # Change nominal tracking bin depending on instrument mode
+        # SAR - 128. SAR - 512
+        nominal_tracking_bin = (
+            self.nom_bin_sar if shared_dict["instr_mode"] == "SAR" else self.nom_bin_sir
         )
 
-        lews = np.abs(points_higher - points_lower)
+        retracker_correction = self.bin_width * (
+            retracking_points - nominal_tracking_bin - shared_dict["bin_shift"]
+        )
 
-        # only keep points with leading edge width < max value
-        idx_lew_lt_max = np.where(lews < self.lew_max)[0]
-        points_higher = points_higher[idx_lew_lt_max]
+        elevations = sat_range + retracker_correction + geophysical_corrections
 
+        self.log.info("Number of NaNs in elevation - %d", sum(np.isnan(elevations)))
         self.log.info(
-            "Number of samples that exceeded LEW limit - %d",
-            shared_dict["waveform_smooth"].shape[0] - idx_lew_lt_max.size,
+            "Elevation - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
+            np.nanmean(elevations),
+            np.nanstd(elevations),
+            np.nanmin(elevations),
+            np.nanmax(elevations),
         )
-
-        shared_dict["floe_retracking_points"] = points_higher
-        shared_dict["idx_lew_lt_max"] = idx_lew_lt_max
+        shared_dict["elevation"] = elevations
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -178,5 +206,7 @@ class Algorithm(BaseAlgorithm):
         # ---------------------------------------------------------------------
         # Add finalization steps here \/
         # ---------------------------------------------------------------------
+
+        # None
 
         # ---------------------------------------------------------------------

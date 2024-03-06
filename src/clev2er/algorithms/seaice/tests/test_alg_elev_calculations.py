@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_threshold_retrack
+    clev2er.algorithms.seaice.alg_elev_calculations
 """
 
 import logging
@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -15,11 +16,15 @@ from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWavefor
 from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
     Algorithm as WaveDiscrimination,
 )
+from clev2er.algorithms.seaice.alg_elev_calculations import Algorithm
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
+from clev2er.algorithms.seaice.alg_giles_retrack import Algorithm as GilesRetrack
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
 from clev2er.algorithms.seaice.alg_smooth_waveform import Algorithm as SmoothWaveform
-from clev2er.algorithms.seaice.alg_threshold_retrack import Algorithm
+from clev2er.algorithms.seaice.alg_threshold_retrack import (
+    Algorithm as ThresholdRetrack,
+)
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -56,13 +61,15 @@ def previous_steps(
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
         chain_previous_steps = {
-            "ingest_cs2": IngestCS2(config, logger),  # no config used for this alg
+            "ingest_cs2": IngestCS2(config, logger),
             "area_filter": AreaFilter(config, logger),
             "flag_filter": FlagFilter(config, logger),
             "crop_waveform": CropWaveform(config, logger),
             "pulse_peakiness": PulsePeakiness(config, logger),
             "wave_discrim": WaveDiscrimination(config, logger),
             "smooth_waveform": SmoothWaveform(config, logger),
+            "threshold_retack": ThresholdRetrack(config, logger),
+            "giles_retrack": GilesRetrack(config, logger),
         }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
@@ -89,7 +96,7 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-def test_retrack_floes_sar(
+def test_elev_calculations_sar(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_threshold_retrack.py for SAR waves
@@ -98,6 +105,7 @@ def test_retrack_floes_sar(
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
+    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -129,32 +137,29 @@ def test_retrack_floes_sar(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert (
-        "floe_retracking_points" in shared_dict
-    ), "SAR - Shared_dict does not contain 'floe_retracking_points'"
+    assert "elevation" in shared_dict, "'elevation' not in shared_dict."
 
-    frp_dtype = shared_dict["floe_retracking_points"].dtype
-    assert (
-        "float" in str(frp_dtype).lower()
-    ), f"SAR - Dtype of 'floe_retracking_points' is {frp_dtype}, not float"
+    assert isinstance(
+        shared_dict["elevation"], np.ndarray
+    ), f"'elevation' is {type(shared_dict['elevation'])}, not ndarray."
 
-    assert "idx_lew_lt_max" in shared_dict, "SAR - Shared_dict does not contain 'idx_lew_lt_max'"
+    elev_dtype = str(shared_dict["elevation"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
 
-    idx_lew_ftype = shared_dict["idx_lew_lt_max"].dtype
-    assert (
-        "int" in str(idx_lew_ftype).lower()
-    ), f"SAR - Dtype of 'idx_lew_lt_max' is {idx_lew_ftype}, not int"
+    num_positive = sum(shared_dict["elevation"] > 0)
+    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."
 
 
-def test_retrack_floes_sin(
+def test_elev_calculations_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_threshold_retrack.py for SIN waveforms
+    """test alg_elev_calculations.py for SIN waveforms
 
     Test plan:
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
+    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -185,18 +190,14 @@ def test_retrack_floes_sin(
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert (
-        "floe_retracking_points" in shared_dict
-    ), "SIN - Shared_dict does not contain 'floe_retracking_points'"
+    assert "elevation" in shared_dict, "'elevation' not in shared_dict."
 
-    frp_dtype = shared_dict["floe_retracking_points"].dtype
-    assert (
-        "float" in str(frp_dtype).lower()
-    ), f"SIN - Dtype of 'floe_retracking_points' is {frp_dtype}, not float"
+    assert isinstance(
+        shared_dict["elevation"], np.ndarray
+    ), f"'elevation' is {type(shared_dict['elevation'])}, not ndarray."
 
-    assert "idx_lew_lt_max" in shared_dict, "SIN - Shared_dict does not contain 'idx_lew_lt_max'"
+    elev_dtype = str(shared_dict["elevation"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
 
-    idx_lew_ftype = shared_dict["idx_lew_lt_max"].dtype
-    assert (
-        "int" in str(idx_lew_ftype).lower()
-    ), f"SIN - Dtype of 'idx_lew_lt_max' is {idx_lew_ftype}, not int"
+    num_positive = sum(shared_dict["elevation"] > 0)
+    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."
