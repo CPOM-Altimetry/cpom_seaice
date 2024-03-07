@@ -181,9 +181,9 @@ class Algorithm(BaseAlgorithm):
 
         self.log.info("Number of NaNs in MSS - %d", sum(np.isnan(sample_mss_indices)))
 
-        elev_corr = (
-            shared_dict["elevation"] - self.mss_vals[sample_mss_indices] - self.retracker_bias
-        )
+        shared_dict["mss"] = self.mss_vals[sample_mss_indices]
+
+        elev_corr = shared_dict["elevation"] - shared_dict["mss"] - self.retracker_bias
 
         self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(elev_corr)))
         self.log.info(
