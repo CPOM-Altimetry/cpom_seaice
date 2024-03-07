@@ -193,8 +193,8 @@ class Algorithm(BaseAlgorithm):
         # 1 Hz variables
         shared_dict["dry_trop_correction"] = self.unpack("mod_dry_tropo_cor_01", l1b)
         shared_dict["wet_trop_correction"] = self.unpack("mod_wet_tropo_cor_01", l1b)
-        shared_dict["inv_baro_correction"] = self.unpack("iono_cor_01", l1b)
-        shared_dict["iono_correction"] = self.unpack("inv_bar_cor_01", l1b)
+        shared_dict["iono_correction"] = self.unpack("iono_cor_01", l1b)
+        shared_dict["inv_baro_correction"] = self.unpack("inv_bar_cor_01", l1b)
         shared_dict["ocean_tide"] = self.unpack("ocean_tide_01", l1b)
         shared_dict["long_period_tide"] = self.unpack("ocean_tide_eq_01", l1b)
         shared_dict["loading_tide"] = self.unpack("load_tide_01", l1b)
