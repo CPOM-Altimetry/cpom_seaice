@@ -153,12 +153,12 @@ class Algorithm(BaseAlgorithm):
             + shared_dict["pole_tide"]
         )
 
-        sat_range = (self.c / 2) * shared_dict["window_delay"]
+        sat_range = self.c / 2 * shared_dict["window_delay"]
 
         retracking_points = np.zeros(shared_dict["sat_lat"].size) * np.nan
         retracking_points[shared_dict["specular_index"]] = shared_dict["lead_retracking_points"]
-        retracking_points[shared_dict["diffuse_index"]][
-            shared_dict["idx_lew_lt_max"]
+        retracking_points[
+            shared_dict["diffuse_index"][shared_dict["idx_lew_lt_max"]]
         ] = shared_dict["floe_retracking_points"]
 
         # Change nominal tracking bin depending on instrument mode
@@ -171,7 +171,9 @@ class Algorithm(BaseAlgorithm):
             retracking_points - nominal_tracking_bin - shared_dict["bin_shift"]
         )
 
-        elevations = sat_range + retracker_correction + geophysical_corrections
+        elevations = shared_dict["sat_altitude"] - (
+            sat_range + retracker_correction + geophysical_corrections
+        )
 
         self.log.info("Number of NaNs in elevation - %d", sum(np.isnan(elevations)))
         self.log.info(
