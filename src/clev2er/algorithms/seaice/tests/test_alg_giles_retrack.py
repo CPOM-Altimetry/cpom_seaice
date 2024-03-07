@@ -139,6 +139,11 @@ def test_retrack_leads_sar(
         "float" in str(lrp_dtype).lower()
     ), f"SAR - Dtype of 'lead_retracking_points' is {lrp_dtype}, not float"
 
+    assert sum(
+        (shared_dict["lead_retracking_points"] > 0)
+        & (shared_dict["lead_retracking_points"] < shared_dict["waveform"].shape[1])
+    ), "Retracking points contains values outside of acceptable range"
+
 
 def test_retrack_leads_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
@@ -187,3 +192,8 @@ def test_retrack_leads_sin(
     assert (
         "float" in str(lrp_dtype).lower()
     ), f"SIN - Dtype of 'lead_retracking_points' is {lrp_dtype}, not float"
+
+    assert sum(
+        (shared_dict["lead_retracking_points"] > 0)
+        & (shared_dict["lead_retracking_points"] < shared_dict["waveform"].shape[1])
+    ), "Retracking points contains values outside of acceptable range"
