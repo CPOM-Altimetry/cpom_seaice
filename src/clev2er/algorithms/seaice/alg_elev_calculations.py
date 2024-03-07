@@ -15,8 +15,8 @@
     Calculate the total geophysical corrections by adding all corrections together.
     Calculate the range of the satellite to the surface using the window delay.
     Calculate the retracking correction.
-    Calculate the elevation using the satellite range, geophysical corrections, and retracking 
-        correction.
+    Calculate the elevation subtracting the satellite range, geophysical corrections, and 
+        retracking correction from the satellite altitude.
     Save elevations to dict.
 
     #Contribution to shared_dict
@@ -27,6 +27,7 @@
 
     'window_delay'
     'sat_altitude'
+    'instr_mode'
     'wet_trop_correction'
     'dry_trop_correction'
     'inv_baro_correction'

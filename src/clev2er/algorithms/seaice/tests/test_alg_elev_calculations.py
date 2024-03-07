@@ -99,7 +99,7 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
 def test_elev_calculations_sar(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_threshold_retrack.py for SAR waves
+    """test alg_elev_calculations.py for SAR waves
 
     Test plan:
     Load an SAR file
