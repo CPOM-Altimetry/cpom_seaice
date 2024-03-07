@@ -117,13 +117,13 @@ class Algorithm(BaseAlgorithm):
         mss_filt = mss_all[
             (mss_all[:, 1] > min_lat - buffer)
             & (mss_all[:, 1] < max_lat + buffer)
-            & (mss_all[:, 0] > min_lon - buffer)
-            & (mss_all[:, 0] < max_lon + buffer)
+            & (mss_all[:, 0] % 360 > min_lon - buffer)
+            & (mss_all[:, 0] % 360 < max_lon + buffer)
         ]
 
         # Assemble KDTree
         mss_lat = mss_filt[:, 1]
-        mss_lon = mss_filt[:, 0]
+        mss_lon = mss_filt[:, 0] % 360
         self.mss_vals = mss_filt[:, 2]
 
         mss_x, mss_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
