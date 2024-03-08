@@ -89,8 +89,12 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
+sar_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", sar_file_test)
 def test_retrack_floes_sar(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    file_num, previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_threshold_retrack.py for SAR waves
 
@@ -109,7 +113,7 @@ def test_retrack_floes_sar(
     # load SAR file
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
-    )[0]
+    )[file_num]
 
     try:
         l1b = Dataset(l1b_sar_file)
