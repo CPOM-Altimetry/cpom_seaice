@@ -13,9 +13,9 @@
     #Main process() function steps
 
     Create an array of 0s (default values)
-    Set specular echoes to 1 (lead class)
-    Set all diffuse echoes to 3 (ocean class)
-    Set diffuse echoes with ice concentration greater than threshold to 2 (floe class)
+    Set specular echoes to 2 (lead class)
+    Set all diffuse echoes to 1 (ocean class)
+    Set diffuse echoes with ice concentration greater than threshold to 3 (floe class)
 
     #Contribution to shared_dict
 
@@ -132,10 +132,10 @@ class Algorithm(BaseAlgorithm):
         shared_dict["lead_floe_class"] = np.zeros(shared_dict["sat_lat"].shape[0], dtype=int)
 
         # specular waves can only be leads
-        shared_dict["lead_floe_class"][shared_dict["specular_index"]] = 1
+        shared_dict["lead_floe_class"][shared_dict["specular_index"]] = 2
 
         # diffuse waves can be oceans or floes, set to ocean first
-        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]] = 3
+        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]] = 1
 
         # find diffuse waves which have conc > threshold, set to floes
         shared_dict["lead_floe_class"][
@@ -143,7 +143,7 @@ class Algorithm(BaseAlgorithm):
                 shared_dict["seaice_concentration"][shared_dict["diffuse_index"]]
                 > self.conc_threshold
             ]
-        ] = 2
+        ] = 3
 
         self.log.info("Class counts")
         for v in set([0, 1, 2, 3]).union(np.unique(shared_dict["lead_floe_class"])):
