@@ -29,8 +29,6 @@
     shared_dict["specular_index"] (np.array[int]) : index of specular waves 
                                                     in shared_dict["waveform"]
     shared_dict["diffuse_index"] (np.array[int]) : index of diffuse waves in shared_dict["waveform"]
-    shared_dict["lead_floe_class"] (np.array[int]) : Class of whether each waveform is a lead, floe,
-                                                    ocean or unclassified
     
     #Requires from shared_dict
 
@@ -166,16 +164,6 @@ class Algorithm(BaseAlgorithm):
         # make indexes for each
         shared_dict["specular_index"] = np.where(specular_waves)[0]
         shared_dict["diffuse_index"] = np.where(diffuse_waves)[0]
-
-        # make surface type class
-        # specular echoes = leads = 1
-        # diffuse echoes = floes or oceans = 2 or 3
-        # (will set diffuse waves to oceans and work out which are floes later)
-
-        shared_dict["lead_floe_class"] = np.zeros(shared_dict["sat_lat"].shape[0], dtype=int)
-
-        shared_dict["lead_floe_class"][shared_dict["specular_index"]] = 1
-        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]] = 3
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
