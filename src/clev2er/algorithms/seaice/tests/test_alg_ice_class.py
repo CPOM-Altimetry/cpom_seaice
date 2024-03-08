@@ -150,7 +150,7 @@ def test_retrack_leads_sar(
     ), "Class value missing from sample(s)"
 
     assert (
-        sum((shared_dict["lead_floe_class"] >= 0) & (shared_dict["lead_floe_class"] <= 3)) == 0
+        sum((shared_dict["lead_floe_class"] < 0) & (shared_dict["lead_floe_class"] > 3)) == 0
     ), "Class array contains invalid values"
 
 
@@ -205,5 +205,5 @@ def test_ice_class_sin(
     ), "Class value missing from sample(s)"
 
     assert (
-        sum((shared_dict["lead_floe_class"] >= 0) & (shared_dict["lead_floe_class"] <= 3)) == 0
+        sum((shared_dict["lead_floe_class"] < 0) | (shared_dict["lead_floe_class"] > 3)) == 0
     ), "Class array contains invalid values"

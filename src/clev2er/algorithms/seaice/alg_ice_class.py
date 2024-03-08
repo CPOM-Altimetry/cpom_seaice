@@ -19,7 +19,8 @@
 
     #Contribution to shared_dict
 
-    lead_floe_class (np.ndarray[int]) : array of lead/floe/ocean classes of each sample
+    lead_floe_class (np.ndarray[int]) : Class of whether each waveform is a lead, floe,
+                                        ocean or unclassified
 
     #Requires from shared_dict
 
@@ -125,7 +126,8 @@ class Algorithm(BaseAlgorithm):
         # make surface type class
         # specular echoes = leads = 1
         # diffuse echoes = floes or oceans = 2 or 3
-        # (will set diffuse waves to oceans and work out which are floes later)
+        # floes = diffuse echoes w/ ice conc > 75.0%
+        # oceans = diffuse echoes w/ ice conc < 75.0%
 
         shared_dict["lead_floe_class"] = np.zeros(shared_dict["sat_lat"].shape[0], dtype=int)
 
@@ -136,10 +138,16 @@ class Algorithm(BaseAlgorithm):
         shared_dict["lead_floe_class"][shared_dict["diffuse_index"]] = 3
 
         # find diffuse waves which have conc > threshold, set to floes
-        diffuse_w_conc = (
-            shared_dict["seaice_concentration"][shared_dict["diffuse_index"]] > self.conc_threshold
-        )
-        shared_dict["lead_floe_class"][diffuse_w_conc] = 2
+        shared_dict["lead_floe_class"][
+            shared_dict["diffuse_index"][
+                shared_dict["seaice_concentration"][shared_dict["diffuse_index"]]
+                > self.conc_threshold
+            ]
+        ] = 2
+
+        self.log.info("Class counts")
+        for v in set([0, 1, 2, 3]).union(np.unique(shared_dict["lead_floe_class"])):
+            self.log.info("\t %d - %5d", v, sum(shared_dict["lead_floe_class"] == v))
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
