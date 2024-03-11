@@ -73,6 +73,9 @@ alg_add_si_conc:
   input_projection: epsg:4326
   output_projection: epsg:3413
 
+alg_ice_class:
+  seaice_concentration_threshold: 75.0
+
 alg_elev_calculations:
   speed_of_light: 299792458
   bin_width: 0.2342

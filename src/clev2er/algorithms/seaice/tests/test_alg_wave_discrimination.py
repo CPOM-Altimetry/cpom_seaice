@@ -81,7 +81,7 @@ def test_cs2_wave_discrimination() -> None:
 
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
-    for key in ["specular_index", "diffuse_index", "lead_floe_class"]:
+    for key in ["specular_index", "diffuse_index"]:
         # check that specular_index, diffuse_index and lead_floe_class are within shared_dict
         assert key in shared_dict, f"SAR - {key} not within shared dictionary"
 
@@ -114,7 +114,7 @@ def test_cs2_wave_discrimination() -> None:
 
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
-    for key in ["specular_index", "diffuse_index", "lead_floe_class"]:
+    for key in ["specular_index", "diffuse_index"]:
         # check that specular_index, diffuse_index and lead_floe_class are within shared_dict
         assert key in shared_dict, f"SIN - {key} not within shared dictionary"
 
