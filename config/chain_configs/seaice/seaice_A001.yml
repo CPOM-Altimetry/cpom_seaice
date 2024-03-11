@@ -78,6 +78,16 @@ alg_elev_calculations:
   bin_width: 0.2342
   nom_bin_sar: 128
   nom_bin_sir: 512
-
+  
+alg_subtract_mss:
+  retracker_bias: 0.1626
+  mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/CS2_MSS_north.sav
+  mss_buffer: 0.2
+  input_projection: epsg:4326
+  output_projection: epsg:3413
+  min_latitude: 60.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
 # Resource Locators
 
