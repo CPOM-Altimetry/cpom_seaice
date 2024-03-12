@@ -4,8 +4,8 @@
 
     #Description of this Algorithm's purpose
 
-    Calculates the elevation for each sample with the retracker bias added to values found through 
-    the diffuse retracker.
+    Calculates the elevation for each sample, adjusting elevations from diffuse samples with the 
+    retracker bias.
 
     #Main initialization (init() function) steps/resources required
 
@@ -18,6 +18,7 @@
     Calculate the retracking correction.
     Calculate the elevation subtracting the satellite range, geophysical corrections, and 
         retracking correction from the satellite altitude.
+    Subtract the retracker bias from the elevations from diffuse waveforms.
     Save elevations to dict.
 
     #Contribution to shared_dict
@@ -28,7 +29,6 @@
 
     'window_delay'
     'sat_altitude'
-    'instr_mode'
     'wet_trop_correction'
     'dry_trop_correction'
     'inv_baro_correction'

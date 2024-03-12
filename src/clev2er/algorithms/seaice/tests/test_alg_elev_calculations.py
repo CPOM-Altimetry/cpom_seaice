@@ -105,7 +105,7 @@ def test_elev_calculations_sar(
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
+    test that 'elevation' is in shared_dict and it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -156,7 +156,7 @@ def test_elev_calculations_sin(
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
+    test that 'elevation' is in shared_dict and it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])

@@ -5,12 +5,10 @@
     #Description of this Algorithm's purpose
 
     Subtracts the mean sea surface from the elevations calculated in alg_elev_calculations.
-    Also subtracts the retracker bias.
-
+    
     #Main initialization (init() function) steps/resources required
 
     Read the MSS file location from config and load into a KDTree
-    Read the retracker_bias value from config
 
     #Main process() function steps
 
