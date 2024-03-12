@@ -91,5 +91,9 @@ alg_add_mss:
   max_latitude: 90.00 # maximum latitude in deg N
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
+
+alg_sla_calculations:
+  sample_limit: 20.0
+  track_limit: 0.5
 # Resource Locators
 

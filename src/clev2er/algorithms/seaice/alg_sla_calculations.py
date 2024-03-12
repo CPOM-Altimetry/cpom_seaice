@@ -80,6 +80,8 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         # SLA related values
+        self.track_limit = self.config["alg_sla_calculations"]["track_limit"]
+        self.sample_limit = self.config["alg_sla_calculations"]["sample_limit"]
 
         # --- End of initialization steps ---
 
@@ -120,14 +122,33 @@ class Algorithm(BaseAlgorithm):
 
         sla = shared_dict["elevation"] - shared_dict["mss"]
 
-        self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(sla)))
+        # find lead indices
+        lead_indx = shared_dict["lead_floe_class"] == 2
+
+        # find lead samples where sla is inside acceptable range
+        indx_lead_sla_inside_range = np.isclose(sla[lead_indx], 0, atol=self.sample_limit)
+
         self.log.info(
-            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
+            "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
+        )
+
+        # remove leads with SLAs outside of acceptable values
+        sla[lead_indx][indx_lead_sla_inside_range] = np.nan
+
+        self.log.info(
+            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f NaN=%d",
             np.nanmean(sla),
             np.nanstd(sla),
             np.nanmin(sla),
             np.nanmax(sla),
+            sum(np.isnan(sla)),
         )
+
+        # skip track if mean SLA of leads is outside of limit
+        if not np.isclose(mean_sla := np.nanmean(sla[lead_indx]), 0, atol=self.track_limit):
+            self.log.info("Mean SLA is outside of acceptable range - %d", mean_sla)
+            self.log.info("Skipping file...")
+            return (False, "SKIP_OK")
 
         shared_dict["sea_level_anomaly"] = sla
 

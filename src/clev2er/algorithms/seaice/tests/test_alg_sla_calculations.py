@@ -12,6 +12,7 @@ import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice.alg_add_mss import Algorithm as AddMss
+from clev2er.algorithms.seaice.alg_add_si_conc import Algorithm as AddSIConc
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
 from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWaveform
 from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
@@ -20,6 +21,7 @@ from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
 from clev2er.algorithms.seaice.alg_elev_calculations import Algorithm as ElevCalc
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
 from clev2er.algorithms.seaice.alg_giles_retrack import Algorithm as GilesRetrack
+from clev2er.algorithms.seaice.alg_ice_class import Algorithm as IceClass
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
 from clev2er.algorithms.seaice.alg_sla_calculations import Algorithm
@@ -66,9 +68,11 @@ def previous_steps(
             "ingest_cs2": IngestCS2(config, logger),
             "area_filter": AreaFilter(config, logger),
             "flag_filter": FlagFilter(config, logger),
+            "add_si_conc": AddSIConc(config, logger),
             "crop_waveform": CropWaveform(config, logger),
             "pulse_peakiness": PulsePeakiness(config, logger),
             "wave_discrim": WaveDiscrimination(config, logger),
+            "ice_class": IceClass(config, logger),
             "smooth_waveform": SmoothWaveform(config, logger),
             "threshold_retack": ThresholdRetrack(config, logger),
             "giles_retrack": GilesRetrack(config, logger),
