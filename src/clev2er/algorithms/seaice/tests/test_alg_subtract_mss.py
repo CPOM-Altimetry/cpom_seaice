@@ -107,7 +107,7 @@ def test_subtract_mss_sar(
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation_corrected' is in shared_dict, it is an array of floats, and
+    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats, and
         values are all positive
     """
 
@@ -140,21 +140,19 @@ def test_subtract_mss_sar(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "elevation_corrected" in shared_dict, "'elevation_corrected' not in shared_dict."
+    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
 
     assert isinstance(
-        shared_dict["elevation_corrected"], np.ndarray
-    ), f"'elevation_corrected' is {type(shared_dict['elevation_corrected'])}, not ndarray."
+        shared_dict["sea_level_anomaly"], np.ndarray
+    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["elevation_corrected"].dtype)
+    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
     assert (
         "float" in elev_dtype.lower()
-    ), f"Dtype of 'elevation_corrected' is {elev_dtype}, not float."
+    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
 
-    num_positive = sum(shared_dict["elevation_corrected"] > 0)
-    assert (
-        num_positive > 0
-    ), f"'elevation_corrected' contains negative values. Found {num_positive}."
+    num_positive = sum(shared_dict["sea_level_anomaly"] > 0)
+    assert num_positive > 0, f"'sea_level_anomaly' contains negative values. Found {num_positive}."
 
 
 def test_subtract_mss_sin(
@@ -166,7 +164,7 @@ def test_subtract_mss_sin(
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation_corrected' is in shared_dict, it is an array of floats,
+    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats,
         and values are all positive
     """
 
@@ -198,18 +196,16 @@ def test_subtract_mss_sin(
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "elevation_corrected" in shared_dict, "'elevation_corrected' not in shared_dict."
+    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
 
     assert isinstance(
-        shared_dict["elevation_corrected"], np.ndarray
-    ), f"'elevation_corrected' is {type(shared_dict['elevation_corrected'])}, not ndarray."
+        shared_dict["sea_level_anomaly"], np.ndarray
+    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["elevation_corrected"].dtype)
+    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
     assert (
         "float" in elev_dtype.lower()
-    ), f"Dtype of 'elevation_corrected' is {elev_dtype}, not float."
+    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
 
-    num_positive = sum(shared_dict["elevation_corrected"] > 0)
-    assert (
-        num_positive > 0
-    ), f"'elevation_corrected' contains negative values. Found {num_positive}."
+    num_positive = sum(shared_dict["sea_level_anomaly"] > 0)
+    assert num_positive > 0, f"'sea_level_anomaly' contains negative values. Found {num_positive}."

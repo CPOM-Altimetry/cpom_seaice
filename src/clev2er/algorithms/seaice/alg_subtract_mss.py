@@ -178,18 +178,18 @@ class Algorithm(BaseAlgorithm):
 
         shared_dict["mss"] = self.mss_vals[sample_mss_indices]
 
-        elev_corr = shared_dict["elevation"] - shared_dict["mss"]
+        sla = shared_dict["elevation"] - shared_dict["mss"]
 
-        self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(elev_corr)))
+        self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(sla)))
         self.log.info(
-            "Elevation_corrected - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
-            np.nanmean(elev_corr),
-            np.nanstd(elev_corr),
-            np.nanmin(elev_corr),
-            np.nanmax(elev_corr),
+            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
+            np.nanmean(sla),
+            np.nanstd(sla),
+            np.nanmin(sla),
+            np.nanmax(sla),
         )
 
-        shared_dict["elevation_corrected"] = elev_corr
+        shared_dict["sea_level_anomaly"] = sla
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
