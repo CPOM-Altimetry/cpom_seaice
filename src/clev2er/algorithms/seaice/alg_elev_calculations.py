@@ -4,7 +4,8 @@
 
     #Description of this Algorithm's purpose
 
-    Calculates the elevation for each sample.
+    Calculates the elevation for each sample with the retracker bias added to values found through 
+    the diffuse retracker.
 
     #Main initialization (init() function) steps/resources required
 
@@ -102,8 +103,8 @@ class Algorithm(BaseAlgorithm):
 
         self.c = self.config["alg_elev_calculations"]["speed_of_light"]
         self.bin_width = self.config["alg_elev_calculations"]["bin_width"]
-        self.nom_bin_sar = self.config["alg_elev_calculations"]["nom_bin_sar"]
-        self.nom_bin_sir = self.config["alg_elev_calculations"]["nom_bin_sir"]
+        self.tracking_bin = self.config["alg_elev_calculations"]["tracking_bin"]
+        self.diffuse_retracker_bias = self.config["alg_elev_calculations"]["diffuse_retracker_bias"]
 
         # --- End of initialization steps ---
 
@@ -162,19 +163,17 @@ class Algorithm(BaseAlgorithm):
             shared_dict["diffuse_index"][shared_dict["idx_lew_lt_max"]]
         ] = shared_dict["floe_retracking_points"]
 
-        # Change nominal tracking bin depending on instrument mode
-        # SAR - 128. SAR - 512
-        nominal_tracking_bin = (
-            self.nom_bin_sar if shared_dict["instr_mode"] == "SAR" else self.nom_bin_sir
-        )
-
+        # do bin_width * bin_shift here since it will all be subtracted from the elevation
         retracker_correction = self.bin_width * (
-            retracking_points - nominal_tracking_bin - shared_dict["bin_shift"]
+            retracking_points - self.tracking_bin - shared_dict["bin_shift"]
         )
 
         elevations = shared_dict["sat_altitude"] - (
             sat_range + retracker_correction + geophysical_corrections
         )
+
+        # Add retracker bias from the diffuse retracker
+        elevations[shared_dict["diffuse_index"]] -= self.diffuse_retracker_bias
 
         self.log.info("Number of NaNs in elevation - %d", sum(np.isnan(elevations)))
         self.log.info(

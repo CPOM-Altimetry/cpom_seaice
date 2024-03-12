@@ -74,13 +74,12 @@ alg_add_si_conc:
   output_projection: epsg:3413
 
 alg_elev_calculations:
+  diffuse_retracker_bias: 0.1626
   speed_of_light: 299792458
-  bin_width: 0.2342
-  nom_bin_sar: 128
-  nom_bin_sir: 512
+  bin_width: 0.234212857
+  tracking_bin : 64
   
 alg_subtract_mss:
-  retracker_bias: 0.1626
   mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/CS2_MSS_north.sav
   mss_buffer: 0.2
   input_projection: epsg:4326
