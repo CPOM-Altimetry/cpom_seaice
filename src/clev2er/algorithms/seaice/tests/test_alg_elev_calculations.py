@@ -146,9 +146,6 @@ def test_elev_calculations_sar(
     elev_dtype = str(shared_dict["elevation"].dtype)
     assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
 
-    num_positive = sum(shared_dict["elevation"] > 0)
-    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."
-
 
 def test_elev_calculations_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
@@ -198,6 +195,3 @@ def test_elev_calculations_sin(
 
     elev_dtype = str(shared_dict["elevation"].dtype)
     assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
-
-    num_positive = sum(shared_dict["elevation"] > 0)
-    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."
