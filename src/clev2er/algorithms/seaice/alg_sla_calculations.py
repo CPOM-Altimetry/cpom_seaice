@@ -1,44 +1,37 @@
-""" clev2er.algorithms.seaice.alg_subtract_mss.py
+""" clev2er.algorithms.seaice.alg_sla_calculations.py
 
     Algorithm class module, used to implement a single chain algorithm
 
     #Description of this Algorithm's purpose
 
-    Subtracts the mean sea surface from the elevations calculated in alg_elev_calculations.
-    
+    Calculates sea level anomaly (SLA) using elevation and MSS. Removes SLA values greater than 20m 
+    or less than -20m. 
+
     #Main initialization (init() function) steps/resources required
 
-    Read the MSS file location from config and load into a KDTree
+    init_steps
 
     #Main process() function steps
 
-    Match each sample to the correct MSS value
-    Subtract the MSS and retracker bias from the elevation for each sample
+    process_steps
 
     #Contribution to shared_dict
 
-    elevation_corrected (np.ndarray) : array of elevations after mss and retracker bias 
-        have been removed
+    contributions
 
     #Requires from shared_dict
 
-    elevation
-    sat_lat
-    sat_lon
+    requirements
 
     Author: Ben Palmer
-    Date: 06 Mar 2024
+    Date: 12 Mar 2024
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
-import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.io import readsav
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -81,51 +74,12 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
-        # pylint: disable=too-many-locals
-
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
 
-        # Load MSS config
-        mss_file_path = self.config["alg_subtract_mss"]["mss_file"]
-        buffer = self.config["alg_subtract_mss"]["mss_buffer"]
-        max_lat = self.config["alg_subtract_mss"]["max_latitude"]
-        max_lon = self.config["alg_subtract_mss"]["max_longitude"]
-        min_lat = self.config["alg_subtract_mss"]["min_latitude"]
-        min_lon = self.config["alg_subtract_mss"]["min_longitude"]
-
-        # Create projection transform
-        crs_input = proj.Proj(self.config["alg_subtract_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["alg_subtract_mss"]["output_projection"])
-        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
-
-        # Load MSS file
-        self.log.info("\tLoading MSS from %s", mss_file_path)
-        if not os.path.exists(mss_file_path):
-            self.log.error("Cannot find MSS file - %s", mss_file_path)
-            raise RuntimeError(f"Cannot find the MSS file at {mss_file_path}")
-        mss_all = readsav(mss_file_path)["mss"]
-
-        # Filter MSS to correct area
-        mss_filt = mss_all[
-            (mss_all[:, 1] > min_lat - buffer)
-            & (mss_all[:, 1] < max_lat + buffer)
-            & (mss_all[:, 0] % 360 > min_lon - buffer)
-            & (mss_all[:, 0] % 360 < max_lon + buffer)
-        ]
-
-        # Assemble KDTree
-        mss_lat = mss_filt[:, 1]
-        mss_lon = mss_filt[:, 0] % 360
-        self.mss_vals = mss_filt[:, 2]
-
-        mss_x, mss_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            mss_lon, mss_lat
-        )
-        mss_points = np.transpose((mss_x, mss_y))
-        self.mss_tree = cKDTree(mss_points)
+        # SLA related values
 
         # --- End of initialization steps ---
 
@@ -163,20 +117,6 @@ class Algorithm(BaseAlgorithm):
         # Perform the algorithm processing, store results that need to be passed
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
-
-        # transform lat lon values to points
-        sample_x, sample_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            shared_dict["sat_lon"], shared_dict["sat_lat"]
-        )
-        sample_points = np.transpose((sample_x, sample_y))
-
-        sample_mss_indices = np.apply_along_axis(self.mss_tree.query, 1, sample_points, k=1)[
-            :, 1
-        ].astype(int)
-
-        self.log.info("Number of NaNs in MSS - %d", sum(np.isnan(sample_mss_indices)))
-
-        shared_dict["mss"] = self.mss_vals[sample_mss_indices]
 
         sla = shared_dict["elevation"] - shared_dict["mss"]
 

@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_subtract_mss
+    clev2er.algorithms.seaice.alg_add_mss
 """
 
 import logging
@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
+from clev2er.algorithms.seaice.alg_add_mss import Algorithm
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
 from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWaveform
 from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
@@ -22,7 +23,6 @@ from clev2er.algorithms.seaice.alg_giles_retrack import Algorithm as GilesRetrac
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
 from clev2er.algorithms.seaice.alg_smooth_waveform import Algorithm as SmoothWaveform
-from clev2er.algorithms.seaice.alg_subtract_mss import Algorithm
 from clev2er.algorithms.seaice.alg_threshold_retrack import (
     Algorithm as ThresholdRetrack,
 )
@@ -98,17 +98,20 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-def test_subtract_mss_sar(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+sar_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", sar_file_test)
+def test_add_mss_sar(
+    file_num, previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_subtract_mss.py for SAR waves
+    """test alg_add_mss.py for SAR waves
 
     Test plan:
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats, and
-        values are all positive
+    test that 'mss' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -120,7 +123,7 @@ def test_subtract_mss_sar(
     # load SAR file
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
-    )[0]
+    )[file_num]
 
     try:
         l1b = Dataset(l1b_sar_file)
@@ -140,32 +143,26 @@ def test_subtract_mss_sar(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
+    assert "mss" in shared_dict, "'mss' not in shared_dict."
 
     assert isinstance(
-        shared_dict["sea_level_anomaly"], np.ndarray
-    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
+        shared_dict["mss"], np.ndarray
+    ), f"'mss' is {type(shared_dict['mss'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
-
-    num_positive = sum(shared_dict["sea_level_anomaly"] > 0)
-    assert num_positive > 0, f"'sea_level_anomaly' contains negative values. Found {num_positive}."
+    elev_dtype = str(shared_dict["mss"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'mss' is {elev_dtype}, not float."
 
 
-def test_subtract_mss_sin(
+def test_add_mss_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_subtract_mss.py for SIN waveforms
+    """test alg_add_mss.py for SIN waveforms
 
     Test plan:
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats,
-        and values are all positive
+    test that 'mss' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -196,16 +193,11 @@ def test_subtract_mss_sin(
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
+    assert "mss" in shared_dict, "'mss' not in shared_dict."
 
     assert isinstance(
-        shared_dict["sea_level_anomaly"], np.ndarray
-    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
+        shared_dict["mss"], np.ndarray
+    ), f"'mss' is {type(shared_dict['mss'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
-
-    num_positive = sum(shared_dict["sea_level_anomaly"] > 0)
-    assert num_positive > 0, f"'sea_level_anomaly' contains negative values. Found {num_positive}."
+    elev_dtype = str(shared_dict["mss"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'mss' is {elev_dtype}, not float."
