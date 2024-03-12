@@ -90,8 +90,12 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
+sar_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", sar_file_test)
 def test_retrack_leads_sar(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    file_num, previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_giles_retrack.py for SAR waves
 
@@ -110,7 +114,7 @@ def test_retrack_leads_sar(
     # load SAR file
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
-    )[0]
+    )[file_num]
 
     try:
         l1b = Dataset(l1b_sar_file)
@@ -138,6 +142,11 @@ def test_retrack_leads_sar(
     assert (
         "float" in str(lrp_dtype).lower()
     ), f"SAR - Dtype of 'lead_retracking_points' is {lrp_dtype}, not float"
+
+    assert sum(
+        (shared_dict["lead_retracking_points"] > 0)
+        & (shared_dict["lead_retracking_points"] < shared_dict["waveform"].shape[1])
+    ), "Retracking points contains values outside of acceptable range"
 
 
 def test_retrack_leads_sin(
@@ -187,3 +196,8 @@ def test_retrack_leads_sin(
     assert (
         "float" in str(lrp_dtype).lower()
     ), f"SIN - Dtype of 'lead_retracking_points' is {lrp_dtype}, not float"
+
+    assert sum(
+        (shared_dict["lead_retracking_points"] > 0)
+        & (shared_dict["lead_retracking_points"] < shared_dict["waveform"].shape[1])
+    ), "Retracking points contains values outside of acceptable range"

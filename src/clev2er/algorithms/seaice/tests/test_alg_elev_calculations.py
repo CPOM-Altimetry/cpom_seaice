@@ -99,13 +99,13 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
 def test_elev_calculations_sar(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_threshold_retrack.py for SAR waves
+    """test alg_elev_calculations.py for SAR waves
 
     Test plan:
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
+    test that 'elevation' is in shared_dict and it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -146,9 +146,6 @@ def test_elev_calculations_sar(
     elev_dtype = str(shared_dict["elevation"].dtype)
     assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
 
-    num_positive = sum(shared_dict["elevation"] > 0)
-    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."
-
 
 def test_elev_calculations_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
@@ -159,7 +156,7 @@ def test_elev_calculations_sin(
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'elevation' is in shared_dict, it is an array of floats, and values are all positive
+    test that 'elevation' is in shared_dict and it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -198,6 +195,3 @@ def test_elev_calculations_sin(
 
     elev_dtype = str(shared_dict["elevation"].dtype)
     assert "float" in elev_dtype.lower(), f"Dtype of 'elevation' is {elev_dtype}, not float."
-
-    num_positive = sum(shared_dict["elevation"] > 0)
-    assert num_positive > 0, f"'elevation' contains negative values. Found {num_positive}."

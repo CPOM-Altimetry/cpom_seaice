@@ -5,12 +5,10 @@
     #Description of this Algorithm's purpose
 
     Subtracts the mean sea surface from the elevations calculated in alg_elev_calculations.
-    Also subtracts the retracker bias.
-
+    
     #Main initialization (init() function) steps/resources required
 
     Read the MSS file location from config and load into a KDTree
-    Read the retracker_bias value from config
 
     #Main process() function steps
 
@@ -90,9 +88,6 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        # Load bias from config
-        self.retracker_bias = self.config["alg_subtract_mss"]["retracker_bias"]
-
         # Load MSS config
         mss_file_path = self.config["alg_subtract_mss"]["mss_file"]
         buffer = self.config["alg_subtract_mss"]["mss_buffer"]
@@ -117,13 +112,13 @@ class Algorithm(BaseAlgorithm):
         mss_filt = mss_all[
             (mss_all[:, 1] > min_lat - buffer)
             & (mss_all[:, 1] < max_lat + buffer)
-            & (mss_all[:, 0] > min_lon - buffer)
-            & (mss_all[:, 0] < max_lon + buffer)
+            & (mss_all[:, 0] % 360 > min_lon - buffer)
+            & (mss_all[:, 0] % 360 < max_lon + buffer)
         ]
 
         # Assemble KDTree
         mss_lat = mss_filt[:, 1]
-        mss_lon = mss_filt[:, 0]
+        mss_lon = mss_filt[:, 0] % 360
         self.mss_vals = mss_filt[:, 2]
 
         mss_x, mss_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
@@ -181,20 +176,20 @@ class Algorithm(BaseAlgorithm):
 
         self.log.info("Number of NaNs in MSS - %d", sum(np.isnan(sample_mss_indices)))
 
-        elev_corr = (
-            shared_dict["elevation"] - self.mss_vals[sample_mss_indices] - self.retracker_bias
-        )
+        shared_dict["mss"] = self.mss_vals[sample_mss_indices]
 
-        self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(elev_corr)))
+        sla = shared_dict["elevation"] - shared_dict["mss"]
+
+        self.log.info("Number of NaNs in elevation_corrected - %d", sum(np.isnan(sla)))
         self.log.info(
-            "Elevation_corrected - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
-            np.nanmean(elev_corr),
-            np.nanstd(elev_corr),
-            np.nanmin(elev_corr),
-            np.nanmax(elev_corr),
+            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
+            np.nanmean(sla),
+            np.nanstd(sla),
+            np.nanmin(sla),
+            np.nanmax(sla),
         )
 
-        shared_dict["elevation_corrected"] = elev_corr
+        shared_dict["sea_level_anomaly"] = sla
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
