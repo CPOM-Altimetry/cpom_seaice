@@ -135,20 +135,21 @@ class Algorithm(BaseAlgorithm):
         # remove leads with SLAs outside of acceptable values
         sla[lead_indx][indx_lead_sla_inside_range] = np.nan
 
-        self.log.info(
-            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f NaN=%d",
-            np.nanmean(sla),
-            np.nanstd(sla),
-            np.nanmin(sla),
-            np.nanmax(sla),
-            sum(np.isnan(sla)),
-        )
-
         # skip track if mean SLA of leads is outside of limit
         if not np.isclose(mean_sla := np.nanmean(sla[lead_indx]), 0, atol=self.track_limit):
             self.log.info("Mean SLA is outside of acceptable range - %d", mean_sla)
             self.log.info("Skipping file...")
             return (False, "SKIP_OK")
+
+        self.log.info(
+            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(sla),
+            np.nanstd(sla),
+            np.nanmin(sla),
+            np.nanmax(sla),
+            sla.shape[0],
+            sum(np.isnan(sla)),
+        )
 
         shared_dict["sea_level_anomaly"] = sla
 
