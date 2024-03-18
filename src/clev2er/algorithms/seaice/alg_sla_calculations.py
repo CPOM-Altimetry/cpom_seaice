@@ -152,6 +152,8 @@ class Algorithm(BaseAlgorithm):
         )
 
         shared_dict["sea_level_anomaly"] = sla
+        shared_dict["lead_indx"] = lead_indx
+        shared_dict["indx_lead_sla_inside_range"] = indx_lead_sla_inside_range
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
