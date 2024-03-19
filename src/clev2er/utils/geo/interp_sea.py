@@ -1,6 +1,9 @@
 """ Module for interpolating sea levels between sea ice leads.
 
     interp_sea_regression(): Interpolates sea levels between leads using linear regression.
+    
+    Author: Ben Palmer
+    Date: 18 Mar 2024
 """
 
 import numpy as np

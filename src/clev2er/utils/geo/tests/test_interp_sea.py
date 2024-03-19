@@ -1,4 +1,7 @@
 """ Module for testing the clev2er.utils.geo.interp_sea.py module
+
+    Author: Ben Palmer
+    Date: 18 Mar 2024
 """
 
 import numpy as np
