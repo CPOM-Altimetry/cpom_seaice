@@ -82,7 +82,7 @@ alg_elev_calculations:
   bin_width: 0.234212857
   tracking_bin : 64
   
-alg_subtract_mss:
+alg_add_mss:
   mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/CS2_MSS_north.sav
   mss_buffer: 0.2
   input_projection: epsg:4326
@@ -91,5 +91,9 @@ alg_subtract_mss:
   max_latitude: 90.00 # maximum latitude in deg N
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
+
+alg_sla_calculations:
+  sample_limit: 20.0
+  track_limit: 0.5
 # Resource Locators
 

@@ -175,13 +175,14 @@ class Algorithm(BaseAlgorithm):
         # Add retracker bias from the diffuse retracker
         elevations[shared_dict["diffuse_index"]] -= self.diffuse_retracker_bias
 
-        self.log.info("Number of NaNs in elevation - %d", sum(np.isnan(elevations)))
         self.log.info(
-            "Elevation - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f",
+            "Elevation - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaNs=%d",
             np.nanmean(elevations),
             np.nanstd(elevations),
             np.nanmin(elevations),
             np.nanmax(elevations),
+            elevations.shape[0],
+            sum(np.isnan(elevations)),
         )
         shared_dict["elevation"] = elevations
 
