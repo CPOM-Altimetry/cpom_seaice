@@ -95,5 +95,10 @@ alg_add_mss:
 alg_sla_calculations:
   sample_limit: 20.0
   track_limit: 0.5
+
+alg_fbd_calculations:
+  window_range: 100 # range limit between floes and leads in either direction in km
+  distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
+
 # Resource Locators
 
