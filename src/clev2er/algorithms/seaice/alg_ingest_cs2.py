@@ -66,6 +66,7 @@ from datetime import datetime
 from functools import partial
 from typing import Tuple
 
+import numpy as np
 from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -177,30 +178,91 @@ class Algorithm(BaseAlgorithm):
 
         # Read L1b variables and store in the shared dictionary using common names
         # 20 Hz variables
-        shared_dict["sat_lat"] = self.unpack("lat_20_ku", l1b)
+        shared_dict["sat_lat"] = l1b["lat_20_ku"][:].data
         # convert longitude to 0..360 (from -180,180)
-        shared_dict["sat_lon"] = self.unpack("lon_20_ku", l1b) % 360.0  #
+        shared_dict["sat_lon"] = l1b["lon_20_ku"][:].data % 360.0  #
         # timestamps in file are seconds from 1/1/2000, convert to seconds from 1/1/1970
         shared_dict["measurement_time"] = (
-            self.unpack("time_20_ku", l1b) + datetime(2000, 1, 1).timestamp()
+            l1b["time_20_ku"][:].data + datetime(2000, 1, 1).timestamp()
         )
-        shared_dict["sat_altitude"] = self.unpack("alt_20_ku", l1b)
-        shared_dict["window_delay"] = self.unpack("window_del_20_ku", l1b)
-        shared_dict["waveform"] = self.unpack("pwr_waveform_20_ku", l1b)
-        shared_dict["waveform_ssd"] = self.unpack("stack_std_20_ku", l1b)
-        shared_dict["mcd_flag"] = self.unpack("flag_mcd_20_ku", l1b)
+
+        shared_dict["sat_altitude"] = l1b["alt_20_ku"][:].data.astype(np.float64)
+        shared_dict["window_delay"] = l1b["window_del_20_ku"][:].data.astype(np.float64)
+        shared_dict["waveform"] = l1b["pwr_waveform_20_ku"][:].data.astype(np.float64)
+        shared_dict["waveform_ssd"] = l1b["stack_std_20_ku"][:].data.astype(np.float64)
+        shared_dict["mcd_flag"] = l1b["flag_mcd_20_ku"][:].data.astype(np.float64)
+
+        # shared_dict["sat_lat"] = self.unpack("lat_20_ku", l1b)
+        # # convert longitude to 0..360 (from -180,180)
+        # shared_dict["sat_lon"] = self.unpack("lon_20_ku", l1b) % 360.0  #
+        # # timestamps in file are seconds from 1/1/2000, convert to seconds from 1/1/1970
+        # shared_dict["measurement_time"] = (
+        #     self.unpack("time_20_ku", l1b) + datetime(2000, 1, 1).timestamp()
+        # )
+        # shared_dict["sat_altitude"] = self.unpack("alt_20_ku", l1b)
+        # shared_dict["window_delay"] = self.unpack("window_del_20_ku", l1b)
+        # shared_dict["waveform"] = self.unpack("pwr_waveform_20_ku", l1b)
+        # shared_dict["waveform_ssd"] = self.unpack("stack_std_20_ku", l1b)
+        # shared_dict["mcd_flag"] = self.unpack("flag_mcd_20_ku", l1b)
 
         # 1 Hz variables
-        shared_dict["dry_trop_correction"] = self.unpack("mod_dry_tropo_cor_01", l1b)
-        shared_dict["wet_trop_correction"] = self.unpack("mod_wet_tropo_cor_01", l1b)
-        shared_dict["iono_correction"] = self.unpack("iono_cor_01", l1b)
-        shared_dict["inv_baro_correction"] = self.unpack("inv_bar_cor_01", l1b)
-        shared_dict["ocean_tide"] = self.unpack("ocean_tide_01", l1b)
-        shared_dict["long_period_tide"] = self.unpack("ocean_tide_eq_01", l1b)
-        shared_dict["loading_tide"] = self.unpack("load_tide_01", l1b)
-        shared_dict["earth_tide"] = self.unpack("solid_earth_tide_01", l1b)
-        shared_dict["pole_tide"] = self.unpack("pole_tide_01", l1b)
-        shared_dict["surface_type"] = self.unpack("surf_type_01", l1b)
+        shared_dict["block_number"] = np.arange(shared_dict["measurement_time"].size) % 20
+        shared_dict["packet_count"] = np.arange(shared_dict["measurement_time"].size) // 20
+
+        # shared_dict["block_number"] = np.zeros(
+        #     shared_dict["measurement_time"].size, dtype=np.float64
+        # )
+        # shared_dict["packet_count"] = (
+        #     np.zeros(shared_dict["measurement_time"].size, dtype=np.float64)
+        # )
+        shared_dict["dry_trop_correction"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["wet_trop_correction"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["iono_correction"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["inv_baro_correction"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["ocean_tide"] = np.zeros(shared_dict["measurement_time"].size, dtype=np.float64)
+        shared_dict["long_period_tide"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["loading_tide"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+        shared_dict["earth_tide"] = np.zeros(shared_dict["measurement_time"].size, dtype=np.float64)
+        shared_dict["pole_tide"] = np.zeros(shared_dict["measurement_time"].size, dtype=np.float64)
+        shared_dict["surface_type"] = np.zeros(
+            shared_dict["measurement_time"].size, dtype=np.float64
+        )
+
+        for packet_c in np.unique(shared_dict["packet_count"]):
+            find = shared_dict["packet_count"] == packet_c
+            shared_dict["dry_trop_correction"][find] = l1b["mod_dry_tropo_cor_01"][:].data[packet_c]
+            shared_dict["wet_trop_correction"][find] = l1b["mod_wet_tropo_cor_01"][:].data[packet_c]
+            shared_dict["iono_correction"][find] = l1b["iono_cor_01"][:].data[packet_c]
+            shared_dict["inv_baro_correction"][find] = l1b["inv_bar_cor_01"][:].data[packet_c]
+            shared_dict["ocean_tide"][find] = l1b["ocean_tide_01"][:].data[packet_c]
+            shared_dict["long_period_tide"][find] = l1b["ocean_tide_eq_01"][:].data[packet_c]
+            shared_dict["loading_tide"][find] = l1b["load_tide_01"][:].data[packet_c]
+            shared_dict["earth_tide"][find] = l1b["solid_earth_tide_01"][:].data[packet_c]
+            shared_dict["pole_tide"][find] = l1b["pole_tide_01"][:].data[packet_c]
+            shared_dict["surface_type"][find] = l1b["surf_type_01"][:].data[packet_c]
+
+        # shared_dict["dry_trop_correction"] = l1b["mod_dry_tropo_cor_01"][:].data
+        # shared_dict["wet_trop_correction"] = l1b["mod_wet_tropo_cor_01"][:].data
+        # shared_dict["iono_correction"] = l1b["iono_cor_01"][:].data
+        # shared_dict["inv_baro_correction"] = l1b["inv_bar_cor_01"][:].data
+        # shared_dict["ocean_tide"] = l1b["ocean_tide_01"][:].data
+        # shared_dict["long_period_tide"] = l1b["ocean_tide_eq_01"][:].data
+        # shared_dict["loading_tide"] = l1b["load_tide_01"][:].data
+        # shared_dict["earth_tide"] = l1b["solid_earth_tide_01"][:].data
+        # shared_dict["pole_tide"] = l1b["pole_tide_01"][:].data
+        # shared_dict["surface_type"] = l1b["surf_type_01"][:].data
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
