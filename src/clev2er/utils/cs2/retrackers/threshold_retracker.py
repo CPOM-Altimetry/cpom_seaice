@@ -33,31 +33,57 @@ def threshold_retracker(waveform: npt.NDArray, threshold: float) -> float:
     if not 0.0 < threshold < 1.0:
         raise ValueError(f"Threshold should be between 0 and 1, received {threshold}")
 
-    bin_max = np.nanargmax(waveform)
-    if np.nanmax(waveform) <= 0:
-        return np.nan
+    # NOTE: Contains a Python-y version and Andy's version.
 
-    threshold_20 = waveform[bin_max] * 0.2
-    idx_gt_threshold_20 = np.where(waveform >= threshold_20)[0]
-    idx_before_peak = np.where(idx_gt_threshold_20 <= bin_max)
-    idx_gt_20_before_peak = idx_gt_threshold_20[idx_before_peak]
+    # NOTE: Pythony version below.
 
-    indx = 0  # initialise index variable (or else pylint raises issue)
+    # bin_max = np.nanargmax(waveform)
+    # amp_max = waveform[bin_max]
+    # if bin_max <= 0:
+    #     return np.nan
 
-    for indx in idx_gt_20_before_peak:
-        if indx < waveform.size - 1 and waveform[indx - 1] < waveform[indx] > waveform[indx + 1]:
-            break
+    # threshold_20 = amp_max * 0.2
+    # idx_gt_threshold_20 = np.where(waveform >= threshold_20)[0]
+    # idx_before_peak = np.where(idx_gt_threshold_20 <= bin_max)[0]
+    # idx_gt_20_before_peak = idx_gt_threshold_20[idx_before_peak]
 
-    first_peak_amp = waveform[indx]
+    # indx = 0  # initialise index variable (or else pylint raises issue)
 
-    threshold_amp = threshold * first_peak_amp
+    # for indx in idx_gt_20_before_peak:
+    #     if indx < waveform.size - 1 and waveform[indx - 1] < waveform[indx] > waveform[indx + 1]:
+    #         break
 
-    idx_gt_threshold = np.where(waveform > threshold_amp)[0]
+    # first_peak_amp = waveform[indx]
 
-    if idx_gt_threshold.size <= 0:
-        return np.nan
+    # threshold_amp = threshold * first_peak_amp
 
-    x2 = np.min(idx_gt_threshold)  # find first bin where amp > threshold
+    # idx_gt_threshold = np.where(waveform > threshold_amp)[0]
+
+    # if idx_gt_threshold.size <= 0:
+    #     return np.nan
+
+    # x2 = np.min(idx_gt_threshold)  # find first bin where amp > threshold
+
+    # NOTE: Andy's version below.
+
+    idx = 0
+    amp_max = np.max(waveform)
+    valid_amp = amp_max * 0.2
+
+    while waveform[idx] < valid_amp and idx < waveform.size:
+        idx += 1
+
+    while waveform[idx] < waveform[idx + 1] and idx < waveform.size:
+        idx += 1
+
+    threshold_amp = waveform[idx] * threshold
+
+    x2 = 0
+    while waveform[x2] < threshold_amp:
+        x2 += 1
     x1 = x2 - 1
+
+    if x2 == 0 or waveform[x2] <= waveform[x1]:
+        return 0.0
 
     return x1 + ((threshold_amp - waveform[x1]) / (waveform[x2] - waveform[x1]))
