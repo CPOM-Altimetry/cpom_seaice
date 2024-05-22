@@ -34,6 +34,7 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.geo.interp_sea import interp_sea_regression
 
 
 class Algorithm(BaseAlgorithm):
@@ -80,8 +81,11 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         # SLA related values
+        self.clip_value = self.config["alg_sla_calculations"]["clip_value"]
         self.track_limit = self.config["alg_sla_calculations"]["track_limit"]
         self.sample_limit = self.config["alg_sla_calculations"]["sample_limit"]
+        self.window_range = self.config["alg_sla_calculations"]["window_range"]
+        self.distance_projection = self.config["alg_sla_calculations"]["distance_projection"]
 
         # --- End of initialization steps ---
 
@@ -120,38 +124,82 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        sla = shared_dict["elevation"] - shared_dict["mss"]
+        raw_sla = shared_dict["elevation"] - shared_dict["mss"]
+
+        # Remove values -clip<x<clip
+        # From Andy:
+        # Rejected anything more than 3m from MSS. A histogram
+        # of SLA from specular echoes for cycle 013 shows almost
+        # no data above +2m and below -1m.
+
+        raw_sla[(raw_sla > self.clip_value) & (raw_sla < -self.clip_value)] = np.nan
+
+        self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(raw_sla)))
+
+        not_nan_sla = np.invert(np.isnan(raw_sla))
+
+        interp_lats = shared_dict["sat_lat"][not_nan_sla]
+        interp_lons = shared_dict["sat_lon"][not_nan_sla]
+        interp_sla = raw_sla[not_nan_sla]
 
         # find lead indices
-        lead_indx = shared_dict["lead_floe_class"] == 2
+        lead_indx = shared_dict["lead_floe_class"][not_nan_sla] == 2
+
+        if np.sum(lead_indx) == 0:
+            self.log.info("No leads in file, unable to interpolate sea elevation")
+            return (False, "SKIP_OK")
+
+        interp_sla = interp_sea_regression(
+            interp_lats,
+            interp_lons,
+            interp_sla,
+            lead_indx,
+            self.window_range * 1000,  # convert window_range from km to m
+            self.distance_projection,
+        )
+
+        if interp_sla.size == 0:
+            self.log.info("No SLA values found, skipping file")
+            return (False, "SKIP_OK")
+
+        self.log.info(
+            "Interpolated sea elevation - Mean=%.3f Count=%d NaN=%d",
+            np.nanmean(interp_sla),
+            interp_sla.shape[0],
+            sum(np.isnan(interp_sla)),
+        )
 
         # find lead samples where sla is inside acceptable range
-        indx_lead_sla_inside_range = np.isclose(sla[lead_indx], 0, atol=self.sample_limit)
+        indx_lead_sla_inside_range = np.isclose(interp_sla[lead_indx], 0, atol=self.sample_limit)
 
         self.log.info(
             "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
         )
 
         # remove leads with SLAs outside of acceptable values
-        sla[lead_indx][indx_lead_sla_inside_range] = np.nan
+        interp_sla[lead_indx][indx_lead_sla_inside_range] = np.nan
 
         # skip track if mean SLA of leads is outside of limit
-        if not np.isclose(mean_sla := np.nanmean(sla[lead_indx]), 0, atol=self.track_limit):
-            self.log.info("Mean SLA is outside of acceptable range - %d", mean_sla)
+        if not np.isclose(mean_sla := np.nanmean(interp_sla[lead_indx]), 0, atol=self.track_limit):
+            self.log.info("Mean SLA is outside of acceptable range - %f", mean_sla)
             self.log.info("Skipping file...")
             return (False, "SKIP_OK")
 
         self.log.info(
             "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(sla),
-            np.nanstd(sla),
-            np.nanmin(sla),
-            np.nanmax(sla),
-            sla.shape[0],
-            sum(np.isnan(sla)),
+            np.nanmean(raw_sla),
+            np.nanstd(raw_sla),
+            np.nanmin(raw_sla),
+            np.nanmax(raw_sla),
+            raw_sla.shape[0],
+            sum(np.isnan(raw_sla)),
         )
 
-        shared_dict["sea_level_anomaly"] = sla
+        smoothed_sla = np.zeros(raw_sla.size) * np.nan
+        smoothed_sla[not_nan_sla] = interp_sla
+
+        shared_dict["raw_sea_level_anomaly"] = raw_sla
+        shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
         shared_dict["lead_indx"] = lead_indx
         shared_dict["indx_lead_sla_inside_range"] = indx_lead_sla_inside_range
 

@@ -35,7 +35,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.geo.interp_sea import interp_sea_regression
 
 
 class Algorithm(BaseAlgorithm):
@@ -80,8 +79,7 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
-        self.window_range = self.config["alg_fbd_calculations"]["window_range"]
-        self.distance_projection = self.config["alg_fbd_calculations"]["distance_projection"]
+
         # --- End of initialization steps ---
 
         return (True, "")
@@ -119,20 +117,7 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        if np.sum(lead_index := shared_dict["lead_floe_class"] == 2) == 0:
-            self.log.info("No leads in file, unable to interpolate sea elevation")
-            return (False, "SKIP_OK")
-
-        interp_sea_elev = interp_sea_regression(
-            shared_dict["sat_lat"],
-            shared_dict["sat_lon"],
-            shared_dict["sea_level_anomaly"],
-            lead_index,
-            self.window_range * 1000,  # convert window_range from km to m
-            self.distance_projection,
-        )
-
-        freeboard = shared_dict["sea_level_anomaly"] - interp_sea_elev
+        freeboard = shared_dict["sea_level_anomaly"] - shared_dict["smoothed_sea_level_anomaly"]
 
         self.log.info(
             "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
