@@ -22,3 +22,4 @@ algorithms:
   - alg_elev_calculations
   - alg_add_mss
   - alg_sla_calculations
+  - alg_fbd_calculations
