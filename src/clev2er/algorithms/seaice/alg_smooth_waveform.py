@@ -34,9 +34,9 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.ndimage import uniform_filter
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.waveforms.smooth import smooth_waveform
 
 
 class Algorithm(BaseAlgorithm):
@@ -83,6 +83,8 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         self.moving_average_width = self.config["alg_smooth_waveform"]["moving_average_width"]
+        if self.moving_average_width % 2 == 0:
+            raise ValueError("Moving average width must be an odd integer.")
 
         self.log.info("     Number of points in moving average - %d", self.moving_average_width)
 
@@ -126,7 +128,7 @@ class Algorithm(BaseAlgorithm):
         diffuse_waves = shared_dict["waveform"][shared_dict["diffuse_index"]]
 
         smoothed_waves = np.apply_along_axis(
-            uniform_filter, 1, diffuse_waves, size=(self.moving_average_width)
+            smooth_waveform, 1, diffuse_waves, moving_avg_size=self.moving_average_width
         )
 
         shared_dict["waveform_smooth"] = np.asarray(smoothed_waves)
