@@ -133,6 +133,11 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        if shared_dict["diffuse_index"].size == 0:
+            self.log.info("No diffuse waves in file - skipping retracking...")
+            shared_dict["floe_retracking_points"] = np.array([])
+            return (success, error_str)
+
         points_higher = np.apply_along_axis(
             threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_high
         )
