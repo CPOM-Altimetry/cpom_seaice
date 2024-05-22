@@ -1,0 +1,87 @@
+""" Module for interpolating sea levels between sea ice leads.
+
+    interp_sea_regression(): Interpolates sea levels between leads using linear regression.
+    
+    Author: Ben Palmer
+    Date: 18 Mar 2024
+"""
+
+import numpy as np
+import numpy.typing as npt
+import pyproj as proj
+from sklearn.linear_model import LinearRegression
+
+
+def interp_sea_regression(
+    lats_data: npt.NDArray,
+    lons_data: npt.NDArray,
+    sea_level_data: npt.NDArray,
+    lead_index: npt.NDArray,
+    window_size: float,
+    distance_projection: str = "WGS84",
+) -> npt.NDArray:
+    """Returns an array of interpolated sea levels using linear regression.
+
+    Uses linear regression to find interpolated sea level values for arrays of lat, lon and sea
+    level data. Uses a lead index to find leads within the window range of each point. To find a
+    regressed value for a point, it must have at least one lead within window range on each side.
+
+    Args:
+        lats_data (npt.NDArray): Latitude data
+        lons_data (npt.NDArray): Longitude data
+        sea_level_data (npt.NDArray): Sea level data
+        lead_index (npt.NDArray): Boolean array of leads
+        window_size (float): Maximum distance that a point can be from the current point
+        distance_projection (str, optional): Projection that is used when
+            calculating distance. Defaults to "WGS84".
+
+    Raises:
+        ValueError: Raised if input arrays are different sizes on axis 0.
+        ValueError: Raised if the lead_index input is not an array of bools.
+
+    Returns:
+        npt.NDArray: The array of regressed sea level values.
+    """
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
+    if (
+        lats_data.shape[0] != lons_data.shape[0]
+        and lats_data.shape[0] != sea_level_data.shape[0]
+        and lats_data.shape[0] != lead_index.shape[0]
+    ):
+        raise ValueError("Input arrays arrays do not have homogenous shape on axis 0.")
+
+    if "bool" not in str(lead_index.dtype).lower():
+        raise ValueError("Lead_index array must contain bool values")
+
+    geod: proj.Geod = proj.Geod(ellps=distance_projection)
+
+    out: npt.NDArray = np.zeros(lats_data.shape[0], dtype=int) * np.nan
+
+    for i in range(lats_data.shape[0]):
+        point_distances: npt.NDArray = np.zeros((lats_data.shape[0])) * np.nan
+
+        for j, (point_lat, point_lon) in enumerate(zip(lats_data, lons_data)):
+            _, _, point_distances[j] = geod.inv(point_lon, point_lat, lons_data[i], lats_data[i])
+
+        # finds leads within range window
+        lead_and_in_window: npt.NDArray = lead_index & (point_distances <= window_size)
+
+        # stops slicing index error
+        slice_max: int = np.min([i + 1, point_distances.size - 1])
+
+        points_bf: npt.NDArray = point_distances[:i][lead_and_in_window[:i]]
+        points_af: npt.NDArray = point_distances[slice_max:][lead_and_in_window[slice_max:]]
+
+        if ((points_bf.size) > 0) and ((points_af.size) > 0):
+            # distances before current point should be negative during linear regression
+            point_distances[:i] *= -1
+
+            x: npt.NDArray = point_distances[lead_and_in_window].reshape(-1, 1)
+
+            y: npt.NDArray = sea_level_data[lead_and_in_window]
+
+            lr = LinearRegression().fit(X=x, y=y)
+            out[i] = lr.predict([[0]])[0]
+
+    return out
