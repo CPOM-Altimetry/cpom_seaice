@@ -9,19 +9,27 @@
 
     #Main initialization (init() function) steps/resources required
 
-    init_steps
+    Get limit values from config
 
     #Main process() function steps
 
-    process_steps
+    Calculate SLA by removing MSS from elevation
+    Find index of lead samples
+    Find lead samples which are within acceptable range of values
+    Skip track if mean SLA is outside of limit
+    Saved to shared dict
 
     #Contribution to shared_dict
 
-    contributions
+    'sea_level_anomaly' (np.ndarray[float]) : array of sea level anomaly values
+    'indx_lead_sla_inside_range' (np.ndarray[bool]) : index of lead values with SLA inside the 
+        acceptable range
 
     #Requires from shared_dict
 
-    requirements
+    'elevation'
+    'mss'
+    'lead_floe_class'
 
     Author: Ben Palmer
     Date: 12 Mar 2024
