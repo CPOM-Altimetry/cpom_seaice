@@ -1,41 +1,32 @@
-""" clev2er.algorithms.seaice.alg_sla_calculations.py
+""" clev2er.algorithms.seaice.alg_fbd_calculations.py
 
     Algorithm class module, used to implement a single chain algorithm
 
     #Description of this Algorithm's purpose
 
-    Calculates sea level anomaly (SLA) using elevation and MSS. Removes SLA values greater than 20m 
-    or less than -20m. 
+    Calculates the freeboard height for each sample.
 
     #Main initialization (init() function) steps/resources required
 
-    Get parameters from config file
+    Get window_size config option
 
     #Main process() function steps
 
-    Find the raw SLA by subtracting elevation and mss
-    Remove any values outside of clipping range
-    Interpolate SLA between lead values using interp_sla
-    Filter out leads where the SLA is outside of the acceptable range
-    If leads in track have a mean SLA outside of limit, skip it
+    Interpolate ocean surface elevation between leads.
+    Subtract interpolated ocean surface from elevation.
+    Save to shared_dict
 
     #Contribution to shared_dict
 
-    'raw_sea_level_anomaly'
-    'smoothed_sea_level_anomaly'
-    'lead_indx'
-    'indx_lead_sla_inside_range'
+    'freeboard' (np.ndarray[float]) : array of freeboard values
 
     #Requires from shared_dict
 
-    'elevation'
-    'mss'
-    'lead_floe_class'
-    'sat_lat'
-    'sat_lon'
+    'sea_level_anomaly'
+    'smoothed_sea_level_anomaly'
 
     Author: Ben Palmer
-    Date: 12 Mar 2024
+    Date: 21 Mar 2024
 """
 
 from typing import Tuple
@@ -45,7 +36,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.geo.interp_sea import interp_sea_regression
 
 
 class Algorithm(BaseAlgorithm):
@@ -91,13 +81,6 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        # SLA related values
-        self.clip_value = self.config["alg_sla_calculations"]["clip_value"]
-        self.track_limit = self.config["alg_sla_calculations"]["track_limit"]
-        self.sample_limit = self.config["alg_sla_calculations"]["sample_limit"]
-        self.window_range = self.config["alg_sla_calculations"]["window_range"]
-        self.distance_projection = self.config["alg_sla_calculations"]["distance_projection"]
-
         # --- End of initialization steps ---
 
         return (True, "")
@@ -135,84 +118,19 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        raw_sla = shared_dict["elevation"] - shared_dict["mss"]
-
-        # Remove values -clip<x<clip
-        # From Andy:
-        # Rejected anything more than 3m from MSS. A histogram
-        # of SLA from specular echoes for cycle 013 shows almost
-        # no data above +2m and below -1m.
-
-        raw_sla[(raw_sla > self.clip_value) & (raw_sla < -self.clip_value)] = np.nan
-
-        self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(raw_sla)))
-
-        not_nan_sla = np.invert(np.isnan(raw_sla))
-
-        interp_lats = shared_dict["sat_lat"][not_nan_sla]
-        interp_lons = shared_dict["sat_lon"][not_nan_sla]
-        interp_sla = raw_sla[not_nan_sla]
-
-        # find lead indices
-        lead_indx = shared_dict["lead_floe_class"][not_nan_sla] == 2
-
-        if np.sum(lead_indx) == 0:
-            self.log.info("No leads in file, unable to interpolate sea elevation")
-            return (False, "SKIP_OK")
-
-        interp_sla = interp_sea_regression(
-            interp_lats,
-            interp_lons,
-            interp_sla,
-            lead_indx,
-            self.window_range * 1000,  # convert window_range from km to m
-            self.distance_projection,
-        )
-
-        if interp_sla.size == 0:
-            self.log.info("No SLA values found, skipping file")
-            return (False, "SKIP_OK")
+        freeboard = shared_dict["raw_sea_level_anomaly"] - shared_dict["smoothed_sea_level_anomaly"]
 
         self.log.info(
-            "Interpolated sea elevation - Mean=%.3f Count=%d NaN=%d",
-            np.nanmean(interp_sla),
-            interp_sla.shape[0],
-            sum(np.isnan(interp_sla)),
+            "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(freeboard),
+            np.nanstd(freeboard),
+            np.nanmin(freeboard),
+            np.nanmax(freeboard),
+            freeboard.shape[0],
+            sum(np.isnan(freeboard)),
         )
 
-        # find lead samples where sla is inside acceptable range
-        indx_lead_sla_inside_range = np.isclose(interp_sla[lead_indx], 0, atol=self.sample_limit)
-
-        self.log.info(
-            "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
-        )
-
-        # remove leads with SLAs outside of acceptable values
-        interp_sla[lead_indx][indx_lead_sla_inside_range] = np.nan
-
-        # skip track if mean SLA of leads is outside of limit
-        if not np.isclose(mean_sla := np.nanmean(interp_sla[lead_indx]), 0, atol=self.track_limit):
-            self.log.info("Mean SLA is outside of acceptable range - %f", mean_sla)
-            self.log.info("Skipping file...")
-            return (False, "SKIP_OK")
-
-        self.log.info(
-            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(raw_sla),
-            np.nanstd(raw_sla),
-            np.nanmin(raw_sla),
-            np.nanmax(raw_sla),
-            raw_sla.shape[0],
-            sum(np.isnan(raw_sla)),
-        )
-
-        smoothed_sla = np.zeros(raw_sla.size) * np.nan
-        smoothed_sla[not_nan_sla] = interp_sla
-
-        shared_dict["raw_sea_level_anomaly"] = raw_sla
-        shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
-        shared_dict["lead_indx"] = lead_indx
-        shared_dict["indx_lead_sla_inside_range"] = indx_lead_sla_inside_range
+        shared_dict["freeboard"] = freeboard
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -237,7 +155,5 @@ class Algorithm(BaseAlgorithm):
         # ---------------------------------------------------------------------
         # Add finalization steps here \/
         # ---------------------------------------------------------------------
-
-        # None
 
         # ---------------------------------------------------------------------

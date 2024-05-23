@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_sla_calculations
+    clev2er.algorithms.seaice.alg_fbd_calculations
 """
 
 import logging
@@ -19,12 +19,13 @@ from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
     Algorithm as WaveDiscrimination,
 )
 from clev2er.algorithms.seaice.alg_elev_calculations import Algorithm as ElevCalc
+from clev2er.algorithms.seaice.alg_fbd_calculations import Algorithm
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
 from clev2er.algorithms.seaice.alg_giles_retrack import Algorithm as GilesRetrack
 from clev2er.algorithms.seaice.alg_ice_class import Algorithm as IceClass
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
-from clev2er.algorithms.seaice.alg_sla_calculations import Algorithm
+from clev2er.algorithms.seaice.alg_sla_calculations import Algorithm as SLACalc
 from clev2er.algorithms.seaice.alg_smooth_waveform import Algorithm as SmoothWaveform
 from clev2er.algorithms.seaice.alg_threshold_retrack import (
     Algorithm as ThresholdRetrack,
@@ -78,6 +79,7 @@ def previous_steps(
             "giles_retrack": GilesRetrack(config, logger),
             "elev_calculations": ElevCalc(config, logger),
             "add_mss": AddMss(config, logger),
+            "sla_calculations": SLACalc(config, logger),
         }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
@@ -108,17 +110,17 @@ sar_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", sar_file_test)
-def test_sla_calculations_sar(
+def test_fbd_calculations_sar(
     file_num, previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_sla_calculations.py for SAR waves
+    """test alg_fbd_calculations.py for SAR waves
 
     Test plan:
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'raw_sea_level_anomaly' and 'smoothed_sea_level_anomaly are in shared_dict, it is an
-    array of floats, and values are all positive
+    test that 'freeboard' is in shared_dict, it is an array of floats, and
+        values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -150,43 +152,27 @@ def test_sla_calculations_sar(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "raw_sea_level_anomaly" in shared_dict, "'raw_sea_level_anomaly' not in shared_dict."
+    assert "freeboard" in shared_dict, "'freeboard' not in shared_dict."
 
     assert isinstance(
-        shared_dict["raw_sea_level_anomaly"], np.ndarray
-    ), f"'raw_sea_level_anomaly' is {type(shared_dict['raw_sea_level_anomaly'])}, not ndarray."
+        shared_dict["freeboard"], np.ndarray
+    ), f"'freeboard' is {type(shared_dict['freeboard'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["raw_sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'raw_sea_level_anomaly' is {elev_dtype}, not float."
-
-    assert (
-        "smoothed_sea_level_anomaly" in shared_dict
-    ), "'smoothed_sea_level_anomaly' not in shared_dict."
-
-    assert isinstance(shared_dict["smoothed_sea_level_anomaly"], np.ndarray), (
-        f"'smoothed_sea_level_anomaly' is {type(shared_dict['smoothed_sea_level_anomaly'])},"
-        "not ndarray."
-    )
-
-    elev_dtype = str(shared_dict["smoothed_sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'smoothed_sea_level_anomaly' is {elev_dtype}, not float."
+    elev_dtype = str(shared_dict["freeboard"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard' is {elev_dtype}, not float."
 
 
-def test_sla_calculations_sin(
+def test_fbd_calculations_sin(
     previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_sla_calculations.py for SIN waveforms
+    """test alg_fbd_calculations.py for SIN waveforms
 
     Test plan:
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'raw_sea_level_anomaly' and 'smoothed_sea_level_anomaly are in shared_dict, it is an
-    array of floats, and values are all positive
+    test that 'freeboard' is in shared_dict, it is an array of floats,
+        and values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -217,27 +203,11 @@ def test_sla_calculations_sin(
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "raw_sea_level_anomaly" in shared_dict, "'raw_sea_level_anomaly' not in shared_dict."
+    assert "freeboard" in shared_dict, "'freeboard' not in shared_dict."
 
     assert isinstance(
-        shared_dict["raw_sea_level_anomaly"], np.ndarray
-    ), f"'raw_sea_level_anomaly' is {type(shared_dict['raw_sea_level_anomaly'])}, not ndarray."
+        shared_dict["freeboard"], np.ndarray
+    ), f"'freeboard' is {type(shared_dict['freeboard'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["raw_sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'raw_sea_level_anomaly' is {elev_dtype}, not float."
-
-    assert (
-        "smoothed_sea_level_anomaly" in shared_dict
-    ), "'smoothed_sea_level_anomaly' not in shared_dict."
-
-    assert isinstance(shared_dict["smoothed_sea_level_anomaly"], np.ndarray), (
-        f"'smoothed_sea_level_anomaly' is {type(shared_dict['smoothed_sea_level_anomaly'])},"
-        "not ndarray."
-    )
-
-    elev_dtype = str(shared_dict["smoothed_sea_level_anomaly"].dtype)
-    assert (
-        "float" in elev_dtype.lower()
-    ), f"Dtype of 'smoothed_sea_level_anomaly' is {elev_dtype}, not float."
+    elev_dtype = str(shared_dict["freeboard"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard' is {elev_dtype}, not float."
