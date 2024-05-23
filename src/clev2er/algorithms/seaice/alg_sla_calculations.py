@@ -9,27 +9,30 @@
 
     #Main initialization (init() function) steps/resources required
 
-    Get limit values from config
+    Get parameters from config file
 
     #Main process() function steps
 
-    Calculate SLA by removing MSS from elevation
-    Find index of lead samples
-    Find lead samples which are within acceptable range of values
-    Skip track if mean SLA is outside of limit
-    Saved to shared dict
+    Find the raw SLA by subtracting elevation and mss
+    Remove any values outside of clipping range
+    Interpolate SLA between lead values using interp_sla
+    Filter out leads where the SLA is outside of the acceptable range
+    If leads in track have a mean SLA outside of limit, skip it
 
     #Contribution to shared_dict
 
-    'sea_level_anomaly' (np.ndarray[float]) : array of sea level anomaly values
-    'indx_lead_sla_inside_range' (np.ndarray[bool]) : index of lead values with SLA inside the 
-        acceptable range
+    'raw_sea_level_anomaly'
+    'smoothed_sea_level_anomaly'
+    'lead_indx'
+    'indx_lead_sla_inside_range'
 
     #Requires from shared_dict
 
     'elevation'
     'mss'
     'lead_floe_class'
+    'sat_lat'
+    'sat_lon'
 
     Author: Ben Palmer
     Date: 12 Mar 2024

@@ -23,6 +23,7 @@
     #Requires from shared_dict
 
     'sea_level_anomaly'
+    'smoothed_sea_level_anomaly'
 
     Author: Ben Palmer
     Date: 21 Mar 2024
@@ -117,7 +118,7 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        freeboard = shared_dict["sea_level_anomaly"] - shared_dict["smoothed_sea_level_anomaly"]
+        freeboard = shared_dict["raw_sea_level_anomaly"] - shared_dict["smoothed_sea_level_anomaly"]
 
         self.log.info(
             "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",

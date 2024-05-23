@@ -117,8 +117,8 @@ def test_sla_calculations_sar(
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats, and
-        values are all positive
+    test that 'raw_sea_level_anomaly' and 'smoothed_sea_level_anomaly are in shared_dict, it is an
+    array of floats, and values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -150,16 +150,30 @@ def test_sla_calculations_sar(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
+    assert "raw_sea_level_anomaly" in shared_dict, "'raw_sea_level_anomaly' not in shared_dict."
 
     assert isinstance(
-        shared_dict["sea_level_anomaly"], np.ndarray
-    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
+        shared_dict["raw_sea_level_anomaly"], np.ndarray
+    ), f"'raw_sea_level_anomaly' is {type(shared_dict['raw_sea_level_anomaly'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
+    elev_dtype = str(shared_dict["raw_sea_level_anomaly"].dtype)
     assert (
         "float" in elev_dtype.lower()
-    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
+    ), f"Dtype of 'raw_sea_level_anomaly' is {elev_dtype}, not float."
+
+    assert (
+        "smoothed_sea_level_anomaly" in shared_dict
+    ), "'smoothed_sea_level_anomaly' not in shared_dict."
+
+    assert isinstance(shared_dict["smoothed_sea_level_anomaly"], np.ndarray), (
+        f"'smoothed_sea_level_anomaly' is {type(shared_dict['smoothed_sea_level_anomaly'])},"
+        "not ndarray."
+    )
+
+    elev_dtype = str(shared_dict["smoothed_sea_level_anomaly"].dtype)
+    assert (
+        "float" in elev_dtype.lower()
+    ), f"Dtype of 'smoothed_sea_level_anomaly' is {elev_dtype}, not float."
 
 
 def test_sla_calculations_sin(
@@ -171,8 +185,8 @@ def test_sla_calculations_sin(
     Load a SARIn file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'sea_level_anomaly' is in shared_dict, it is an array of floats,
-        and values are all positive
+    test that 'raw_sea_level_anomaly' and 'smoothed_sea_level_anomaly are in shared_dict, it is an
+    array of floats, and values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -203,13 +217,27 @@ def test_sla_calculations_sin(
     assert success, f"SIN - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "sea_level_anomaly" in shared_dict, "'sea_level_anomaly' not in shared_dict."
+    assert "raw_sea_level_anomaly" in shared_dict, "'raw_sea_level_anomaly' not in shared_dict."
 
     assert isinstance(
-        shared_dict["sea_level_anomaly"], np.ndarray
-    ), f"'sea_level_anomaly' is {type(shared_dict['sea_level_anomaly'])}, not ndarray."
+        shared_dict["raw_sea_level_anomaly"], np.ndarray
+    ), f"'raw_sea_level_anomaly' is {type(shared_dict['raw_sea_level_anomaly'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["sea_level_anomaly"].dtype)
+    elev_dtype = str(shared_dict["raw_sea_level_anomaly"].dtype)
     assert (
         "float" in elev_dtype.lower()
-    ), f"Dtype of 'sea_level_anomaly' is {elev_dtype}, not float."
+    ), f"Dtype of 'raw_sea_level_anomaly' is {elev_dtype}, not float."
+
+    assert (
+        "smoothed_sea_level_anomaly" in shared_dict
+    ), "'smoothed_sea_level_anomaly' not in shared_dict."
+
+    assert isinstance(shared_dict["smoothed_sea_level_anomaly"], np.ndarray), (
+        f"'smoothed_sea_level_anomaly' is {type(shared_dict['smoothed_sea_level_anomaly'])},"
+        "not ndarray."
+    )
+
+    elev_dtype = str(shared_dict["smoothed_sea_level_anomaly"].dtype)
+    assert (
+        "float" in elev_dtype.lower()
+    ), f"Dtype of 'smoothed_sea_level_anomaly' is {elev_dtype}, not float."
