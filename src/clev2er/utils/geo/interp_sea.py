@@ -58,30 +58,74 @@ def interp_sea_regression(
 
     out: npt.NDArray = np.zeros(lats_data.shape[0], dtype=int) * np.nan
 
-    for i in range(lats_data.shape[0]):
-        point_distances: npt.NDArray = np.zeros((lats_data.shape[0])) * np.nan
+    # NOTE: There are 2 versions of this function; the "Python-y" version and the  direct
+    #       translation of Andy's code. I found that they produced the same results, but Andy's
+    #       was much faster. Python-y version is O(n^2) while Andy's looks ~ O(n log n), could
+    #       update Python-y version to match.
 
-        for j, (point_lat, point_lon) in enumerate(zip(lats_data, lons_data)):
-            _, _, point_distances[j] = geod.inv(point_lon, point_lat, lons_data[i], lats_data[i])
+    # NOTE: Pythony version
 
-        # finds leads within range window
-        lead_and_in_window: npt.NDArray = lead_index & (point_distances <= window_size)
+    # for i in range(lats_data.shape[0]):
+    #     if i in lead_index:
+    #         out[i] = sea_level_data[i]
 
-        # stops slicing index error
-        slice_max: int = np.min([i + 1, point_distances.size - 1])
+    #     point_distances: npt.NDArray = np.zeros((lats_data.shape[0])) * np.nan
 
-        points_bf: npt.NDArray = point_distances[:i][lead_and_in_window[:i]]
-        points_af: npt.NDArray = point_distances[slice_max:][lead_and_in_window[slice_max:]]
+    #     for j, (point_lat, point_lon) in enumerate(zip(lats_data, lons_data)):
+    #         _, _, point_distances[j] = geod.inv(point_lon, point_lat, lons_data[i], lats_data[i])
 
-        if ((points_bf.size) > 0) and ((points_af.size) > 0):
-            # distances before current point should be negative during linear regression
-            point_distances[:i] *= -1
+    #     # finds leads within range window
+    #     lead_and_in_window: npt.NDArray = lead_index & (point_distances <= window_size)
 
-            x: npt.NDArray = point_distances[lead_and_in_window].reshape(-1, 1)
+    #     # stops slicing index error
+    #     slice_max: int = np.min([i + 1, point_distances.size - 1])
 
-            y: npt.NDArray = sea_level_data[lead_and_in_window]
+    #     points_bf: npt.NDArray = point_distances[:i][lead_and_in_window[:i]]
+    #     points_af: npt.NDArray = point_distances[slice_max:][lead_and_in_window[slice_max:]]
 
-            lr = LinearRegression().fit(X=x, y=y)
-            out[i] = lr.predict([[0]])[0]
+    #     if ((points_bf.size) > 0) and ((points_af.size) > 0):
+    #         # distances before current point should be negative during linear regression
+    #         point_distances[:i] *= -1
+
+    #         x: npt.NDArray = point_distances[lead_and_in_window].reshape(-1, 1)
+
+    #         y: npt.NDArray = sea_level_data[lead_and_in_window]
+
+    #         # y = y[np.invert(np.isnan(y))]
+
+    #         lr = LinearRegression().fit(X=x, y=y)
+    #         out[i] = lr.predict([[0]])[0]
+
+    # NOTE: Andy's version
+
+    for idx in range(lats_data.shape[0]):
+        nlower = 0
+        nupper = 0
+        dist = 0
+
+        x_arr = []
+        y_arr = []
+
+        for jdx in range(idx, lats_data.shape[0]):
+            if lead_index[jdx]:
+                x_arr.append(dist)
+                y_arr.append(sea_level_data[jdx])
+                nupper += 1
+            _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            if dist > window_size:
+                break
+
+        for jdx in range(idx, -1, -1):
+            if lead_index[jdx]:
+                x_arr.append(-dist)
+                y_arr.append(sea_level_data[jdx])
+                nlower += 1
+            _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            if dist > window_size:
+                break
+
+        if nlower > 0 and nupper > 0:
+            lr = LinearRegression().fit(X=np.asarray(x_arr).reshape(-1, 1), y=np.asarray(y_arr))
+            out[idx] = lr.predict([[0]])[0]
 
     return out

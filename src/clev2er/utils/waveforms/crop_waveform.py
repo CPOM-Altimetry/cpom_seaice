@@ -29,5 +29,11 @@ def crop_waveform(waveform: np.ndarray, length_before_max: int, cropped_length: 
     cropped_waveform = waveform[
         b_max - length_before_max : b_max + (cropped_length - length_before_max)
     ]
+    cropped_waveform = np.pad(
+        cropped_waveform,
+        (0, cropped_length - cropped_waveform.size),
+        mode="constant",
+        constant_values=0,
+    )
 
     return cropped_waveform

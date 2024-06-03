@@ -123,6 +123,11 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        if shared_dict["specular_index"].size == 0:
+            self.log.info("No specular waves in file - skipping retracking...")
+            shared_dict["lead_retracking_points"] = np.asarray([])
+            return (success, error_str)
+
         specular_waves = shared_dict["waveform"][shared_dict["specular_index"]]
 
         lead_retracking_points = np.apply_along_axis(

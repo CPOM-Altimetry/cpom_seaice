@@ -88,6 +88,9 @@ def test_alg_ingest_cs2() -> None:
     ), "SAR - Not all fields the same length"
     assert shared_dict["instr_mode"] == "SAR", "SAR - Did not correctly identify instrument mode"
     assert np.sum(np.isnan(shared_dict["waveform"])) == 0, "SAR - Waveforms contains NaN values"
+    assert sum(
+        (shared_dict["sat_lon"] >= 0.0) & (shared_dict["sat_lon"] <= 360.0)
+    ), "SAR - Latitude values are not between 0.0 and 360.0"
 
     # ==============================================================================
     # TESTING WITH SIN FILE
@@ -117,3 +120,6 @@ def test_alg_ingest_cs2() -> None:
     ), "SIN - Not all fields the same length"
     assert shared_dict["instr_mode"] == "SIN", "SIN - Did not correctly identify instrument mode"
     assert np.sum(np.isnan(shared_dict["waveform"])) == 0, "SIN - Waveforms contains NaN values"
+    assert sum(
+        (shared_dict["sat_lon"] >= 0.0) & (shared_dict["sat_lon"] <= 360.0)
+    ), "SIN - Latitude values are not between 0.0 and 360.0"
