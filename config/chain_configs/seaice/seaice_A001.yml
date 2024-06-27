@@ -56,6 +56,7 @@ alg_wave_discrimination:
   specular_peakiness: 18.00 # peakiness threshold for specular waves
   sar_ssd: 6.29 # ssd threshold for waves found during SAR operating mode (SAR file)
   sin_ssd: 4.62 # ssd threshold for waves found during SARIn operating mode (SIN file)
+  seaice_concentration_threshold: 75.0
 
 alg_smooth_waveform:
   moving_average_width: 3
@@ -67,14 +68,13 @@ alg_threshold_retrack:
 
 alg_giles_retrack:
   max_iterations: 3000
+  max_fit_err: 1000000
+  max_fit_sigma: 1000000
 
 alg_add_si_conc:
   conc_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
   input_projection: epsg:4326
   output_projection: epsg:3413
-
-alg_ice_class:
-  seaice_concentration_threshold: 75.0
 
 alg_elev_calculations:
   diffuse_retracker_bias: 0.1626

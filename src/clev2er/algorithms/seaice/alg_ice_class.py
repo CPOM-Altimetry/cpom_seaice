@@ -1,35 +1,35 @@
-""" clev2er.algorithms.seaice.alg_ice_class.py
+"""clev2er.algorithms.seaice.alg_ice_class.py
 
-    Algorithm class module, used to implement a single chain algorithm
+Algorithm class module, used to implement a single chain algorithm
 
-    #Description of this Algorithm's purpose
+#Description of this Algorithm's purpose
 
-    Assigns the class of samples in the file
+Assigns the class of samples in the file
 
-    #Main initialization (init() function) steps/resources required
+#Main initialization (init() function) steps/resources required
 
-    Get ice concentration threshold from config
+Get ice concentration threshold from config
 
-    #Main process() function steps
+#Main process() function steps
 
-    Create an array of 0s (default values)
-    Set specular echoes to 2 (lead class)
-    Set all diffuse echoes to 1 (ocean class)
-    Set diffuse echoes with ice concentration greater than threshold to 3 (floe class)
+Create an array of 0s (default values)
+Set specular echoes to 2 (lead class)
+Set all diffuse echoes to 1 (ocean class)
+Set diffuse echoes with ice concentration greater than threshold to 3 (floe class)
 
-    #Contribution to shared_dict
+#Contribution to shared_dict
 
-    lead_floe_class (np.ndarray[int]) : Class of whether each waveform is a lead, floe,
-                                        ocean or unclassified
+lead_floe_class (np.ndarray[int]) : Class of whether each waveform is a lead, floe,
+                                    ocean or unclassified
 
-    #Requires from shared_dict
+#Requires from shared_dict
 
-    specular_index 
-    diffuse_echoes 
-    seaice_concentration
+specular_index
+diffuse_echoes
+seaice_concentration
 
-    Author: Ben Palmer
-    Date: 08 Mar 2024
+Author: Ben Palmer
+Date: 08 Mar 2024
 """
 
 from typing import Tuple
@@ -124,9 +124,8 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         # make surface type class
-        # specular echoes = leads = 1
-        # diffuse echoes = floes or oceans = 2 or 3
-        # floes = diffuse echoes w/ ice conc > 75.0%
+        # specular echoes = leads = 2
+        # diffuse echoes = oceans(1) or floes(3)        # floes = diffuse echoes w/ ice conc > 75.0%
         # oceans = diffuse echoes w/ ice conc < 75.0%
 
         shared_dict["lead_floe_class"] = np.zeros(shared_dict["sat_lat"].shape[0], dtype=int)
@@ -135,14 +134,16 @@ class Algorithm(BaseAlgorithm):
         shared_dict["lead_floe_class"][shared_dict["specular_index"]] = 2
 
         # diffuse waves can be oceans or floes, set to ocean first
-        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]] = 1
+        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]][
+            (shared_dict["seaice_concentration"][shared_dict["diffuse_index"]] <= 0.0)
+        ] = 1
 
         # find diffuse waves which have conc > threshold, set to floes
-        shared_dict["lead_floe_class"][
-            shared_dict["diffuse_index"][
+        shared_dict["lead_floe_class"][shared_dict["diffuse_index"]][
+            (
                 shared_dict["seaice_concentration"][shared_dict["diffuse_index"]]
                 > self.conc_threshold
-            ]
+            )
         ] = 3
 
         self.log.info("Class counts")

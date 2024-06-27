@@ -15,7 +15,6 @@ algorithms:
   - alg_crop_waveform
   - alg_pulse_peakiness
   - alg_cs2_wave_discimination
-  - alg_ice_class
   - alg_smooth_waveform
   - alg_threshold_retrack
   - alg_giles_retrack
