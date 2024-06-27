@@ -15,7 +15,9 @@ import numpy.typing as npt
 from scipy.optimize import OptimizeWarning, curve_fit
 
 
-def gauss_plus_exp_tracker(waveform: npt.NDArray, max_iterations: int = 3000) -> float:
+def gauss_plus_exp_tracker(
+    waveform: npt.NDArray, max_iterations: int = 3000
+) -> tuple[float, float, float]:
     """Gaussian plus exponential retracker, or Giles' retracker.
 
     Retracks waveforms using a gaussian plus exponential function. Uses Levenberg-Marquardt
@@ -61,15 +63,19 @@ def gauss_plus_exp_tracker(waveform: npt.NDArray, max_iterations: int = 3000) ->
             x,
             waveform,
             p0=[a, x0, sigma, k],
-            maxfev=max_iterations,
             method="lm",
+            maxfev=max_iterations,
             jac=_jacgexp,
         )
+        best_fit = _gauss_plus_exp(x, *popt)
+        fit_qual = _get_fit_qual(popt[0], popt[1], waveform, best_fit)
+
         tracking_point = popt[1]  # Update tracking point if successful, otherwise returns NaN
+        sigma = popt[2]
     except RuntimeError:
         pass
 
-    return tracking_point
+    return tracking_point, fit_qual, sigma
 
 
 def _gauss_plus_exp(x: npt.NDArray, a: float, x0: np.intp, sigma: float, k: float) -> npt.NDArray:
@@ -185,6 +191,7 @@ def _jacgexp(x, a, x0, sigma, k):
 
 
 def _get_fit_qual(a, x0, waveform, best_fit_waveform, n_bins=5):
+    x0 = int(np.ceil(x0))
     b_min = x0 - n_bins
 
     tmp1 = 0
@@ -194,4 +201,4 @@ def _get_fit_qual(a, x0, waveform, best_fit_waveform, n_bins=5):
         tmp1 += (waveform[i] - best_fit_waveform[i]) ** 2
         tmp2 += a**2
 
-    return 1000 * np.sqrt(tmp1 / tmp2) if tmp2 > 0 else -999.999
+    return 1000 * np.sqrt(tmp1 / tmp2) if tmp2 > 0 else np.nan
