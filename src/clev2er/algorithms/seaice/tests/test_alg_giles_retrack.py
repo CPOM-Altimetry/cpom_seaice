@@ -15,7 +15,7 @@ from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
 from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWaveform
-from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
+from clev2er.algorithms.seaice.alg_cs2_wave_discrimination import (
     Algorithm as WaveDiscrimination,
 )
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
