@@ -1,5 +1,5 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_fbd_calculations
+clev2er.algorithms.seaice.alg_fbd_calculations
 """
 
 import logging
@@ -22,7 +22,6 @@ from clev2er.algorithms.seaice.alg_elev_calculations import Algorithm as ElevCal
 from clev2er.algorithms.seaice.alg_fbd_calculations import Algorithm
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
 from clev2er.algorithms.seaice.alg_giles_retrack import Algorithm as GilesRetrack
-from clev2er.algorithms.seaice.alg_ice_class import Algorithm as IceClass
 from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.algorithms.seaice.alg_pulse_peakiness import Algorithm as PulsePeakiness
 from clev2er.algorithms.seaice.alg_sla_calculations import Algorithm as SLACalc
@@ -73,7 +72,6 @@ def previous_steps(
             "crop_waveform": CropWaveform(config, logger),
             "pulse_peakiness": PulsePeakiness(config, logger),
             "wave_discrim": WaveDiscrimination(config, logger),
-            "ice_class": IceClass(config, logger),
             "smooth_waveform": SmoothWaveform(config, logger),
             "threshold_retack": ThresholdRetrack(config, logger),
             "giles_retrack": GilesRetrack(config, logger),
@@ -111,7 +109,9 @@ sar_file_test = [(0), (1)]
 
 @pytest.mark.parametrize("file_num", sar_file_test)
 def test_fbd_calculations_sar(
-    file_num, previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    file_num,
+    previous_steps: Dict,  # pylint: disable=redefined-outer-name
+    thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_fbd_calculations.py for SAR waves
 
@@ -163,7 +163,8 @@ def test_fbd_calculations_sar(
 
 
 def test_fbd_calculations_sin(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    previous_steps: Dict,  # pylint: disable=redefined-outer-name
+    thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_fbd_calculations.py for SIN waveforms
 
