@@ -1,42 +1,42 @@
-""" clev2er.algorithms.seaice.cs2_waveform_discrimination.py
+"""clev2er.algorithms.seaice.cs2_waveform_discrimination.py
 
-    Algorithm class module, used to implement a single chain algorithm
+Algorithm class module, used to implement a single chain algorithm
 
-    #Description of this Algorithm's purpose
-    
-    Disciminates whether each waveform echoe is diffuse or specular from the pulse peakiness and 
-    stack standard deviation.
-    
-    #Main initialization (init() function) steps/resources required
+#Description of this Algorithm's purpose
 
-    alg_wave_discrimination:
-        diffuse_peakiness(float): peakiness threshold for diffuse waves
-        specular_peakiness(float): peakiness threshold for specular waves
-        sar_ssd(float): ssd threshold for waves found during SAR operating mode (SAR file)
-        sin_ssd(float): ssd threshold for waves found during SARIn operating mode (SIN file)
+Disciminates whether each waveform echoe is diffuse or specular from the pulse peakiness and
+stack standard deviation.
 
-    #Main process() function steps
-    
-    Choose ssd threshold based on operating mode
-    Find index of diffuse waves
-    Find index of specular waves
-    Create lead floe class
-    Set lead floe class of specular waves to leads
-    Set lead floe class of diffuse waves to ocean (floes found later)
-    
-    #Contribution to shared_dict
+#Main initialization (init() function) steps/resources required
 
-    shared_dict["specular_index"] (np.array[int]) : index of specular waves 
-                                                    in shared_dict["waveform"]
-    shared_dict["diffuse_index"] (np.array[int]) : index of diffuse waves in shared_dict["waveform"]
-    
-    #Requires from shared_dict
+alg_wave_discrimination:
+    diffuse_peakiness(float): peakiness threshold for diffuse waves
+    specular_peakiness(float): peakiness threshold for specular waves
+    sar_ssd(float): ssd threshold for waves found during SAR operating mode (SAR file)
+    sin_ssd(float): ssd threshold for waves found during SARIn operating mode (SIN file)
 
-    shared_dict["waveform"]
-    shared_dict["waveform_ssd"]
-    shared_dict["pulse_peakiness"]
-    shared_dict["instr_mode"]
-    
+#Main process() function steps
+
+Choose ssd threshold based on operating mode
+Find index of diffuse waves
+Find index of specular waves
+Create lead floe class
+Set lead floe class of specular waves to leads
+Set lead floe class of diffuse waves to ocean (floes found later)
+
+#Contribution to shared_dict
+
+shared_dict["specular_index"] (np.array[int]) : index of specular waves
+                                                in shared_dict["waveform"]
+shared_dict["diffuse_index"] (np.array[int]) : index of diffuse waves in shared_dict["waveform"]
+
+#Requires from shared_dict
+
+shared_dict["waveform"]
+shared_dict["waveform_ssd"]
+shared_dict["pulse_peakiness"]
+shared_dict["instr_mode"]
+
 """
 
 from typing import Tuple
@@ -96,6 +96,9 @@ class Algorithm(BaseAlgorithm):
         self.specular_peakiness = self.config["alg_wave_discrimination"]["specular_peakiness"]
         self.sar_ssd = self.config["alg_wave_discrimination"]["sar_ssd"]
         self.sin_ssd = self.config["alg_wave_discrimination"]["sin_ssd"]
+        self.conc_threshold = self.config["alg_wave_discrimination"][
+            "seaice_concentration_threshold"
+        ]
 
         # --- End of initialization steps ---
 
@@ -140,11 +143,27 @@ class Algorithm(BaseAlgorithm):
         elif shared_dict["instr_mode"] == "SIN":
             ssd_threshold = self.sin_ssd
 
+        # make surface type class
+        # specular echoes = leads = 2
+        # diffuse echoes = oceans(1) or floes(3)
+        # floes = diffuse echoes w/ ice conc > 75.0%
+        # oceans = diffuse echoes w/ ice conc == 0.0%
+        # diffuse echos w/ 0 < ice_conc < 75.0 are marked as unknown (0)
+        shared_dict["lead_floe_class"] = np.zeros(shared_dict["sat_lat"].shape[0], dtype=int)
+
         # find diffuse waveforms
 
         diffuse_waves = (shared_dict["pulse_peakiness"] < self.diffuse_peakiness) & (
             shared_dict["waveform_ssd"] > ssd_threshold
         )
+
+        shared_dict["lead_floe_class"][
+            diffuse_waves & (shared_dict["seaice_concentration"] <= 0.0)
+        ] = 1
+
+        shared_dict["lead_floe_class"][
+            diffuse_waves & (shared_dict["seaice_concentration"] > self.conc_threshold)
+        ] = 3
 
         self.log.info("Number of diffuse waves - %d", sum(diffuse_waves))
 
@@ -161,9 +180,15 @@ class Algorithm(BaseAlgorithm):
             sum(np.invert(specular_waves | diffuse_waves)),
         )
 
+        shared_dict["lead_floe_class"][specular_waves] = 2
+
         # make indexes for each
         shared_dict["specular_index"] = np.where(specular_waves)[0]
         shared_dict["diffuse_index"] = np.where(diffuse_waves)[0]
+
+        self.log.info("Class counts")
+        for v in set([0, 1, 2, 3]).union(np.unique(shared_dict["lead_floe_class"])):
+            self.log.info("\t %d - %5d", v, sum(shared_dict["lead_floe_class"] == v))
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
