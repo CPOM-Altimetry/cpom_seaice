@@ -115,7 +115,7 @@ class Algorithm(BaseAlgorithm):
         self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
-        output_projection = self.config["alg_add_si_conc"]["output_projection"]
+        output_projection = self.config["shared"]["output_projection"]
 
         self.log.info(
             "Transforming projection from %s to %s for value reading",

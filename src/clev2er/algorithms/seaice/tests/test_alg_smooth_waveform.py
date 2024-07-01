@@ -9,9 +9,10 @@ from typing import Any, Dict
 
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
+from clev2er.algorithms.seaice.alg_add_si_conc import Algorithm as AddSIConc
 from clev2er.algorithms.seaice.alg_area_filter import Algorithm as AreaFilter
 from clev2er.algorithms.seaice.alg_crop_waveform import Algorithm as CropWaveform
-from clev2er.algorithms.seaice.alg_cs2_wave_discimination import (
+from clev2er.algorithms.seaice.alg_cs2_wave_discrimination import (
     Algorithm as WaveDiscrimination,
 )
 from clev2er.algorithms.seaice.alg_flag_filters import Algorithm as FlagFilter
@@ -46,6 +47,7 @@ def test_smooth_waveform() -> None:
             "ingest_cs2": IngestCS2(config, logger),  # no config used for this alg
             "area_filter": AreaFilter(config, logger),
             "flag_filter": FlagFilter(config, logger),
+            "add_si_conc": AddSIConc(config, logger),
             "crop_waveform": CropWaveform(config, logger),
             "pulse_peakiness": PulsePeakiness(config, logger),
             "wave_discrim": WaveDiscrimination(config, logger),

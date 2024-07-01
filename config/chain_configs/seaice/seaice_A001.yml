@@ -25,6 +25,13 @@ geophysical:
 
 # Algorithm configuration settings
 
+shared: # Shared config parameters for multiple algorithms to use
+  min_latitude: 30.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
+  output_projection: epsg:3413 # projection used within chain
+
 alg_ingest:
   allow_lrm: false
   allow_sar: true
@@ -35,13 +42,9 @@ alg_ingest_cs2:
   time_var_01Hz: time_cor_01
 
 alg_area_filter:
-  min_latitude: 30.00 # minimum latitude in degs N
-  max_latitude: 90.00 # maximum latitude in deg N
-  min_longitude: 0.00 # minimum longitude in degs E
-  max_longitude: 360.00 # maximum longitude in deg E
 
 alg_flag_filters:
-  surf_ocean_flag: 0
+  surf_ocean_flag: 0 # flag used for the "ocean" surface type
 
 alg_crop_waveform:
   cropped_length: 128 
@@ -56,9 +59,10 @@ alg_wave_discrimination:
   specular_peakiness: 18.00 # peakiness threshold for specular waves
   sar_ssd: 6.29 # ssd threshold for waves found during SAR operating mode (SAR file)
   sin_ssd: 4.62 # ssd threshold for waves found during SARIn operating mode (SIN file)
+  seaice_concentration_threshold: 75.0
 
 alg_smooth_waveform:
-  moving_average_width: 3
+  moving_average_width: 3 # number of values in the moving average
 
 alg_threshold_retrack:
   threshold_high: 0.7
@@ -67,14 +71,12 @@ alg_threshold_retrack:
 
 alg_giles_retrack:
   max_iterations: 3000
+  max_fit_err: 1000000
+  max_fit_sigma: 1000000
 
 alg_add_si_conc:
   conc_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
   input_projection: epsg:4326
-  output_projection: epsg:3413
-
-alg_ice_class:
-  seaice_concentration_threshold: 75.0
 
 alg_elev_calculations:
   diffuse_retracker_bias: 0.1626
@@ -86,11 +88,6 @@ alg_add_mss:
   mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files/CS2_MSS_north.sav
   mss_buffer: 0.2
   input_projection: epsg:4326
-  output_projection: epsg:3413
-  min_latitude: 30.00 # minimum latitude in degs N
-  max_latitude: 90.00 # maximum latitude in deg N
-  min_longitude: 0.00 # minimum longitude in degs E
-  max_longitude: 360.00 # maximum longitude in deg E
 
 alg_sla_calculations:
   clip_value: 3.0
