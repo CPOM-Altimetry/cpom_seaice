@@ -1,54 +1,54 @@
-""" clev2er.algorithms.seaice.alg_add_si_conc.py
+"""clev2er.algorithms.seaice.alg_add_si_conc.py
 
-    Algorithm class module, used to implement a single chain algorithm
+Algorithm class module, used to implement a single chain algorithm
 
-    #Description of this Algorithm's purpose
+#Description of this Algorithm's purpose
 
-    Gets the seaice concentration data from an external file and adds the required values 
-    for the samples being processed. To prevent repeatedly loading in the same file every time
-    .process() is called, keep a dict for the most recent file to store the KDTree for lat,lon 
-    pairs and concentration values. Before the file is loaded in, it checks to see if the filename 
-    is within the dict. If it is, use those values. If not, load the file and add the filename and 
-    values to the dict.
-    
-    The KDTrees are stored instead of latitude and longitude values to prevent repeat processing 
-    of creating the KDTree when values are the same, since creating the KDTree takes as much time as
-    reading the file if not longer. 
+Gets the seaice concentration data from an external file and adds the required values
+for the samples being processed. To prevent repeatedly loading in the same file every time
+.process() is called, keep a dict for the most recent file to store the KDTree for lat,lon
+pairs and concentration values. Before the file is loaded in, it checks to see if the filename
+is within the dict. If it is, use those values. If not, load the file and add the filename and
+values to the dict.
 
-    #Main initialization (init() function) steps/resources required
+The KDTrees are stored instead of latitude and longitude values to prevent repeat processing
+of creating the KDTree when values are the same, since creating the KDTree takes as much time as
+reading the file if not longer.
 
-    Create an algorithm memory for loading files.
-    Set config for seaice concentration file directory
-    Set config for input and output projections 
-    Create projection transformer
+#Main initialization (init() function) steps/resources required
 
-    #Main process() function steps
+Create an algorithm memory for loading files.
+Set config for seaice concentration file directory
+Set config for input and output projections
+Create projection transformer
 
-    Use the date of the timestamp of each sample to find which file to use.
-    Load in the file / read from the memory dict
-    convert lat lon to x y points 
-    convert poitns to KDTree
-    match points in sample to nearest point in KDTree
-    find the value that corresponds to the nearest point
-    save list of values to shared_dict
-    
-    #Main finalize() function steps
-    Clear most recent file memory
-    Delete latlon to xy transformer
+#Main process() function steps
 
-    #Contribution to shared_dict
+Use the date of the timestamp of each sample to find which file to use.
+Load in the file / read from the memory dict
+convert lat lon to x y points
+convert poitns to KDTree
+match points in sample to nearest point in KDTree
+find the value that corresponds to the nearest point
+save list of values to shared_dict
 
-    'seaice_concentrations' (np.NDArray[float]) : Array of seaice concentration values for each 
-        sample
+#Main finalize() function steps
+Clear most recent file memory
+Delete latlon to xy transformer
 
-    #Requires from shared_dict
+#Contribution to shared_dict
 
-    'sat_lat'
-    'sat_lon'
-    'measurement_time'
+'seaice_concentrations' (np.NDArray[float]) : Array of seaice concentration values for each
+    sample
 
-    Author: Ben Palmer
-    Date: 01 Mar 2024
+#Requires from shared_dict
+
+'sat_lat'
+'sat_lon'
+'measurement_time'
+
+Author: Ben Palmer
+Date: 01 Mar 2024
 """
 
 import glob
@@ -115,7 +115,7 @@ class Algorithm(BaseAlgorithm):
         self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
-        output_projection = self.config["alg_add_si_conc"]["output_projection"]
+        output_projection = self.config["shared"]["output_projection"]
 
         self.log.info(
             "Transforming projection from %s to %s for value reading",

@@ -1,33 +1,33 @@
-""" clev2er.algorithms.seaice.alg_add_mss.py
+"""clev2er.algorithms.seaice.alg_add_mss.py
 
-    Algorithm class module, used to implement a single chain algorithm
+Algorithm class module, used to implement a single chain algorithm
 
-    #Description of this Algorithm's purpose
+#Description of this Algorithm's purpose
 
-    Adds the MSS values for each sample to the shared dict.
-    
-    #Main initialization (init() function) steps/resources required
+Adds the MSS values for each sample to the shared dict.
 
-    Read the MSS file location from config and load into a KDTree
+#Main initialization (init() function) steps/resources required
 
-    #Main process() function steps
+Read the MSS file location from config and load into a KDTree
 
-    Match each sample to the correct MSS value
-    Subtract the MSS and retracker bias from the elevation for each sample
+#Main process() function steps
 
-    #Contribution to shared_dict
+Match each sample to the correct MSS value
+Subtract the MSS and retracker bias from the elevation for each sample
 
-    elevation_corrected (np.ndarray) : array of elevations after mss and retracker bias 
-        have been removed
+#Contribution to shared_dict
 
-    #Requires from shared_dict
+elevation_corrected (np.ndarray) : array of elevations after mss and retracker bias
+    have been removed
 
-    elevation
-    sat_lat
-    sat_lon
+#Requires from shared_dict
 
-    Author: Ben Palmer
-    Date: 06 Mar 2024
+elevation
+sat_lat
+sat_lon
+
+Author: Ben Palmer
+Date: 06 Mar 2024
 """
 
 import os
@@ -91,14 +91,14 @@ class Algorithm(BaseAlgorithm):
         # Load MSS config
         mss_file_path = self.config["alg_add_mss"]["mss_file"]
         buffer = self.config["alg_add_mss"]["mss_buffer"]
-        max_lat = self.config["alg_add_mss"]["max_latitude"]
-        max_lon = self.config["alg_add_mss"]["max_longitude"]
-        min_lat = self.config["alg_add_mss"]["min_latitude"]
-        min_lon = self.config["alg_add_mss"]["min_longitude"]
+        max_lat = self.config["shared"]["max_latitude"]
+        max_lon = self.config["shared"]["max_longitude"]
+        min_lat = self.config["shared"]["min_latitude"]
+        min_lon = self.config["shared"]["min_longitude"]
 
         # Create projection transform
         crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["alg_add_mss"]["output_projection"])
+        crs_output = proj.Proj(self.config["shared"]["output_projection"])
         self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
         # Load MSS file
