@@ -98,34 +98,24 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.min_latitude = self.config["alg_area_filter"]["min_latitude"]
-        self.max_latitude = self.config["alg_area_filter"]["max_latitude"]
-        self.min_longitude = self.config["alg_area_filter"]["min_longitude"]
-        self.max_longitude = self.config["alg_area_filter"]["max_longitude"]
+        self.min_latitude = self.config["globals"]["min_latitude"]
+        self.max_latitude = self.config["globals"]["max_latitude"]
+        self.min_longitude = self.config["globals"]["min_longitude"]
+        self.max_longitude = self.config["globals"]["max_longitude"]
 
         # Test configuration settings
         if self.min_latitude < -90.0 or self.min_latitude > 90.0:
-            raise ValueError(
-                f"config[alg_area_filter][min_latitude] {self.min_latitude} out of range"
-            )
+            raise ValueError(f"min_latitude {self.min_latitude} out of range")
         if self.max_latitude < -90.0 or self.max_latitude > 90.0:
-            raise ValueError(
-                f"config[alg_area_filter][max_latitude] {self.max_latitude} out of range"
-            )
+            raise ValueError(f"max_latitude {self.max_latitude} out of range")
         if self.max_latitude < self.min_latitude:
-            raise ValueError("config[alg_area_filter][max_latitude] should not be < [min_latitude]")
+            raise ValueError("max_latitude should not be < [min_latitude]")
         if self.min_longitude < 0.0 or self.min_longitude > 360.0:
-            raise ValueError(
-                f"config[alg_area_filter][min_longitude] {self.min_longitude} out of range 0..360"
-            )
+            raise ValueError(f"min_longitude {self.min_longitude} out of range 0..360")
         if self.max_longitude < 0.0 or self.max_longitude > 360.0:
-            raise ValueError(
-                f"config[alg_area_filter][max_longitude] {self.max_longitude} out of range 0..360"
-            )
+            raise ValueError(f"max_longitude {self.max_longitude} out of range 0..360")
         if self.max_longitude < self.min_longitude:
-            raise ValueError(
-                "config[alg_area_filter][max_longitude] should not be < [min_longitude]"
-            )
+            raise ValueError("max_longitude should not be < [min_longitude]")
 
         # --- End of initialization steps ---
 

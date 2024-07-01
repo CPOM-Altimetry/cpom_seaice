@@ -71,12 +71,8 @@ def test_area_filter() -> None:
     # check if all lats and lons are within the target area
     assert all(
         (
-            config["alg_area_filter"]["min_longitude"]
-            <= lon
-            <= config["alg_area_filter"]["max_longitude"]
-            and config["alg_area_filter"]["min_latitude"]
-            <= lat
-            <= config["alg_area_filter"]["max_latitude"]
+            config["globals"]["min_longitude"] <= lon <= config["globals"]["max_longitude"]
+            and config["globals"]["min_latitude"] <= lat <= config["globals"]["max_latitude"]
         )
         for lon, lat in zip(shared_dict["sat_lon"], shared_dict["sat_lat"])
     ), "SAR - Contains lat-lon values outside of area filter range"
@@ -110,12 +106,8 @@ def test_area_filter() -> None:
     # check if all the lats and lons are within the target area
     assert all(
         (
-            config["alg_area_filter"]["min_longitude"]
-            <= lon
-            <= config["alg_area_filter"]["max_longitude"]
-            and config["alg_area_filter"]["min_latitude"]
-            <= lat
-            <= config["alg_area_filter"]["max_latitude"]
+            config["globals"]["min_longitude"] <= lon <= config["globals"]["max_longitude"]
+            and config["globals"]["min_latitude"] <= lat <= config["globals"]["max_latitude"]
         )
         for lon, lat in zip(shared_dict["sat_lon"], shared_dict["sat_lat"])
     ), "SIN - Contains lat-lon values outside of area filter range"

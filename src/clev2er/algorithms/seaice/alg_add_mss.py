@@ -91,14 +91,14 @@ class Algorithm(BaseAlgorithm):
         # Load MSS config
         mss_file_path = self.config["alg_add_mss"]["mss_file"]
         buffer = self.config["alg_add_mss"]["mss_buffer"]
-        max_lat = self.config["alg_add_mss"]["max_latitude"]
-        max_lon = self.config["alg_add_mss"]["max_longitude"]
-        min_lat = self.config["alg_add_mss"]["min_latitude"]
-        min_lon = self.config["alg_add_mss"]["min_longitude"]
+        max_lat = self.config["globals"]["max_latitude"]
+        max_lon = self.config["globals"]["max_longitude"]
+        min_lat = self.config["globals"]["min_latitude"]
+        min_lon = self.config["globals"]["min_longitude"]
 
         # Create projection transform
         crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["alg_add_mss"]["output_projection"])
+        crs_output = proj.Proj(self.config["globals"]["output_projection"])
         self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
         # Load MSS file
