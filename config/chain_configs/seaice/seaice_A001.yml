@@ -25,12 +25,12 @@ geophysical:
 
 # Algorithm configuration settings
 
-globals:
+shared: # Shared config parameters for multiple algorithms to use
   min_latitude: 30.00 # minimum latitude in degs N
   max_latitude: 90.00 # maximum latitude in deg N
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
-  output_projection: epsg:3413
+  output_projection: epsg:3413 # projection used within chain
 
 alg_ingest:
   allow_lrm: false
@@ -44,7 +44,7 @@ alg_ingest_cs2:
 alg_area_filter:
 
 alg_flag_filters:
-  surf_ocean_flag: 0
+  surf_ocean_flag: 0 # flag used for the "ocean" surface type
 
 alg_crop_waveform:
   cropped_length: 128 
@@ -62,7 +62,7 @@ alg_wave_discrimination:
   seaice_concentration_threshold: 75.0
 
 alg_smooth_waveform:
-  moving_average_width: 3
+  moving_average_width: 3 # number of values in the moving average
 
 alg_threshold_retrack:
   threshold_high: 0.7

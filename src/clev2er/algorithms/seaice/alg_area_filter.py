@@ -1,47 +1,47 @@
-""" clev2er.algorithms.seaice.alg_area_filter.py
+"""clev2er.algorithms.seaice.alg_area_filter.py
 
-    Algorithm class module, used to implement a single chain algorithm
+Algorithm class module, used to implement a single chain algorithm
 
-    #Description of this Algorithm's purpose
-    
-    Provides an area filter, using the latitude and longitude values
-    in shared_dict['sat_lat'], shared_dict['sat_lon']
+#Description of this Algorithm's purpose
 
-    #Main initialization (init() function) steps/resources required
+Provides an area filter, using the latitude and longitude values
+in shared_dict['sat_lat'], shared_dict['sat_lon']
 
-    None
+#Main initialization (init() function) steps/resources required
 
-    #Main process() function steps
+None
 
-    
-
-    #Contribution to shared_dict
-
-    shared_dict["indices_inside"] (np.array[int]) : indices of original arrays that are located 
-                                                    within lat lon filter
-    shared_dict["num_points_inside_area"] (np.array[int]) : the number of points inside area filter
+#Main process() function steps
 
 
-    #Requires from shared_dict
-    
-    shared_dict["sat_lat"]
-    shared_dict["sat_lon"]
-    shared_dict["sat_altitude"]
-    shared_dict["measurement_time"]
-    shared_dict["window_delay"]
-    shared_dict["waveform"]
-    shared_dict["waveform_ssd"]
-    shared_dict["dry_trop_correction"]
-    shared_dict["wet_trop_correction"]
-    shared_dict["inv_baro_correction"]
-    shared_dict["iono_correction"]
-    shared_dict["ocean_tide"]
-    shared_dict["long_period_tide"]
-    shared_dict["loading_tide"]
-    shared_dict["earth_tide"]
-    shared_dict["pole_tide"]
-    shared_dict["surface_type"]
-    shared_dict["mcd_flag"]
+
+#Contribution to shared_dict
+
+shared_dict["indices_inside"] (np.array[int]) : indices of original arrays that are located
+                                                within lat lon filter
+shared_dict["num_points_inside_area"] (np.array[int]) : the number of points inside area filter
+
+
+#Requires from shared_dict
+
+shared_dict["sat_lat"]
+shared_dict["sat_lon"]
+shared_dict["sat_altitude"]
+shared_dict["measurement_time"]
+shared_dict["window_delay"]
+shared_dict["waveform"]
+shared_dict["waveform_ssd"]
+shared_dict["dry_trop_correction"]
+shared_dict["wet_trop_correction"]
+shared_dict["inv_baro_correction"]
+shared_dict["iono_correction"]
+shared_dict["ocean_tide"]
+shared_dict["long_period_tide"]
+shared_dict["loading_tide"]
+shared_dict["earth_tide"]
+shared_dict["pole_tide"]
+shared_dict["surface_type"]
+shared_dict["mcd_flag"]
 
 """
 
@@ -98,10 +98,10 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.min_latitude = self.config["globals"]["min_latitude"]
-        self.max_latitude = self.config["globals"]["max_latitude"]
-        self.min_longitude = self.config["globals"]["min_longitude"]
-        self.max_longitude = self.config["globals"]["max_longitude"]
+        self.min_latitude = self.config["shared"]["min_latitude"]
+        self.max_latitude = self.config["shared"]["max_latitude"]
+        self.min_longitude = self.config["shared"]["min_longitude"]
+        self.max_longitude = self.config["shared"]["max_longitude"]
 
         # Test configuration settings
         if self.min_latitude < -90.0 or self.min_latitude > 90.0:
