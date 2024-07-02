@@ -234,8 +234,12 @@ class Algorithm(BaseAlgorithm):
             np.nan
         )  # 255 is used as a value for invalid measurements in the external file, set them to NaN
 
-        self.log.info("NaNs in type array - %d", sum(np.isnan(si_type)))
-
+        self.log.info("Ice type counts:")
+        for i_type in sorted(np.unique(si_type)):
+            if np.isnan(i_type):
+                self.log.info(" %s - %d", "NaN", sum(np.isnan(si_type)))
+            else:
+                self.log.info(" %s - %d", str(i_type), sum(si_type == i_type))
         shared_dict["seaice_type"] = si_type
 
         # -------------------------------------------------------------------

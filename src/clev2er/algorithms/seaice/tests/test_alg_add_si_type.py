@@ -1,8 +1,8 @@
 """pytest for algorithm
-    clev2er.algorithms.seaice.alg_add_si_type
+clev2er.algorithms.seaice.alg_add_si_type
 
-    Author: Ben Palmer
-    Date: 02 Jul 2024
+Author: Ben Palmer
+Date: 02 Jul 2024
 """
 
 import logging
@@ -20,6 +20,8 @@ from clev2er.algorithms.seaice.alg_ingest_cs2 import Algorithm as IngestCS2
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=redefined-outer-name
 
 
 @pytest.fixture
@@ -82,8 +84,14 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
+sar_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", sar_file_test)
 def test_add_si_type_sar(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    file_num,
+    previous_steps: Dict,
+    thisalg: Algorithm,
 ) -> None:
     """test alg_add_si_type.py for SAR waves
 
@@ -106,7 +114,7 @@ def test_add_si_type_sar(
     # load SAR file
     l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "sar").glob("*.nc")
-    )[0]
+    )[file_num]
 
     try:
         l1b = Dataset(l1b_sar_file)
@@ -143,7 +151,8 @@ def test_add_si_type_sar(
 
 
 def test_add_si_type_sin(
-    previous_steps: Dict, thisalg: Algorithm  # pylint: disable=redefined-outer-name
+    previous_steps: Dict,
+    thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
     """test alg_add_si_type.py for SIN waveforms
 
