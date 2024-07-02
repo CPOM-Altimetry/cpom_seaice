@@ -27,7 +27,7 @@ Create projection transformer
 Use the date of the timestamp of each sample to find which file to use.
 Load in the file / read from the memory dict
 convert lat lon to x y points
-convert poitns to KDTree
+convert points to KDTree
 match points in sample to nearest point in KDTree
 find the value that corresponds to the nearest point
 save list of values to shared_dict
@@ -38,8 +38,7 @@ Delete latlon to xy transformer
 
 #Contribution to shared_dict
 
-'seaice_type' (np.NDArray[float]) : Array of seaice type values for each
-    sample
+'seaice_type' (np.NDArray[float]) : Array of seaice type values for each sample
 
 #Requires from shared_dict
 
