@@ -148,7 +148,22 @@ class Algorithm(BaseAlgorithm):
             == shared_dict["elevation"].size
             == shared_dict["lead_floe_class"].size
         ):
-            pass
+            self.log.error("Variables that will be added to merge file are not of equal length")
+
+            for var_name in [
+                "block_number",
+                "packet_count",
+                "measurement_time",
+                "sat_lat",
+                "sat_lon",
+                "elevation",
+                "lead_floe_class",
+            ]:
+                self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
+
+            return (False, "VarLengthError")
+
+        # Create output file locations
         output_file_name = f"merge_{l1b.orbit_number:04d}.nc"
         output_file_path = os.path.join(self.merge_file_dir, output_file_name)
 
