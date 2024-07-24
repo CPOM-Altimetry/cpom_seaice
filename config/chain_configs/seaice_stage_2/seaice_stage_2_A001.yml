@@ -1,0 +1,50 @@
+# CPOM sea ice chain settings
+
+# Set breakpoint file directory
+breakpoint_files:
+  default_dir: /tmp
+  
+# Default locations for log files
+log_files:
+  append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
+                                      # or <logtype>_YYYY.log (if only year specified) 
+  errors: ${SI_LOG_DIR}/errors.log    # or errors_MMYYYY.log
+  info:   ${SI_LOG_DIR}/info.log
+  debug:  ${SI_LOG_DIR}/debug.log
+
+# CS2 instrument parameters
+instrument:
+  num_range_bins_lrm: 128
+  # etc
+
+# Geophysical parameters
+geophysical:
+  earth_semi_major: 6378137.0
+  eccentricity: 0.08181919078479198
+  speed_light: 299792458.0
+
+# Algorithm configuration settings
+
+shared: # Shared config parameters for multiple algorithms to use
+  min_latitude: 30.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
+  output_projection: epsg:3413 # projection used within chain
+
+alg_add_mss:
+  mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files/CS2_MSS_north.sav
+  mss_buffer: 0.2
+  input_projection: epsg:4326
+
+alg_sla_calculations:
+  clip_value: 3.0
+  sample_limit: 20.0
+  track_limit: 0.5
+  window_range: 100 # range limit between floes and leads in either direction in km
+  distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
+
+alg_fbd_calculations:
+  
+
+# Resource Locators
