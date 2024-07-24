@@ -99,5 +99,7 @@ alg_sla_calculations:
 alg_fbd_calculations:
   
 
+alg_merge_modes:
+  merge_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/feb_2024/elev_merge
 # Resource Locators
 

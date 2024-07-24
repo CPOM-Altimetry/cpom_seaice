@@ -38,7 +38,6 @@ Author: Ben Palmer
 Date: 22 Jul 2024
 """
 
-import glob
 import os
 from typing import Tuple
 
@@ -94,10 +93,8 @@ class Algorithm(BaseAlgorithm):
 
         self.merge_file_dir = self.config["alg_merge_modes"]["merge_file_dir"]
 
-        if not os.path.exists(self.merge_file_dir):
+        if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
             raise FileNotFoundError("Specified merge file directory does not exist")
-        if len(glob.glob("*.nc", root_dir=self.merge_file_dir)) == 0:
-            raise FileNotFoundError("Specified merge file directory does not contain any .nc files")
 
         # --- End of initialization steps ---
 
@@ -164,7 +161,7 @@ class Algorithm(BaseAlgorithm):
             return (False, "VarLengthError")
 
         # Create output file locations
-        output_file_name = f"merge_{l1b.orbit_number:04d}.nc"
+        output_file_name = f"merge_{l1b.rel_orbit_number:04d}.nc"
         output_file_path = os.path.join(self.merge_file_dir, output_file_name)
 
         # If output file does not already exist, create new file
@@ -173,8 +170,8 @@ class Algorithm(BaseAlgorithm):
             output_nc: Dataset = Dataset(output_file_path, mode="w")
             output_nc.createDimension("n_samples", None)
 
-            output_nc.createVariable("packet_count", "d4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("block_number", "d4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("measurement_time", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
@@ -207,6 +204,8 @@ class Algorithm(BaseAlgorithm):
 
         # close file
         output_nc.close()
+
+        self.log.info("Appended data to %s", output_file_name)
         # -------------------------------------------------------------------
         # Returns (True,'') if successful
         return (success, error_str)
