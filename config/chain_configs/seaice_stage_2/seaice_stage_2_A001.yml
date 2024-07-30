@@ -37,6 +37,10 @@ alg_add_mss:
   mss_buffer: 0.2
   input_projection: epsg:4326
 
+alg_add_si_type:
+  type_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
+  input_projection: epsg:4326
+
 alg_sla_calculations:
   clip_value: 3.0
   sample_limit: 20.0
