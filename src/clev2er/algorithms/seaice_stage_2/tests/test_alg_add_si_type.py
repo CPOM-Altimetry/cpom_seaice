@@ -30,7 +30,7 @@ def config() -> dict:
         dict: config dictionary
     """
     # load config
-    chain_config, _, _, _, _ = load_config_files("seaice")
+    chain_config, _, _, _, _ = load_config_files("seaice_stage_2")
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
@@ -82,7 +82,7 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_si_type_sar(
+def test_add_si_type(
     file_num,
     previous_steps: Dict,
     thisalg: Algorithm,
@@ -136,7 +136,7 @@ def test_add_si_type_sar(
     ), f"SAR - Dtype of 'seaice_type' is {sit_dtype}, not float"
 
     assert (
-        shared_dict["seaice_type"].size == shared_dict["sat_lat"].size
+        shared_dict["seaice_type"].size == l1b["sat_lat"][:].size
     ), "SAR - 'seaice_type' is not the same length as 'sat_lat'"
 
     assert (

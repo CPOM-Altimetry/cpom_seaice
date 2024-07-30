@@ -165,13 +165,13 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        si_type = np.zeros(l1b["sat_lat"].size) * np.nan
+        si_type = np.zeros(l1b["sat_lat"][:].size) * np.nan
 
         # for each timestamp, lat and lon in shared memory:
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
-            zip(l1b["measurement_time"], l1b["sat_lat"], l1b["sat_lon"])
+            zip(l1b["measurement_time"][:].data, l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
         ):
-            file_date = datetime.fromtimestamp(wv_timestamp).strftime("%Y%m%d")
+            file_date = datetime.fromtimestamp(int(wv_timestamp)).strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
                 # If date is the same as the most recent file date, get values from dict
