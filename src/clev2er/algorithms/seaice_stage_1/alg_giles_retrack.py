@@ -85,6 +85,8 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         self.max_iterations = self.config["alg_giles_retrack"]["max_iterations"]
+        self.max_fit_err = self.config["alg_giles_retrack"]["max_fit_err"]
+        self.max_fit_sigma = self.config["alg_giles_retrack"]["max_fit_sigma"]
 
         # --- End of initialization steps ---
 
@@ -130,9 +132,21 @@ class Algorithm(BaseAlgorithm):
 
         specular_waves = shared_dict["waveform"][shared_dict["specular_index"]]
 
-        lead_retracking_points = np.apply_along_axis(
+        retracker_output = np.apply_along_axis(
             gauss_plus_exp_tracker, 1, specular_waves, max_iterations=self.max_iterations
         )
+        lead_retracking_points = retracker_output[:, 0]
+        fit_qualities = retracker_output[:, 1]
+        fit_sigmas = retracker_output[:, 2]
+
+        bad_fits = (
+            (0 > fit_qualities)
+            | (self.max_fit_err < fit_qualities)
+            | (fit_sigmas > self.max_fit_sigma)
+            | (fit_sigmas < 0.00001)
+        )
+
+        lead_retracking_points[bad_fits] = np.nan
 
         num_nans = np.sum(np.isnan(lead_retracking_points))
 

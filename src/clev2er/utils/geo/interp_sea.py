@@ -110,7 +110,7 @@ def interp_sea_regression(
             if lead_index[jdx]:
                 x_arr.append(dist)
                 y_arr.append(sea_level_data[jdx])
-                nupper += 1
+                nupper += 1 if jdx > idx else 0
             _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
             if dist > window_size:
                 break
@@ -127,5 +127,7 @@ def interp_sea_regression(
         if nlower > 0 and nupper > 0:
             lr = LinearRegression().fit(X=np.asarray(x_arr).reshape(-1, 1), y=np.asarray(y_arr))
             out[idx] = lr.predict([[0]])[0]
+        else:
+            out[idx] = np.nan
 
     return out
