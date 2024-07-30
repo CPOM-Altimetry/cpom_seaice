@@ -1,0 +1,90 @@
+# CPOM sea ice chain 1st stage settings
+
+# Set breakpoint file directory
+breakpoint_files:
+  default_dir: /tmp
+  
+# Default locations for log files
+log_files:
+  append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
+                                      # or <logtype>_YYYY.log (if only year specified) 
+  errors: ${SI_LOG_DIR}/errors.log    # or errors_MMYYYY.log
+  info:   ${SI_LOG_DIR}/info.log
+  debug:  ${SI_LOG_DIR}/debug.log
+
+# CS2 instrument parameters
+instrument:
+  num_range_bins_lrm: 128
+  # etc
+
+# Geophysical parameters
+geophysical:
+  earth_semi_major: 6378137.0
+  eccentricity: 0.08181919078479198
+  speed_light: 299792458.0
+
+# Algorithm configuration settings
+
+shared: # Shared config parameters for multiple algorithms to use
+  min_latitude: 30.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
+  output_projection: epsg:3413 # projection used within chain
+
+alg_ingest:
+  allow_lrm: false
+  allow_sar: true
+  allow_sin: True
+
+alg_ingest_cs2:
+  time_var_20Hz: time_20_ku
+  time_var_01Hz: time_cor_01
+
+alg_area_filter:
+
+alg_flag_filters:
+  surf_ocean_flag: 0 # flag used for the "ocean" surface type
+
+alg_crop_waveform:
+  cropped_length: 128 
+  crop_before_max: 50 # number of bins to take before max
+
+alg_pulse_peakiness:
+  noise_floor_start_bin: 10 # bin no. where noise floor starts
+  noise_floor_end_bin: 19 # bin no. where noise floor ends. This is inclusive (don't do end + 1 for array indexing)
+
+alg_wave_discrimination:
+  diffuse_peakiness: 9.00 # peakiness threshold for diffuse waves
+  specular_peakiness: 18.00 # peakiness threshold for specular waves
+  sar_ssd: 6.29 # ssd threshold for waves found during SAR operating mode (SAR file)
+  sin_ssd: 4.62 # ssd threshold for waves found during SARIn operating mode (SIN file)
+  seaice_concentration_threshold: 75.0
+
+alg_smooth_waveform:
+  moving_average_width: 3 # number of values in the moving average
+
+alg_threshold_retrack:
+  threshold_high: 0.7
+  threshold_low: 0.3
+  lew_max: 3.0
+
+alg_giles_retrack:
+  max_iterations: 3000
+  max_fit_err: 1000000
+  max_fit_sigma: 1000000
+
+alg_add_si_conc:
+  conc_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
+  input_projection: epsg:4326
+
+alg_elev_calculations:
+  diffuse_retracker_bias: 0.1626
+  speed_of_light: 299792458
+  bin_width: 0.234212857
+  tracking_bin : 64
+
+alg_merge_modes:
+  merge_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/feb_2024/elev_merge
+# Resource Locators
+
