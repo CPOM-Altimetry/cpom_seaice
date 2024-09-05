@@ -52,4 +52,12 @@ alg_sla_calculations:
 alg_fbd_calculations:
   
 
+alg_thk_calculations:
+  speed_of_light_vacuum: 3.0e8
+  speed_of_light_snow: 2.4e8
+  rho_fyi: 916.7
+  rho_myi: 882.0
+  rho_sea: 1023.9
+  
+
 # Resource Locators
