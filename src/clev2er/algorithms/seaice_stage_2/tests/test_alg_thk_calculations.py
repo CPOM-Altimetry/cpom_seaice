@@ -59,8 +59,8 @@ def previous_steps(
             "add_mss": AddMss(config, logger),
             "add_si_type": AddSIType(config, logger),
             "sla_calculations": CalcSLA(config, logger),
-            "fbd_calculations": CalcFbd(config, logger),
             "warren_snow_means": WarrenSnowMeans(config, logger),
+            "fbd_calculations": CalcFbd(config, logger),
         }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc

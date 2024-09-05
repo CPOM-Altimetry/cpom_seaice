@@ -81,6 +81,11 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        self.speed_light_vacuum = self.config["geophysical"]["speed_light_vacuum"]
+        self.speed_light_snow = self.config["geophysical"]["speed_light_snow"]
+
+        self.fb_min = self.config["alg_fbd_calculations"]["fb_min"]
+        self.fb_max = self.config["alg_fbd_calculations"]["fb_max"]
         # --- End of initialization steps ---
 
         return (True, "")
@@ -130,8 +135,26 @@ class Algorithm(BaseAlgorithm):
             sum(np.isnan(freeboard)),
         )
 
-        shared_dict["freeboard"] = freeboard
+        # calculate the corrected freeboard of the ice
+        freeboard_corr = freeboard + (
+            shared_dict["snow_depth"] * ((self.speed_light_vacuum / self.speed_light_snow) - 1)
+        )
 
+        # discard any samples outside of sensible range
+        freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
+
+        self.log.info(
+            "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(freeboard_corr),
+            np.nanstd(freeboard_corr),
+            np.nanmin(freeboard_corr),
+            np.nanmax(freeboard_corr),
+            freeboard_corr.shape[0],
+            sum(np.isnan(freeboard_corr)),
+        )
+
+        shared_dict["freeboard"] = freeboard
+        shared_dict["freeboard_corr"] = freeboard_corr
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)

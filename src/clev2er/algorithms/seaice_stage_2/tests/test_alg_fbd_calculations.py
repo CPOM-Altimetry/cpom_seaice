@@ -12,8 +12,12 @@ import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.seaice_stage_2.alg_add_mss import Algorithm as AddMss
+from clev2er.algorithms.seaice_stage_2.alg_add_si_type import Algorithm as AddSIType
 from clev2er.algorithms.seaice_stage_2.alg_fbd_calculations import Algorithm
-from clev2er.algorithms.seaice_stage_2.alg_sla_calculations import Algorithm as SLACalc
+from clev2er.algorithms.seaice_stage_2.alg_sla_calculations import Algorithm as CalcSLA
+from clev2er.algorithms.seaice_stage_2.alg_warren_snow_means import (
+    Algorithm as WarrenSnowMeans,
+)
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -52,7 +56,9 @@ def previous_steps(
     try:
         chain_previous_steps = {
             "add_mss": AddMss(config, logger),
-            "sla_calculations": SLACalc(config, logger),
+            "add_si_type": AddSIType(config, logger),
+            "warren_snow_means": WarrenSnowMeans(config, logger),
+            "sla_calculations": CalcSLA(config, logger),
         }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
@@ -79,41 +85,40 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-sar_file_test = [(0), (1)]
+merge_file_test = [(0), (1)]
 
 
-@pytest.mark.parametrize("file_num", sar_file_test)
+@pytest.mark.parametrize("file_num", merge_file_test)
 def test_fbd_calculations(
     file_num,
     previous_steps: Dict,  # pylint: disable=redefined-outer-name
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_fbd_calculations.py for SAR waves
+    """test alg_fbd_calculations.py
 
     Test plan:
-    Load an SAR file
+    Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'freeboard' is in shared_dict, it is an array of floats, and
-        values are all positive
+    test that 'freeboard' and 'freeboard_corr' are in shared_dict and they are arrays of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
     # ================================== SAR FILE TESTING ==========================================
-    logger.info("Testing SAR file:")
+    logger.info("Testing merge file:")
 
-    # load SAR file
-    l1b_sar_file = list(
+    # load merge file
+    l1b_merge_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
     )[file_num]
 
     try:
-        l1b = Dataset(l1b_sar_file)
-        logger.info("Loaded %s", l1b_sar_file)
+        l1b = Dataset(l1b_merge_file)
+        logger.info("Loaded %s", l1b_merge_file)
     except IOError:
-        assert False, f"{l1b_sar_file} could not be read"
+        assert False, f"{l1b_merge_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
@@ -135,3 +140,12 @@ def test_fbd_calculations(
 
     elev_dtype = str(shared_dict["freeboard"].dtype)
     assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard' is {elev_dtype}, not float."
+
+    assert "freeboard_corr" in shared_dict, "'freeboard_corr' not in shared_dict."
+
+    assert isinstance(
+        shared_dict["freeboard_corr"], np.ndarray
+    ), f"'freeboard_corr' is {type(shared_dict['freeboard_corr'])}, not ndarray."
+
+    elev_dtype = str(shared_dict["freeboard_corr"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard_corr' is {elev_dtype}, not float."

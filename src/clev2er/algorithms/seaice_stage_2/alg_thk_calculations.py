@@ -140,7 +140,7 @@ class Algorithm(BaseAlgorithm):
 
         thickness = (
             (shared_dict["snow_depth"] * shared_dict["snow_density"])
-            + (shared_dict["freeboard"] * ice_densities)
+            + (shared_dict["freeboard_corr"] * ice_densities)
         ) / (ice_densities - self.rho_sea)
 
         self.log.info(
