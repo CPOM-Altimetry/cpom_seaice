@@ -47,4 +47,7 @@ alg_sla_calculations:
 alg_fbd_calculations:
   
 
+alg_add_region_mask:
+  mask_number: 1
+
 # Resource Locators
