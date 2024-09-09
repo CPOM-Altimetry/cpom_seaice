@@ -47,4 +47,7 @@ alg_sla_calculations:
 alg_fbd_calculations:
   
 
+alg_add_cell_area:
+  input_projection: epsg:4326
+
 # Resource Locators
