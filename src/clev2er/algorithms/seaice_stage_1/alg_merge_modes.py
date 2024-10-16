@@ -172,7 +172,7 @@ class Algorithm(BaseAlgorithm):
 
             output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("measurement_time", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("measurement_time", "f8", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
