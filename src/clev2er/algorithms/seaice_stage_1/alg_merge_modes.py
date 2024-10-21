@@ -161,7 +161,7 @@ class Algorithm(BaseAlgorithm):
             return (False, "VarLengthError")
 
         # Create output file locations
-        output_file_name = f"merge_{l1b.rel_orbit_number:04d}.nc"
+        output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
         output_file_path = os.path.join(self.merge_file_dir, output_file_name)
 
         # If output file does not already exist, create new file
@@ -173,6 +173,7 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("measurement_time", "f8", ("n_samples",), compression="zlib")
+            output_nc.createVariable("andy_time", "f8", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
@@ -186,6 +187,7 @@ class Algorithm(BaseAlgorithm):
         measurement_time = np.concatenate(
             (output_nc["measurement_time"][:], shared_dict["measurement_time"])
         )
+        andy_time = np.concatenate((output_nc["andy_time"][:], shared_dict["andy_time"]))
         sat_lat = np.concatenate((output_nc["sat_lat"][:], shared_dict["sat_lat"]))
         sat_lon = np.concatenate((output_nc["sat_lon"][:], shared_dict["sat_lon"]))
         elevation = np.concatenate((output_nc["elevation"][:], shared_dict["elevation"]))
@@ -197,6 +199,7 @@ class Algorithm(BaseAlgorithm):
         output_nc["packet_count"][:] = packet_count
         output_nc["block_number"][:] = block_number
         output_nc["measurement_time"][:] = measurement_time
+        output_nc["andy_time"][:] = andy_time
         output_nc["sat_lat"][:] = sat_lat
         output_nc["sat_lon"][:] = sat_lon
         output_nc["elevation"][:] = elevation

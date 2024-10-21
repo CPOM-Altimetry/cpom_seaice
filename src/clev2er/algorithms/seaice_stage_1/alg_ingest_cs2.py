@@ -62,7 +62,7 @@ shared_dict["surface_type"] (np.array[int]) : array of surface type flags
 None
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Tuple
 
@@ -182,9 +182,18 @@ class Algorithm(BaseAlgorithm):
         # convert longitude to 0..360 (from -180,180)
         shared_dict["sat_lon"] = l1b["lon_20_ku"][:].data % 360.0  #
         # timestamps in file are seconds from 1/1/2000, convert to seconds from 1/1/1970
-        shared_dict["measurement_time"] = (
-            l1b["time_20_ku"][:].data + datetime(2000, 1, 1).timestamp()
+        shared_dict["measurement_time"] = np.asarray(
+            [
+                (datetime(2000, 1, 1, 0, 0, 0, 0) + timedelta(seconds=x)).timestamp()
+                for x in l1b["time_20_ku"][:].data
+            ]
         )
+
+        # trying to recreate andy's time
+        days: np.ndarray = l1b["time_20_ku"][:].data // 86400
+        seconds: np.ndarray = l1b["time_20_ku"][:].data - (days * 86400)
+        micsec: np.ndarray = (l1b["time_20_ku"][:].data - days * 86400 - seconds) * 1e6
+        shared_dict["andy_time"] = days + 18262 + (seconds * 1000 + micsec) / 8.64e7
 
         shared_dict["sat_altitude"] = l1b["alt_20_ku"][:].data.astype(np.float64)
         shared_dict["window_delay"] = l1b["window_del_20_ku"][:].data.astype(np.float64)
