@@ -186,7 +186,9 @@ class Algorithm(BaseAlgorithm):
 
                 # Find the correct file for the data
 
-                file_paths = glob.glob(os.path.join(self.conc_file_dir, f"nt_{file_date}*.dat"))
+                file_paths = glob.glob(
+                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*.dat")
+                )
 
                 # There should be 1 match for each date. If not, return an error
                 if len(file_paths) < 1:
