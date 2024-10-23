@@ -52,6 +52,7 @@ from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.io.binary_utils import check_bit, to_binary
 
 # each algorithm shares some common class code, so pylint: disable=duplicate-code
 
@@ -98,6 +99,7 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        self.binary_width = self.config["alg_flag_filters"]["binary_width"]
         self.surf_ocean_flag = self.config["alg_flag_filters"]["surf_ocean_flag"]
 
         # --- End of initialization steps ---
@@ -126,6 +128,7 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-locals
 
         # This step is required to support multi-processing. Do not modify
         success, error_str = self.process_setup(l1b)
@@ -140,9 +143,21 @@ class Algorithm(BaseAlgorithm):
         total_points = shared_dict["sat_lat"].size
 
         # filter by mcd_flag
-        # if lsb is set, then mcd_flag is odd, even if unset -> can use %
-        # making a boolean index so we can combine later
-        mcd_index = (shared_dict["mcd_flag"] % 2) == 0
+        # convert mcd flag from integer to binary
+        flag_binaries = to_binary(shared_dict["mcd_flag"], width=self.binary_width)
+
+        # check bits at 1, 6, 7, 18, 22, 25, 26, 27, 28 (Not array indexes, so -1 for each)
+        bit_1 = check_bit(flag_binaries, 1)
+        bit_6 = check_bit(flag_binaries, 6)
+        bit_7 = check_bit(flag_binaries, 7)
+        bit_18 = check_bit(flag_binaries, 18)
+        bit_22 = check_bit(flag_binaries, 22)
+        bit_25 = check_bit(flag_binaries, 25)
+        bit_26 = check_bit(flag_binaries, 26)
+        bit_27 = check_bit(flag_binaries, 27)
+        bit_28 = check_bit(flag_binaries, 28)
+
+        mcd_index = ~(bit_1 | bit_6 | bit_7 | bit_18 | bit_22 | bit_25 | bit_26 | bit_27 | bit_28)
         num_confident = sum(mcd_index)  # find number of True values
 
         self.log.info(
