@@ -193,6 +193,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["sat_lat"] = shared_dict["sat_lat"][combined_filter]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][combined_filter]
         shared_dict["measurement_time"] = shared_dict["measurement_time"][combined_filter]
+        shared_dict["andy_time"] = shared_dict["andy_time"][combined_filter]
         shared_dict["block_number"] = shared_dict["block_number"][combined_filter]
         shared_dict["packet_count"] = shared_dict["packet_count"][combined_filter]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][combined_filter]

@@ -53,7 +53,7 @@ Date: 01 Mar 2024
 
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Tuple
 
 import numpy as np
@@ -172,7 +172,7 @@ class Algorithm(BaseAlgorithm):
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
             zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
         ):
-            file_date = datetime.fromtimestamp(wv_timestamp).strftime("%Y%m%d")
+            file_date = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc).strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
                 # If date is the same as the most recent file date, get values from dict

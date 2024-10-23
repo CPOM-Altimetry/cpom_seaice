@@ -30,6 +30,7 @@ def test_alg_ingest_cs2() -> None:
         "sat_lat",
         "sat_lon",
         "measurement_time",
+        "andy_time",
         "sat_altitude",
         "window_delay",
         "waveform",

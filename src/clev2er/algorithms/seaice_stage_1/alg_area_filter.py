@@ -192,6 +192,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["sat_lat"] = shared_dict["sat_lat"][indices_inside]
         shared_dict["sat_lon"] = shared_dict["sat_lon"][indices_inside]
         shared_dict["measurement_time"] = shared_dict["measurement_time"][indices_inside]
+        shared_dict["andy_time"] = shared_dict["andy_time"][indices_inside]
         shared_dict["block_number"] = shared_dict["block_number"][indices_inside]
         shared_dict["packet_count"] = shared_dict["packet_count"][indices_inside]
         shared_dict["sat_altitude"] = shared_dict["sat_altitude"][indices_inside]
