@@ -186,7 +186,9 @@ class Algorithm(BaseAlgorithm):
 
                 # Find the correct file for the data
 
-                file_paths = glob.glob(os.path.join(self.conc_file_dir, f"nt_{file_date}*.dat"))
+                file_paths = glob.glob(
+                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*.dat")
+                )
 
                 # There should be 1 match for each date. If not, return an error
                 if len(file_paths) < 1:
@@ -207,6 +209,7 @@ class Algorithm(BaseAlgorithm):
                 # convert to 0..360 to match shared_dict values
                 file_lons = sea_ice_conc[3] % 360.0
                 file_values = sea_ice_conc[4]
+                file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
 
                 # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
                 file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
@@ -227,6 +230,15 @@ class Algorithm(BaseAlgorithm):
             si_concentration[wv_num] = file_values[file_neighbouring_indices]
 
         self.log.info("NaNs in concentration array - %d", sum(np.isnan(si_concentration)))
+        self.log.info(
+            "Sea ice concentration: Max=%f Mean=%f Min=%f Zeroes=%d",
+            np.nanmax(si_concentration),
+            np.nanmean(si_concentration),
+            np.nanmin(si_concentration),
+            sum(si_concentration <= 0.0),
+        )
+        if all(np.isnan(si_concentration)):
+            self.log.info("WARNING - ALL CONCENTRATIONS ARE NaN")
 
         shared_dict["seaice_concentration"] = si_concentration
 
