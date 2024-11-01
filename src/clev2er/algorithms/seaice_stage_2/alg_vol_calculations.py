@@ -6,6 +6,8 @@ Algorithm class module, used to implement a single chain algorithm
 
 Calculates ice volume from ice thickness values and auxilliary data
 
+NOTE: This is a direct translation of Andy's original code, might be a better way to do it.
+
 #Main initialization (init() function) steps/resources required
 
 Read params from config
@@ -107,8 +109,8 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         """ Read params from config """
-        self.nlats = self.config["alg_vol_calculations"]["nlats"]
-        self.nlons = self.config["alg_vol_calculations"]["nlons"]
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
         self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
         self.nn_radius = self.config["alg_vol_calculations"]["nn_radius"]
         self.projection = self.config["shared"]["output_projection"]
