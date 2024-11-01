@@ -124,9 +124,6 @@ def test_merge_modes(
     Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-
-    FILL THIS OUT WITH STEPS
-
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
