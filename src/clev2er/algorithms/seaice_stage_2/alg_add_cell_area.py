@@ -42,7 +42,6 @@ import numpy as np
 import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -101,15 +100,21 @@ class Algorithm(BaseAlgorithm):
         cell_area_file_path = os.path.join(
             self.config["shared"]["aux_file_path"], "cell_area_file.dat"
         )
-        max_lat = self.config["shared"]["max_latitude"]
-        max_lon = self.config["shared"]["max_longitude"]
-        min_lat = self.config["shared"]["min_latitude"]
-        min_lon = self.config["shared"]["min_longitude"]
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
 
         # Create projection transform
         crs_input = proj.Proj(self.config["alg_add_cell_area"]["input_projection"])
         crs_output = proj.Proj(self.config["shared"]["output_projection"])
         self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
+
+        # Wisdom from Andy Ridout
+        # Input and output files have the following format:
+        #     Col 1 : Latitude index
+        #     Col 2 : Longitude index
+        #     Col 3 : Latitude  of cell centre
+        #     Col 4 : Longitude of cell centre
+        #     Col 5 : Stored quantity
 
         # Load cell area file
         self.log.info("\tLoading cell area from %s", cell_area_file_path)
@@ -117,25 +122,22 @@ class Algorithm(BaseAlgorithm):
             self.log.error("Cannot find cell area file - %s", cell_area_file_path)
             raise RuntimeError(f"Cannot find the cell area file at {cell_area_file_path}")
         cell_area_file = np.transpose(np.genfromtxt(cell_area_file_path))
-        cell_area_lats = cell_area_file[0]
-        # convert to 0..360 to match shared_dict values
-        cell_area_lons = cell_area_file[1] % 360.0
+        cell_area_lat_index = cell_area_file[0]
+        cell_area_lon_index = cell_area_file[1]
+        cell_area_values = cell_area_file[4]
 
-        # remove values outside of the target area
-        values_in_area = (
-            (cell_area_lats > min_lat)
-            & (cell_area_lats < max_lat)
-            & (cell_area_lons > min_lon)
-            & (cell_area_lons < max_lon)
+        # construct the grid
+        self.cell_area_grid = np.zeros((nlats, nlons), dtype=np.float64)
+        self.cell_area_grid[cell_area_lat_index, cell_area_lon_index] = cell_area_values
+
+        # Log details
+        self.log.info(
+            "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
+            np.sum(np.nonzero(self.cell_area_grid)),
+            np.min(self.cell_area_grid),
+            np.mean(self.cell_area_grid),
+            np.max(self.cell_area_grid),
         )
-        cell_area_lats = cell_area_lats[values_in_area]
-        cell_area_lons = cell_area_lons[values_in_area]
-        self.cell_area_values = cell_area_file[2][values_in_area]
-
-        # construct the KDTree
-        cell_area_x, cell_area_y = self.lonlat_to_xy.transform(cell_area_lons, cell_area_lats)
-        cell_area_points = np.transpose((cell_area_x, cell_area_y))
-        self.cell_area_tree = cKDTree(cell_area_points)
 
         # --- End of initialization steps ---
 
@@ -176,24 +178,8 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ For each sample, get the closest matching cell area value """
-        sample_x, sample_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            l1b["sat_lon"][:].data, l1b["sat_lat"][:].data
-        )
-        sample_points = np.transpose((sample_x, sample_y))
-
-        sample_cell_area_indices = np.apply_along_axis(
-            self.cell_area_tree.query, 1, sample_points, k=1
-        )[:, 1].astype(int)
-
-        shared_dict["cell_area"] = self.cell_area_values[sample_cell_area_indices].astype(float)
-        self.log.info(
-            "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
-            shared_dict["cell_area"].shape[0],
-            np.min(shared_dict["cell_area"]),
-            np.mean(shared_dict["cell_area"]),
-            np.max(shared_dict["cell_area"]),
-        )
+        # Simply add the grid to the shared_dict
+        shared_dict["cell_area"] = self.cell_area_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
