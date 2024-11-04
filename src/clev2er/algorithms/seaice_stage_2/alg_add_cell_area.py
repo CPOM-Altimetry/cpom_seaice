@@ -126,6 +126,18 @@ class Algorithm(BaseAlgorithm):
         cell_area_lon_index = cell_area_file[1]
         cell_area_values = cell_area_file[4]
 
+        # Filter to just the points in the area we want
+        inside_area = (
+            (cell_area_lat_index >= 0)
+            & (cell_area_lat_index < nlats)
+            & (cell_area_lon_index >= 0)
+            & (cell_area_lon_index < nlons)
+        )
+
+        cell_area_lat_index = cell_area_lat_index[inside_area]
+        cell_area_lon_index = cell_area_lon_index[inside_area]
+        cell_area_values = cell_area_values[inside_area]
+
         # construct the grid
         self.cell_area_grid = np.zeros((nlats, nlons), dtype=np.float64)
         self.cell_area_grid[cell_area_lat_index, cell_area_lon_index] = cell_area_values
