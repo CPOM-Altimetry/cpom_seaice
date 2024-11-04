@@ -39,10 +39,8 @@ import os
 from typing import Tuple
 
 import numpy as np
-import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -103,15 +101,8 @@ class Algorithm(BaseAlgorithm):
             "region_masks",
             f"region_mask_N{self.config['alg_add_region_mask']['mask_number']:02}.dat",
         )
-        max_lat = self.config["shared"]["max_latitude"]
-        max_lon = self.config["shared"]["max_longitude"]
-        min_lat = self.config["shared"]["min_latitude"]
-        min_lon = self.config["shared"]["min_longitude"]
-
-        # Create projection transform
-        crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["shared"]["output_projection"])
-        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
 
         # Load region mask file
         self.log.info("\tLoading region mask from %s", region_mask_file_path)
@@ -119,29 +110,33 @@ class Algorithm(BaseAlgorithm):
             self.log.error("Cannot find region mask file - %s", region_mask_file_path)
             raise RuntimeError(f"Cannot find the region mask file at {region_mask_file_path}")
         region_mask_file = np.transpose(np.genfromtxt(region_mask_file_path))
-        file_lats = region_mask_file[2]
-        # convert to 0..360 to match shared_dict values
-        file_lons = region_mask_file[3] % 360.0
+
+        # read data
+
+        file_lat_index = region_mask_file[0]
+        file_lon_index = region_mask_file[1]
         file_values = region_mask_file[4]
 
         # Filter region mask to correct area
         in_area = (
-            (file_lats > min_lat)
-            & (file_lats < max_lat)
-            & (file_lons > min_lon)
-            & (file_lons < max_lon)
+            (file_lat_index >= 0)
+            & (file_lat_index < nlats)
+            & (file_lon_index >= 0)
+            & (file_lon_index < nlons)
         )
-        file_lats = file_lats[in_area]
-        file_lons = file_lons[in_area]
-        self.region_values = file_values[in_area]
+        file_lat_index = file_lat_index[in_area]
+        file_lon_index = file_lon_index[in_area]
+        file_values = file_values[in_area]
 
-        # Assemble KDTree
-        file_x, file_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            file_lons, file_lats
+        # Assemble region grid
+        self.region_mask_grid = np.zeros((nlats, nlons)) * np.nan
+        self.region_mask_grid[file_lat_index, file_lon_index] = file_values
+
+        self.log.info(
+            "Region Mask - Count=%d nTrue=%d",
+            np.prod(self.region_mask_grid.shape),
+            np.sum(self.region_mask_grid),
         )
-        mask_points = np.transpose((file_x, file_y))
-        self.mask_tree = cKDTree(mask_points)
-
         # --- End of initialization steps ---
 
         return (True, "")
@@ -181,26 +176,9 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ Get mask values for every sample
-        Save to shared_mem """
+        """ Get grid and add to the shared memory"""
 
-        # transform lat lon values to points
-        sample_x, sample_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            l1b["sat_lon"][:].data, l1b["sat_lat"][:].data
-        )
-        sample_points = np.transpose((sample_x, sample_y))
-
-        sample_mss_indices = np.apply_along_axis(self.mask_tree.query, 1, sample_points, k=1)[
-            :, 1
-        ].astype(int)
-
-        shared_dict["region_mask"] = self.region_values[sample_mss_indices].astype(bool)
-
-        self.log.info(
-            "Region Mask - Count=%d nTrue=%d",
-            shared_dict["region_mask"].shape[0],
-            np.sum(shared_dict["region_mask"]),
-        )
+        shared_dict["region_mask"] = self.region_mask_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
