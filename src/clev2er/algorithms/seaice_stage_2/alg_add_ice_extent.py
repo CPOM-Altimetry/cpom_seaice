@@ -50,7 +50,6 @@ import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import Transformer
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -105,6 +104,11 @@ class Algorithm(BaseAlgorithm):
         Create place to keep auxilliary file data in memory between files/records
         """
 
+        # grid data parameters
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
+
+        # ice conc parameters
         self.conc_threshold = self.config["alg_add_ice_extent"]["conc_threshold"]
 
         # Store the data for the most recent file with this
@@ -174,70 +178,86 @@ class Algorithm(BaseAlgorithm):
             If greater than threshold, value of mask is true, else it is false
         Save the mask to shared_mem
         """
+        # Get the middle time stamp and get the corresponding external file
+        # This probably isn't what andy does, but because he might have a different way of merging
+        # files, it is probably good enough
+        time = l1b["measurement_time"][:]
+        mid_timestamp = np.sort(time)[(len(time) // 2)]
 
-        si_extent = np.zeros(l1b["sat_lat"][:].size, dtype=bool)
+        file_date = datetime.fromtimestamp(int(mid_timestamp)).strftime("%Y%m%d")
 
-        # for each timestamp, lat and lon in shared memory:
-        for sample_num, (sample_timestamp, sample_lat, sample_lon) in enumerate(
-            zip(l1b["measurement_time"][:], l1b["sat_lat"][:], l1b["sat_lon"][:])
-        ):
-            file_date = datetime.fromtimestamp(int(sample_timestamp)).strftime("%Y%m%d")
+        if self.most_recent_file["date"] == file_date:
+            # If date is the same as the most recent file date, get values from dict
+            si_extent_grid = self.most_recent_file["grid"]
 
-            if self.most_recent_file["date"] == file_date:
-                # If date is the same as the most recent file date, get values from dict
-                file_point_tree = self.most_recent_file["tree"]
-                file_values = self.most_recent_file["values"]
+        else:
+            # Else, read the file, create the KDTree and store the values
+            # in most recent file dict for later use
+            self.log.info("Loading new extent data file  - %s", file_date)
 
-            else:
-                # Else, read the file, create the KDTree and store the values
-                # in most recent file dict for later use
-                self.log.info("Loading new extent data file  - %s", file_date)
+            # Find the correct file for the data
+            file_paths = glob.glob(os.path.join(self.extent_file_dir, f"*{file_date}*.dat"))
 
-                # Find the correct file for the data
+            # There should be 1 match for each date. If not, return an error
+            if len(file_paths) < 1:
+                self.log.error("Could not locate file matching - %s", file_date)
+                return (False, "EXTENT_FILE_NOT_FOUND")
+            if len(file_paths) > 1:
+                self.log.error(
+                    "Too many files found that match - %s. Only one should be found.", file_date
+                )
+                return (False, "EXTENT_FILE_TOO_MANY_FOUND")
 
-                file_paths = glob.glob(os.path.join(self.extent_file_dir, f"*{file_date}*.dat"))
+            file_path = file_paths[0]
 
-                # There should be 1 match for each date. If not, return an error
-                if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching - %s", file_date)
-                    return (False, "EXTENT_FILE_NOT_FOUND")
-                if len(file_paths) > 1:
-                    self.log.error(
-                        "Too many files found that match - %s. Only one should be found.", file_date
-                    )
-                    return (False, "EXTENT_FILE_TOO_MANY_FOUND")
+            # Read the external file
+            # Wisdom from Andy Ridout
+            # Input and output files have the following format:
+            #     Col 1 : Latitude index
+            #     Col 2 : Longitude index
+            #     Col 3 : Latitude  of cell centre
+            #     Col 4 : Longitude of cell centre
+            #     Col 5 : Stored quantity
 
-                file_path = file_paths[0]
+            sea_ice_extent = np.transpose(np.genfromtxt(file_path))
+            file_lat_index = sea_ice_extent[0].astype(int)
+            file_lon_index = sea_ice_extent[1].astype(int)
+            file_values = sea_ice_extent[4] >= self.conc_threshold
 
-                # Read the external file
+            inside_grid = (
+                (file_lat_index >= 0)
+                & (file_lat_index < self.nlats)
+                & (file_lon_index >= 0)
+                & (file_lon_index < self.nlons)
+            )
+            file_lat_index = file_lat_index[inside_grid]
+            file_lon_index = file_lon_index[inside_grid]
+            file_values = file_values[inside_grid]
 
-                sea_ice_extent = np.transpose(np.genfromtxt(file_path))
-                file_lats = sea_ice_extent[2]
-                # convert to 0..360 to match shared_dict values
-                file_lons = sea_ice_extent[3] % 360.0
-                file_values = sea_ice_extent[4]
+            si_extent_grid = np.zeros((self.nlats, self.nlons), dtype=bool)
+            si_extent_grid[file_lat_index, file_lon_index] = file_values
 
-                # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
-                file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
-                file_points = np.transpose((file_x, file_y))
-                file_point_tree = cKDTree(file_points)
+            # Log details
+            self.log.info(
+                "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
+                np.sum(np.nonzero(si_extent_grid)),
+                np.min(si_extent_grid),
+                np.mean(si_extent_grid),
+                np.max(si_extent_grid),
+            )
 
-                # Save the loaded date, KDTree, and values
-                # Faster to save the tree than save the lon + lat values and recreate
-                # the tree every time
+            # Save the loaded date and grid to we can use this for other files
 
-                self.most_recent_file["date"] = file_date
-                self.most_recent_file["tree"] = file_point_tree
-                self.most_recent_file["values"] = file_values
+            self.most_recent_file["date"] = file_date
+            self.most_recent_file["grid"] = si_extent_grid
 
-            sample_x, sample_y = self.lonlat_to_xy.transform(sample_lon, sample_lat)
+        self.log.info(
+            "Ice Extent Mask - Count=%d nTrue=%d",
+            np.prod(si_extent_grid.shape),
+            np.sum(si_extent_grid),
+        )
 
-            file_neighbouring_indices = int(file_point_tree.query((sample_x, sample_y), k=1)[1])
-            si_extent[sample_num] = file_values[file_neighbouring_indices] >= self.conc_threshold
-
-        self.log.info("Ice Extent Mask - Count=%d nTrue=%d", si_extent.shape[0], np.sum(si_extent))
-
-        shared_dict["extent_mask"] = si_extent
+        shared_dict["extent_mask"] = si_extent_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
