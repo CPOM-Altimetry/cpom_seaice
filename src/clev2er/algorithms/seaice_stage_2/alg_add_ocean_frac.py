@@ -39,10 +39,8 @@ import os
 from typing import Tuple
 
 import numpy as np
-import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -99,43 +97,53 @@ class Algorithm(BaseAlgorithm):
 
         # Load params from config
         ocean_frac_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "ocean_frac_file_N.dat"
+            self.config["shared"]["aux_file_path"], "ocean_fraction_file_N.dat"
         )
-        max_lat = self.config["shared"]["max_latitude"]
-        max_lon = self.config["shared"]["max_longitude"]
-        min_lat = self.config["shared"]["min_latitude"]
-        min_lon = self.config["shared"]["min_longitude"]
-
-        # Create projection transform
-        crs_input = proj.Proj(self.config["alg_add_ocean_frac"]["input_projection"])
-        crs_output = proj.Proj(self.config["shared"]["output_projection"])
-        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
 
         # Load ocean fraction file
         self.log.info("\tLoading ocean fraction from %s", ocean_frac_file_path)
         if not os.path.exists(ocean_frac_file_path):
             self.log.error("Cannot find ocean fraction file - %s", ocean_frac_file_path)
             raise RuntimeError(f"Cannot find the ocean fraction file at {ocean_frac_file_path}")
+
+        # read file data
+        # Wisdom from Andy Ridout
+        # Input and output files have the following format:
+        #     Col 1 : Latitude index
+        #     Col 2 : Longitude index
+        #     Col 3 : Latitude  of cell centre
+        #     Col 4 : Longitude of cell centre
+        #     Col 5 : Stored quantity
+
         ocean_frac_file = np.transpose(np.genfromtxt(ocean_frac_file_path))
-        ocean_frac_lats = ocean_frac_file[0]
-        # convert to 0..360 to match shared_dict values
-        ocean_frac_lons = ocean_frac_file[1] % 360.0
+        ocean_frac_lat_index = ocean_frac_file[0]
+        ocean_frac_lon_index = ocean_frac_file[1]
+        ocean_frac_values = ocean_frac_file[5]
 
         # remove values outside of the target area
         values_in_area = (
-            (ocean_frac_lats > min_lat)
-            & (ocean_frac_lats < max_lat)
-            & (ocean_frac_lons > min_lon)
-            & (ocean_frac_lons < max_lon)
+            (ocean_frac_lat_index >= 0)
+            & (ocean_frac_lat_index < nlats)
+            & (ocean_frac_lon_index >= 0)
+            & (ocean_frac_lon_index < nlons)
         )
-        ocean_frac_lats = ocean_frac_lats[values_in_area]
-        ocean_frac_lons = ocean_frac_lons[values_in_area]
-        self.ocean_frac_values = ocean_frac_file[2][values_in_area]
+        ocean_frac_lat_index = ocean_frac_lat_index[values_in_area]
+        ocean_frac_lon_index = ocean_frac_lon_index[values_in_area]
+        ocean_frac_values = ocean_frac_values[values_in_area]
 
-        # construct the KDTree
-        ocean_frac_x, ocean_frac_y = self.lonlat_to_xy.transform(ocean_frac_lons, ocean_frac_lats)
-        ocean_frac_points = np.transpose((ocean_frac_x, ocean_frac_y))
-        self.ocean_frac_tree = cKDTree(ocean_frac_points)
+        # construct the grid
+        self.ocean_frac_grid = np.zeros((nlats, nlons)) * np.nan
+        self.ocean_frac_grid[ocean_frac_lat_index, ocean_frac_lon_index] = ocean_frac_values
+
+        self.log.info(
+            "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f",
+            self.ocean_frac_grid.shape,
+            np.min(self.ocean_frac_grid),
+            np.mean(self.ocean_frac_grid),
+            np.max(self.ocean_frac_grid),
+        )
 
         # --- End of initialization steps ---
 
@@ -176,24 +184,8 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ For each sample, get the closest matching ocean fraction value """
-        sample_x, sample_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            l1b["sat_lon"][:].data, l1b["sat_lat"][:].data
-        )
-        sample_points = np.transpose((sample_x, sample_y))
-
-        sample_ocean_frac_indices = np.apply_along_axis(
-            self.ocean_frac_tree.query, 1, sample_points, k=1
-        )[:, 1].astype(int)
-
-        shared_dict["ocean_frac"] = self.ocean_frac_values[sample_ocean_frac_indices].astype(float)
-        self.log.info(
-            "Ocean Fraction - Count=%d Min=%f Mean=%f Max=%f",
-            shared_dict["ocean_frac"].shape[0],
-            np.min(shared_dict["ocean_frac"]),
-            np.mean(shared_dict["ocean_frac"]),
-            np.max(shared_dict["ocean_frac"]),
-        )
+        # Just get the grid and add it to the shared memory
+        shared_dict["ocean_frac"] = self.ocean_frac_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
