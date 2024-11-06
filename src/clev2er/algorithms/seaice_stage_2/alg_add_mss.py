@@ -37,7 +37,6 @@ import numpy as np
 import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.io import readsav
 from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
@@ -106,20 +105,25 @@ class Algorithm(BaseAlgorithm):
         if not os.path.exists(mss_file_path):
             self.log.error("Cannot find MSS file - %s", mss_file_path)
             raise RuntimeError(f"Cannot find the MSS file at {mss_file_path}")
-        mss_all = readsav(mss_file_path)["mss"]
+
+        mss_file = np.transpose(np.genfromtxt(mss_file_path))
+
+        mss_values = mss_file[2]
+        mss_lat = mss_file[1]
+        mss_lon = mss_file[0] % 360
 
         # Filter MSS to correct area
-        mss_filt = mss_all[
-            (mss_all[:, 1] > min_lat - buffer)
-            & (mss_all[:, 1] < max_lat + buffer)
-            & (mss_all[:, 0] % 360 > min_lon - buffer)
-            & (mss_all[:, 0] % 360 < max_lon + buffer)
-        ]
+        inside_area = (
+            (mss_lat > min_lat - buffer)
+            & (mss_lat < max_lat + buffer)
+            & (mss_lon > min_lon - buffer)
+            & (mss_lon < max_lon + buffer)
+        )
 
         # Assemble KDTree
-        mss_lat = mss_filt[:, 1]
-        mss_lon = mss_filt[:, 0] % 360
-        self.mss_vals = mss_filt[:, 2]
+        mss_lat = mss_lat[inside_area]
+        mss_lon = mss_lon[inside_area]
+        self.mss_vals = mss_values[inside_area]
 
         mss_x, mss_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
             mss_lon, mss_lat
