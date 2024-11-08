@@ -32,12 +32,14 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
   aux_file_path: /home/jgnq4/Documents/sea_ice_processor/aux_files
-  grid_nlons: 360
-  grid_nlats: 250
 
 alg_add_mss:
   mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files/CS2_MSS_north.sav
   mss_buffer: 0.2
+  input_projection: epsg:4326
+
+alg_add_si_type:
+  type_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
   input_projection: epsg:4326
 
 alg_sla_calculations:
