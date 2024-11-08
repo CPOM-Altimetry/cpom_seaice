@@ -8,7 +8,8 @@ l1b_file_selectors:
 
 # List of algorithms to call in order
 algorithms:
-  - alg_ingest_merge
   - alg_add_mss
+  - alg_add_si_type
   - alg_sla_calculations
   - alg_fbd_calculations
+  - alg_warren_snow_means

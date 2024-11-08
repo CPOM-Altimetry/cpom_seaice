@@ -104,7 +104,7 @@ class Algorithm(BaseAlgorithm):
         # Close file
 
         warren_means_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "warren_means.dat"
+            self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
         )
 
         self.log.info("\tLoading warren_means.dat...")
