@@ -122,9 +122,12 @@ class Algorithm(BaseAlgorithm):
             self.log.error("Cannot find cell area file - %s", cell_area_file_path)
             raise RuntimeError(f"Cannot find the cell area file at {cell_area_file_path}")
         cell_area_file = np.transpose(np.genfromtxt(cell_area_file_path))
-        cell_area_lat_index = cell_area_file[0]
-        cell_area_lon_index = cell_area_file[1]
-        cell_area_values = cell_area_file[4]
+        cell_area_lat = cell_area_file[0]
+        cell_area_lon = cell_area_file[1]
+        cell_area_values = cell_area_file[2]
+
+        cell_area_lat_index = ((cell_area_lat - 40) / 0.1).astype(int)
+        cell_area_lon_index = ((cell_area_lon + 180) / 0.5).astype(int)
 
         # Filter to just the points in the area we want
         inside_area = (
@@ -145,7 +148,7 @@ class Algorithm(BaseAlgorithm):
         # Log details
         self.log.info(
             "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
-            np.sum(np.nonzero(self.cell_area_grid)),
+            np.count_nonzero(self.cell_area_grid),
             np.min(self.cell_area_grid),
             np.mean(self.cell_area_grid),
             np.max(self.cell_area_grid),
