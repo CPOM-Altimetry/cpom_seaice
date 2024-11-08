@@ -118,9 +118,12 @@ class Algorithm(BaseAlgorithm):
         #     Col 5 : Stored quantity
 
         ocean_frac_file = np.transpose(np.genfromtxt(ocean_frac_file_path))
-        ocean_frac_lat_index = ocean_frac_file[0]
-        ocean_frac_lon_index = ocean_frac_file[1]
-        ocean_frac_values = ocean_frac_file[5]
+        ocean_frac_lat = ocean_frac_file[0]
+        ocean_frac_lon = ocean_frac_file[1]
+        ocean_frac_values = ocean_frac_file[2]
+
+        ocean_frac_lat_index = ((ocean_frac_lat - 40) / 0.1).astype(int)
+        ocean_frac_lon_index = ((ocean_frac_lon + 180) / 0.5).astype(int)
 
         # remove values outside of the target area
         values_in_area = (
@@ -138,11 +141,12 @@ class Algorithm(BaseAlgorithm):
         self.ocean_frac_grid[ocean_frac_lat_index, ocean_frac_lon_index] = ocean_frac_values
 
         self.log.info(
-            "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f",
+            "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f NaNs=%d",
             self.ocean_frac_grid.shape,
-            np.min(self.ocean_frac_grid),
-            np.mean(self.ocean_frac_grid),
-            np.max(self.ocean_frac_grid),
+            np.nanmin(self.ocean_frac_grid),
+            np.nanmean(self.ocean_frac_grid),
+            np.nanmax(self.ocean_frac_grid),
+            np.sum(np.isnan(self.ocean_frac_grid.flatten())),
         )
 
         # --- End of initialization steps ---
