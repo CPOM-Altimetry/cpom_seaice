@@ -183,8 +183,8 @@ class Algorithm(BaseAlgorithm):
             zip(l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
         ):
             # Get the fdx of lats and lons
-            sample_fdxlat = ((sample_lat - self.latmin) / self.delta) + 0.5
-            sample_fdxlon = ((sample_lon - self.lonmin) / self.delta) + 0.5
+            sample_fdxlat = (sample_lat - self.latmin) / self.delta
+            sample_fdxlon = (sample_lon - self.lonmin) / self.delta
 
             # skip if we can't interpolate
             if (
@@ -216,6 +216,16 @@ class Algorithm(BaseAlgorithm):
                 + ((1 - frac_lats) * frac_lons * mss_3)
                 + (frac_lats * frac_lons * mss_4)
             )
+
+        self.log.info(
+            "MSS - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(sample_mss),
+            np.nanstd(sample_mss),
+            np.nanmin(sample_mss),
+            np.nanmax(sample_mss),
+            sample_mss.shape[0],
+            sum(np.isnan(sample_mss)),
+        )
 
         shared_dict["mss"] = sample_mss
 
