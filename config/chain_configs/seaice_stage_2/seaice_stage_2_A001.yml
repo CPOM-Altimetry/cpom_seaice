@@ -37,7 +37,7 @@ shared: # Shared config parameters for multiple algorithms to use
   grid_nlats: 250
 
 alg_add_mss:
-  mss_file: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files/CS2_MSS_north.sav
+  mss_file: /home/jgnq4/Documents/sea_ice_processor/andy_aux_files/mss/CryosatMSS-arco-2yr-140821.txt
   mss_buffer: 0.2
   input_projection: epsg:4326
 
