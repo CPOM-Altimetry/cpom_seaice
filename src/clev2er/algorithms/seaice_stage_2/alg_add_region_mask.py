@@ -1,38 +1,41 @@
-"""clev2er.algorithms.seaice_stage_1.alg_threshold_retrack.py
+"""clev2er.algorithms.seaice.alg_add_region_mask.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Algorithm for retracking the smoothed diffuse waveforms which represent ice floes in sea
-ice processing. Retracks waveform to X% of the waveform, then Y% of the waveform, where X < Y.
-We measure the bin distance between the retracking values, and any sample which has a distance
-greater than the limit will not be processed further.
+Adds the a region mask to the shared_mem
 
 #Main initialization (init() function) steps/resources required
 
-Get threshold and leading edge width settings from config file
+Load params from config
+Check if region_mask directory exists
+Construct file path for region mask
+Load region mask to memory
 
 #Main process() function steps
 
-Retrack to lower threshold point
-Retrack to higher threshold point
-Generate index of which samples have a LEW less than the limit
+Get mask values for every sample
+Save to shared_mem
+
+#Main finalize() function steps
+
+Remove mask data from memory
 
 #Contribution to shared_dict
 
-shared_dict["floe_retracking_points"] (np.ndarray[float]) : array of retracking points for floes
-shared_dict["idx_lew_gt_max"] (np.ndarray[int]) :   index array of samples with leading edge
-                                                    width greater than limit
+region_mask : np.ndarray[float] = Region mask values for samples
 
 #Requires from shared_dict
 
-shared_dict["waveform_smooth"]
+sat_lat
+sat_lon
 
 Author: Ben Palmer
-Date: 23 Feb 2024
+Date: 06 Sep 2024
 """
 
+import os
 from typing import Tuple
 
 import numpy as np
@@ -40,23 +43,25 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.cs2.retrackers.threshold_retracker import threshold_retracker
+
+# pylint:disable=pointless-string-statement
+# pylint:disable=too-many-locals
 
 
 class Algorithm(BaseAlgorithm):
     """CLEV2ER Algorithm class
 
     contains:
-        .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
-        .config (dict) : configuration dictionary, set by BaseAlgorithm
+            .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
+            .config (dict) : configuration dictionary, set by BaseAlgorithm
 
-    functions that need completing:
-        .init() : Algorithm initialization function (run once at start of chain)
-        .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
-        .finalize() :   Algorithm finalization/closure function (run after all chain
-                        processing completed)
+        functions that need completing:
+            .init() : Algorithm initialization function (run once at start of chain)
+            .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
+            .finalize() :   Algorithm finalization/closure function (run after all chain
+                            processing completed)
 
-    Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
+        Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
 
     """
 
@@ -86,22 +91,60 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.threshold_high = self.config["alg_threshold_retrack"]["threshold_high"]
-        self.threshold_low = self.config["alg_threshold_retrack"]["threshold_low"]
+        """ Load params from config
+        Construct file path for region mask
+        Check if file path exists
+        Load region mask to memory """
 
-        self.lew_max = self.config["alg_threshold_retrack"]["lew_max"]
+        region_mask_file_path = os.path.join(
+            self.config["shared"]["aux_file_path"],
+            "region_masks",
+            f"region_mask_N{self.config['alg_add_region_mask']['mask_number']:02}.dat",
+        )
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
 
-        if self.threshold_high <= self.threshold_low:
-            raise ValueError(
-                "Threshold config values for alg_threshold_retrack are in the wrong order."
-            )
+        # Load region mask file
+        self.log.info("\tLoading region mask from %s", region_mask_file_path)
+        if not os.path.exists(region_mask_file_path):
+            self.log.error("Cannot find region mask file - %s", region_mask_file_path)
+            raise RuntimeError(f"Cannot find the region mask file at {region_mask_file_path}")
+        region_mask_file = np.transpose(np.genfromtxt(region_mask_file_path))
 
+        # read data
+
+        file_lat_index = region_mask_file[0]
+        file_lon_index = region_mask_file[1]
+        file_values = region_mask_file[4]
+
+        # Filter region mask to correct area
+        in_area = (
+            (file_lat_index >= 0)
+            & (file_lat_index < nlats)
+            & (file_lon_index >= 0)
+            & (file_lon_index < nlons)
+        )
+        file_lat_index = file_lat_index[in_area]
+        file_lon_index = file_lon_index[in_area]
+        file_values = file_values[in_area]
+
+        # Assemble region grid
+        self.region_mask_grid = np.zeros((nlats, nlons)) * np.nan
+        self.region_mask_grid[file_lat_index, file_lon_index] = file_values
+
+        self.log.info(
+            "Region Mask - Count=%d nTrue=%d",
+            np.prod(self.region_mask_grid.shape),
+            np.sum(self.region_mask_grid),
+        )
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -130,34 +173,12 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        if shared_dict["diffuse_index"].size == 0:
-            self.log.info("No diffuse waves in file - skipping retracking...")
-            shared_dict["floe_retracking_points"] = np.array([])
-            return (success, error_str)
+        """ Get grid and add to the shared memory"""
 
-        points_higher = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_high
-        )
-
-        points_lower = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_low
-        )
-
-        lews = np.abs(points_higher - points_lower)
-
-        # only keep points with leading edge width < max value
-        idx_lew_gt_max = np.where(lews > self.lew_max)[0]
-
-        self.log.info(
-            "Number of samples that exceeded LEW limit - %d",
-            shared_dict["waveform_smooth"].shape[0] - idx_lew_gt_max.size,
-        )
-
-        shared_dict["floe_retracking_points"] = points_higher
-        shared_dict["idx_lew_gt_max"] = idx_lew_gt_max
+        shared_dict["region_mask"] = self.region_mask_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -180,7 +201,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
+
+        """ Remove mask data from memory """
 
         # ---------------------------------------------------------------------

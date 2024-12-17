@@ -40,7 +40,7 @@ Save elevations to dict.
 'pole_tide'
 'specular_index'
 'diffuse_index'
-'idx_lew_lt_max'
+'idx_lew_gt_max'
 'lead_retracking_points'
 'floe_retracking_points'
 'bin_shift'
@@ -159,9 +159,7 @@ class Algorithm(BaseAlgorithm):
 
         retracking_points = np.zeros(shared_dict["sat_lat"].size) * np.nan
         retracking_points[shared_dict["specular_index"]] = shared_dict["lead_retracking_points"]
-        retracking_points[
-            shared_dict["diffuse_index"][shared_dict["idx_lew_lt_max"]]
-        ] = shared_dict["floe_retracking_points"]
+        retracking_points[shared_dict["diffuse_index"]] = shared_dict["floe_retracking_points"]
 
         # do bin_width * bin_shift here since it will all be subtracted from the elevation
         retracker_correction = self.bin_width * (
@@ -185,6 +183,9 @@ class Algorithm(BaseAlgorithm):
             sum(np.isnan(elevations)),
         )
         shared_dict["elevation"] = elevations
+
+        shared_dict["valid"][shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]] = False
+        shared_dict["valid"][shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]] = False
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

@@ -22,7 +22,7 @@ geophysical:
   earth_semi_major: 6378137.0
   eccentricity: 0.08181919078479198
   speed_light_vacuum: 299792458.0
-  speed_light_snow:   240000000.0
+  speed_light_snow:   240000000.0 #2.4e8
 
 # Algorithm configuration settings
 
@@ -60,10 +60,18 @@ alg_thk_calculations:
   rho_fyi: 916.7
   rho_myi: 882.0
   rho_sea: 1023.9
-
+  
 alg_add_ice_extent:
   conc_threshold: 15.0
   input_projection: epsg:4326
+  
+alg_add_cell_area:
+  input_projection: epsg:4326
 
+alg_add_ocean_frac:
+  input_projection: epsg:4326
+
+alg_add_region_mask:
+  mask_number: 1
 
 # Resource Locators
