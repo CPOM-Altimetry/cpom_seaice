@@ -144,6 +144,7 @@ class Algorithm(BaseAlgorithm):
             == shared_dict["sat_lon"].size
             == shared_dict["elevation"].size
             == shared_dict["lead_floe_class"].size
+            == shared_dict["valid"].size
         ):
             self.log.error("Variables that will be added to merge file are not of equal length")
 
@@ -155,6 +156,7 @@ class Algorithm(BaseAlgorithm):
                 "sat_lon",
                 "elevation",
                 "lead_floe_class",
+                "valid",
             ]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
@@ -184,6 +186,7 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("lead_floe_class", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
             output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
         else:
             output_nc = Dataset(output_file_path, mode="a")
@@ -201,6 +204,7 @@ class Algorithm(BaseAlgorithm):
         lead_floe_class = np.concatenate(
             (output_nc["lead_floe_class"][:], shared_dict["lead_floe_class"])
         )
+        valid = np.concatenate((output_nc["valid"][:], shared_dict["valid"]))
         seaice_conc = np.concatenate(
             (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
         )
@@ -214,6 +218,7 @@ class Algorithm(BaseAlgorithm):
         output_nc["sat_lon"][:] = sat_lon
         output_nc["elevation"][:] = elevation
         output_nc["lead_floe_class"][:] = lead_floe_class
+        output_nc["valid"][:] = valid
         output_nc["seaice_conc"][:] = seaice_conc
 
         # close file

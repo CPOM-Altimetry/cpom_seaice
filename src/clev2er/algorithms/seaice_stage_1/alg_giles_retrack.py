@@ -146,14 +146,16 @@ class Algorithm(BaseAlgorithm):
             | (fit_sigmas < 0.00001)
         )
 
-        lead_retracking_points[bad_fits] = np.nan
+        # set all retracking points to invalid
+        # lead_retracking_points[bad_fits] = np.nan
+        shared_dict["valid"][shared_dict["specular_index"][bad_fits]] = False
 
-        num_nans = np.sum(np.isnan(lead_retracking_points))
+        num_bad_fits = np.sum(bad_fits)
 
-        self.log.info("Number of NaN values returned by retracker - %d", num_nans)
+        self.log.info("Number of bad fits returned by retracker - %d", num_bad_fits)
 
-        # If all retracking points are nans, skip file
-        if num_nans == lead_retracking_points.size:
+        # If all retracking points are bad fits, skip file
+        if num_bad_fits == lead_retracking_points.size:
             return (False, "SKIP_OK")
 
         shared_dict["lead_retracking_points"] = lead_retracking_points
