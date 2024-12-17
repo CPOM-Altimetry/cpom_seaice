@@ -1,32 +1,37 @@
-"""clev2er.algorithms.seaice_stage_1.alg_fbd_calculations.py
+"""clev2er.algorithms.seaice.alg_thk_calculations.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Calculates the freeboard height for each sample.
+Calculates the thickness of each ice sample from the freeboard
 
 #Main initialization (init() function) steps/resources required
 
-Get window_size config option
+Load in parameters from config
 
 #Main process() function steps
 
-Interpolate ocean surface elevation between leads.
-Subtract interpolated ocean surface from elevation.
-Save to shared_dict
+Compute thickness with snow depth
+
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-'freeboard' (np.ndarray[float]) : array of freeboard values
+thickness: np.ndarray[np.float32] = ice thickness of each sample
 
 #Requires from shared_dict
 
-'sea_level_anomaly'
-'smoothed_sea_level_anomaly'
+freeboard
+seaice_type
+snow_depth
+snow_density
 
 Author: Ben Palmer
-Date: 21 Mar 2024
+Date: 05 Sep 2024
 """
 
 from typing import Tuple
@@ -36,6 +41,8 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+# pylint: disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -81,17 +88,19 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.speed_light_vacuum = self.config["geophysical"]["speed_light_vacuum"]
-        self.speed_light_snow = self.config["geophysical"]["speed_light_snow"]
+        """ Load in parameters from config """
+        self.rho_fyi = self.config["alg_thk_calculations"]["rho_fyi"]
+        self.rho_myi = self.config["alg_thk_calculations"]["rho_myi"]
+        self.rho_sea = self.config["alg_thk_calculations"]["rho_sea"]
 
-        self.fb_min = self.config["alg_fbd_calculations"]["fb_min"]
-        self.fb_max = self.config["alg_fbd_calculations"]["fb_max"]
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -120,43 +129,32 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        freeboard = (
-            shared_dict["elevation"] - shared_dict["mss"] - shared_dict["interpolated_sea_level"]
-        )
+        """ Compute thickness with snow depth """
+
+        ice_densities = np.zeros(l1b["measurement_time"][:].size) * np.nan
+        ice_densities[shared_dict["seaice_type"] == 2] = self.rho_fyi
+        ice_densities[shared_dict["seaice_type"] == 3] = self.rho_myi
+
+        thickness = (
+            (shared_dict["snow_depth"] * shared_dict["snow_density"])
+            + (shared_dict["freeboard_corr"] * ice_densities)
+        ) / (ice_densities - self.rho_sea)
 
         self.log.info(
-            "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard),
-            np.nanstd(freeboard),
-            np.nanmin(freeboard),
-            np.nanmax(freeboard),
-            freeboard.shape[0],
-            sum(np.isnan(freeboard)),
+            "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(thickness),
+            np.nanstd(thickness),
+            np.nanmin(thickness),
+            np.nanmax(thickness),
+            thickness.shape[0],
+            sum(np.isnan(thickness)),
         )
 
-        # calculate the corrected freeboard of the ice
-        freeboard_corr = freeboard + (
-            shared_dict["snow_depth"] * ((self.speed_light_vacuum / self.speed_light_snow) - 1)
-        )
+        shared_dict["thickness"] = thickness
 
-        # discard any samples outside of sensible range
-        freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
-
-        self.log.info(
-            "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard_corr),
-            np.nanstd(freeboard_corr),
-            np.nanmin(freeboard_corr),
-            np.nanmax(freeboard_corr),
-            freeboard_corr.shape[0],
-            sum(np.isnan(freeboard_corr)),
-        )
-
-        shared_dict["freeboard"] = freeboard
-        shared_dict["freeboard_corr"] = freeboard_corr
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
@@ -178,7 +176,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
+
+        """ None """
 
         # ---------------------------------------------------------------------

@@ -1,41 +1,51 @@
-"""clev2er.algorithms.seaice_stage_1.alg_fbd_calculations.py
+"""clev2er.algorithms.seaice.alg_add_cell_area.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Calculates the freeboard height for each sample.
+Adds the cell area data from auxilliary file to shared_mem
 
 #Main initialization (init() function) steps/resources required
 
-Get window_size config option
+Read params from config
+Check cell area file exists
+Read data from file
+Prepare KDTree from data and save to algorithm memory
 
 #Main process() function steps
 
-Interpolate ocean surface elevation between leads.
-Subtract interpolated ocean surface from elevation.
-Save to shared_dict
+For each sample, get the closest matching cell area value
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-'freeboard' (np.ndarray[float]) : array of freeboard values
+cell_area : np.ndarray(float) = Array of cell area values
 
 #Requires from shared_dict
 
-'sea_level_anomaly'
-'smoothed_sea_level_anomaly'
+sat_lat
+sat_lon
+measurement_time
 
 Author: Ben Palmer
-Date: 21 Mar 2024
+Date: 09 Sep 2024
 """
 
+import os
 from typing import Tuple
 
 import numpy as np
+import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -80,18 +90,78 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
+        # pylint:disable=unpacking-non-sequence
+        """ Read params from config
+        Check cell area file exists
+        Read data from file
+        Prepare KDTree from data and save to algorithm memory """
 
-        self.speed_light_vacuum = self.config["geophysical"]["speed_light_vacuum"]
-        self.speed_light_snow = self.config["geophysical"]["speed_light_snow"]
+        # Load params from config
+        cell_area_file_path = os.path.join(
+            self.config["shared"]["aux_file_path"], "cell_area_file.dat"
+        )
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
 
-        self.fb_min = self.config["alg_fbd_calculations"]["fb_min"]
-        self.fb_max = self.config["alg_fbd_calculations"]["fb_max"]
+        # Create projection transform
+        crs_input = proj.Proj(self.config["alg_add_cell_area"]["input_projection"])
+        crs_output = proj.Proj(self.config["shared"]["output_projection"])
+        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
+
+        # Wisdom from Andy Ridout
+        # Input and output files have the following format:
+        #     Col 1 : Latitude index
+        #     Col 2 : Longitude index
+        #     Col 3 : Latitude  of cell centre
+        #     Col 4 : Longitude of cell centre
+        #     Col 5 : Stored quantity
+
+        # Load cell area file
+        self.log.info("\tLoading cell area from %s", cell_area_file_path)
+        if not os.path.exists(cell_area_file_path):
+            self.log.error("Cannot find cell area file - %s", cell_area_file_path)
+            raise RuntimeError(f"Cannot find the cell area file at {cell_area_file_path}")
+        cell_area_file = np.transpose(np.genfromtxt(cell_area_file_path))
+        cell_area_lat = cell_area_file[0]
+        cell_area_lon = cell_area_file[1]
+        cell_area_values = cell_area_file[2]
+
+        cell_area_lat_index = ((cell_area_lat - 40) / 0.1).astype(int)
+        cell_area_lon_index = ((cell_area_lon + 180) / 0.5).astype(int)
+
+        # Filter to just the points in the area we want
+        inside_area = (
+            (cell_area_lat_index >= 0)
+            & (cell_area_lat_index < nlats)
+            & (cell_area_lon_index >= 0)
+            & (cell_area_lon_index < nlons)
+        )
+
+        cell_area_lat_index = cell_area_lat_index[inside_area]
+        cell_area_lon_index = cell_area_lon_index[inside_area]
+        cell_area_values = cell_area_values[inside_area]
+
+        # construct the grid
+        self.cell_area_grid = np.zeros((nlats, nlons), dtype=np.float64)
+        self.cell_area_grid[cell_area_lat_index, cell_area_lon_index] = cell_area_values
+
+        # Log details
+        self.log.info(
+            "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
+            np.count_nonzero(self.cell_area_grid),
+            np.min(self.cell_area_grid),
+            np.mean(self.cell_area_grid),
+            np.max(self.cell_area_grid),
+        )
+
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -120,43 +190,12 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        freeboard = (
-            shared_dict["elevation"] - shared_dict["mss"] - shared_dict["interpolated_sea_level"]
-        )
+        # Simply add the grid to the shared_dict
+        shared_dict["cell_area"] = self.cell_area_grid
 
-        self.log.info(
-            "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard),
-            np.nanstd(freeboard),
-            np.nanmin(freeboard),
-            np.nanmax(freeboard),
-            freeboard.shape[0],
-            sum(np.isnan(freeboard)),
-        )
-
-        # calculate the corrected freeboard of the ice
-        freeboard_corr = freeboard + (
-            shared_dict["snow_depth"] * ((self.speed_light_vacuum / self.speed_light_snow) - 1)
-        )
-
-        # discard any samples outside of sensible range
-        freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
-
-        self.log.info(
-            "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard_corr),
-            np.nanstd(freeboard_corr),
-            np.nanmin(freeboard_corr),
-            np.nanmax(freeboard_corr),
-            freeboard_corr.shape[0],
-            sum(np.isnan(freeboard_corr)),
-        )
-
-        shared_dict["freeboard"] = freeboard
-        shared_dict["freeboard_corr"] = freeboard_corr
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
@@ -178,7 +217,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
+
+        """ None """
 
         # ---------------------------------------------------------------------
