@@ -65,4 +65,7 @@ alg_add_cell_area:
 alg_add_ocean_frac:
   input_projection: epsg:4326
 
+alg_add_region_mask:
+  mask_number: 1
+
 # Resource Locators
