@@ -62,4 +62,7 @@ alg_thk_calculations:
 alg_add_cell_area:
   input_projection: epsg:4326
 
+alg_add_ocean_frac:
+  input_projection: epsg:4326
+
 # Resource Locators
