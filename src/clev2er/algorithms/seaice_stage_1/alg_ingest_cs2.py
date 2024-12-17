@@ -67,6 +67,7 @@ from functools import partial
 from typing import Tuple
 
 import numpy as np
+from astropy.time import Time, TimeDelta
 from codetiming import Timer  # used to time the Algorithm.process() function
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -182,9 +183,17 @@ class Algorithm(BaseAlgorithm):
         # convert longitude to 0..360 (from -180,180)
         shared_dict["sat_lon"] = l1b["lon_20_ku"][:].data % 360.0  #
         # timestamps in file are seconds from 1/1/2000, convert to seconds from 1/1/1970
+        # Using astropy's Time and TimeDelta to keep TAI scale from source data
+        start_epoch = Time(datetime(2000, 1, 1), format="datetime", scale="tai")
         shared_dict["measurement_time"] = (
-            l1b["time_20_ku"][:].data + datetime(2000, 1, 1).timestamp()
-        )
+            start_epoch + TimeDelta(l1b["time_20_ku"][:].data, format="sec")
+        ).tai.unix_tai
+
+        # trying to recreate andy's time
+        days: np.ndarray = l1b["time_20_ku"][:].data // 86400
+        seconds: np.ndarray = l1b["time_20_ku"][:].data - (days * 86400)
+        micsec: np.ndarray = (l1b["time_20_ku"][:].data - days * 86400 - seconds) * 1e6
+        shared_dict["andy_time"] = days + 18262 + (seconds * 1000 + micsec) / 8.64e7
 
         shared_dict["sat_altitude"] = l1b["alt_20_ku"][:].data.astype(np.float64)
         shared_dict["window_delay"] = l1b["window_del_20_ku"][:].data.astype(np.float64)
