@@ -14,7 +14,7 @@ algorithms:
   - alg_add_si_conc
   - alg_crop_waveform
   - alg_pulse_peakiness
-  - alg_cs2_wave_discimination
+  - alg_cs2_wave_discrimination
   - alg_smooth_waveform
   - alg_threshold_retrack
   - alg_giles_retrack
