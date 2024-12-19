@@ -136,6 +136,7 @@ class Algorithm(BaseAlgorithm):
         if shared_dict["diffuse_index"].size == 0:
             self.log.info("No diffuse waves in file - skipping retracking...")
             shared_dict["floe_retracking_points"] = np.array([])
+            shared_dict["idx_lew_gt_max"] = np.array([])
             return (success, error_str)
 
         points_higher = np.apply_along_axis(
