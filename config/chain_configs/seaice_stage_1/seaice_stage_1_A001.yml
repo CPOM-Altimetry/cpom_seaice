@@ -86,6 +86,6 @@ alg_elev_calculations:
   tracking_bin : 64
 
 alg_merge_modes:
-  merge_file_dir: merge_file_dir: $HOME/sea_ice_processor/elev_merge_2
+  merge_file_dir: $HOME/sea_ice_processor/elev_merge_2
 # Resource Locators
 
