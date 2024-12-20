@@ -158,12 +158,12 @@ def test_retrack_floes_sar(
         & (shared_dict["floe_retracking_points"] < shared_dict["waveform"].shape[1])
     ), "SIN - Retracking points contains values outside of acceptable range"
 
-    assert "idx_lew_lt_max" in shared_dict, "SAR - Shared_dict does not contain 'idx_lew_lt_max'"
+    assert "idx_lew_gt_max" in shared_dict, "SAR - Shared_dict does not contain 'idx_lew_gt_max'"
 
-    idx_lew_ftype = shared_dict["idx_lew_lt_max"].dtype
+    idx_lew_ftype = shared_dict["idx_lew_gt_max"].dtype
     assert (
         "int" in str(idx_lew_ftype).lower()
-    ), f"SAR - Dtype of 'idx_lew_lt_max' is {idx_lew_ftype}, not int"
+    ), f"SAR - Dtype of 'idx_lew_gt_max' is {idx_lew_ftype}, not int"
 
 
 def test_retrack_floes_sin(
@@ -220,9 +220,9 @@ def test_retrack_floes_sin(
         & (shared_dict["floe_retracking_points"] < shared_dict["waveform"].shape[1])
     ), "SIN - Retracking points contains values outside of acceptable range"
 
-    assert "idx_lew_lt_max" in shared_dict, "SIN - Shared_dict does not contain 'idx_lew_lt_max'"
+    assert "idx_lew_gt_max" in shared_dict, "SIN - Shared_dict does not contain 'idx_lew_gt_max'"
 
-    idx_lew_ftype = shared_dict["idx_lew_lt_max"].dtype
+    idx_lew_ftype = shared_dict["idx_lew_gt_max"].dtype
     assert (
         "int" in str(idx_lew_ftype).lower()
-    ), f"SIN - Dtype of 'idx_lew_lt_max' is {idx_lew_ftype}, not int"
+    ), f"SIN - Dtype of 'idx_lew_gt_max' is {idx_lew_ftype}, not int"

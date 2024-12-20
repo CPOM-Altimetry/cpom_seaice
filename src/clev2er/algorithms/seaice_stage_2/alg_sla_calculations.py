@@ -124,6 +124,7 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-locals
 
         # This step is required to support multi-processing. Do not modify
         success, error_str = self.process_setup(l1b)
@@ -147,14 +148,15 @@ class Algorithm(BaseAlgorithm):
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(raw_sla)))
 
-        not_nan_sla = np.invert(np.isnan(raw_sla))
+        not_nan_sla = ~np.isnan(raw_sla)
 
         interp_lats = l1b["sat_lat"][:].data[not_nan_sla]
         interp_lons = l1b["sat_lon"][:].data[not_nan_sla]
         interp_sla = raw_sla[not_nan_sla]
 
         # find lead indices
-        lead_indx = l1b["lead_floe_class"][:].data[not_nan_sla] == 2
+        lead_indx = l1b["lead_floe_class"][:].data == 2
+        interp_leads = lead_indx[not_nan_sla]
 
         if np.sum(lead_indx) == 0:
             self.log.info("No leads in file, unable to interpolate sea elevation")
@@ -164,7 +166,7 @@ class Algorithm(BaseAlgorithm):
             interp_lats,
             interp_lons,
             interp_sla,
-            lead_indx,
+            interp_leads,
             self.window_range * 1000,  # convert window_range from km to m
             self.distance_projection,
         )
@@ -181,17 +183,19 @@ class Algorithm(BaseAlgorithm):
         )
 
         # find lead samples where sla is inside acceptable range
-        indx_lead_sla_inside_range = np.isclose(interp_sla[lead_indx], 0, atol=self.sample_limit)
+        indx_lead_sla_inside_range = np.isclose(interp_sla[interp_leads], 0, atol=self.sample_limit)
 
         self.log.info(
             "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
         )
 
         # remove leads with SLAs outside of acceptable values
-        interp_sla[lead_indx][indx_lead_sla_inside_range] = np.nan
+        interp_sla[interp_leads][indx_lead_sla_inside_range] = np.nan
 
         # skip track if mean SLA of leads is outside of limit
-        if not np.isclose(mean_sla := np.nanmean(interp_sla[lead_indx]), 0, atol=self.track_limit):
+        if not np.isclose(
+            mean_sla := np.nanmean(interp_sla[interp_leads]), 0, atol=self.track_limit
+        ):
             self.log.info("Mean SLA is outside of acceptable range - %f", mean_sla)
             self.log.info("Skipping file...")
             return (False, "SKIP_OK")
@@ -209,10 +213,13 @@ class Algorithm(BaseAlgorithm):
         smoothed_sla = np.zeros(raw_sla.size) * np.nan
         smoothed_sla[not_nan_sla] = interp_sla
 
+        fmt_indx_lead_sla_inside_range = np.zeros(raw_sla.shape)
+        fmt_indx_lead_sla_inside_range[not_nan_sla][interp_leads][indx_lead_sla_inside_range] = 1
+
         shared_dict["raw_sea_level_anomaly"] = raw_sla
         shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
         shared_dict["lead_indx"] = lead_indx
-        shared_dict["indx_lead_sla_inside_range"] = indx_lead_sla_inside_range
+        shared_dict["indx_lead_sla_inside_range"] = fmt_indx_lead_sla_inside_range
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

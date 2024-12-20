@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_fbd_calculations
+clev2er.algorithms.seaice_stage_2.alg_add_cell_area
 """
 
 import logging
@@ -11,13 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_mss import Algorithm as AddMss
-from clev2er.algorithms.seaice_stage_2.alg_add_si_type import Algorithm as AddSIType
-from clev2er.algorithms.seaice_stage_2.alg_fbd_calculations import Algorithm
-from clev2er.algorithms.seaice_stage_2.alg_sla_calculations import Algorithm as CalcSLA
-from clev2er.algorithms.seaice_stage_2.alg_warren_snow_means import (
-    Algorithm as WarrenSnowMeans,
-)
+from clev2er.algorithms.seaice_stage_2.alg_add_cell_area import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -42,7 +36,7 @@ def config() -> dict:
 
 @pytest.fixture
 def previous_steps(
-    config: Dict,  # pylint: disable=redefined-outer-name
+    config: Dict,  # pylint: disable=unused-argument
 ) -> Dict:
     """Pytest fixture for generating the previous steps needed to test the algorithm
 
@@ -54,12 +48,7 @@ def previous_steps(
     """
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
-        chain_previous_steps = {
-            "add_mss": AddMss(config, logger),
-            "add_si_type": AddSIType(config, logger),
-            "warren_snow_means": WarrenSnowMeans(config, logger),
-            "sla_calculations": CalcSLA(config, logger),
-        }
+        chain_previous_steps: Dict[str, Any] = {}
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
 
@@ -89,24 +78,24 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_fbd_calculations(
+def test_add_cell_area_sar(
     file_num,
-    previous_steps: Dict,  # pylint: disable=redefined-outer-name
+    previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_fbd_calculations.py
+    """test alg_add_cell_area.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'freeboard' and 'freeboard_corr' are in shared_dict and they are arrays of floats
+    test that 'cell_area' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ================================== SAR FILE TESTING ==========================================
+    # ================================== MERGE FILE TESTING ========================================
     logger.info("Testing merge file:")
 
     # load merge file
@@ -125,27 +114,18 @@ def test_fbd_calculations(
     for title, step in previous_steps.items():
         success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
         if not success:
-            logger.error("SAR - Error with previous step: %s\n%s", title, err_str)
+            logger.error(" Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
-    assert success, f"SAR - Algorithm failed due to: {err_str}"
+    assert success, f" Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "freeboard" in shared_dict, "'freeboard' not in shared_dict."
+    assert "cell_area" in shared_dict, "'cell_area' not in shared_dict."
 
     assert isinstance(
-        shared_dict["freeboard"], np.ndarray
-    ), f"'freeboard' is {type(shared_dict['freeboard'])}, not ndarray."
+        shared_dict["cell_area"], np.ndarray
+    ), f"'cell_area' is {type(shared_dict['cell_area'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["freeboard"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard' is {elev_dtype}, not float."
-
-    assert "freeboard_corr" in shared_dict, "'freeboard_corr' not in shared_dict."
-
-    assert isinstance(
-        shared_dict["freeboard_corr"], np.ndarray
-    ), f"'freeboard_corr' is {type(shared_dict['freeboard_corr'])}, not ndarray."
-
-    elev_dtype = str(shared_dict["freeboard_corr"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard_corr' is {elev_dtype}, not float."
+    elev_dtype = str(shared_dict["cell_area"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'cell_area' is {elev_dtype}, not float."

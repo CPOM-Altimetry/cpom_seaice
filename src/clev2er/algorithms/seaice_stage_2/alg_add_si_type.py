@@ -1,15 +1,15 @@
-"""clev2er.algorithms.seaice_stage_1_stage_1.alg_add_si_conc.py
+"""clev2er.algorithms.seaice.alg_add_si_type.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Gets the seaice concentration data from an external file and adds the required values
-for the samples being processed. To prevent repeatedly loading in the same file every time
-.process() is called, keep a dict for the most recent file to store the KDTree for lat,lon
-pairs and concentration values. Before the file is loaded in, it checks to see if the filename
-is within the dict. If it is, use those values. If not, load the file and add the filename and
-values to the dict.
+Gets the seaice type data from an external file and adds the values to the samples being processed.
+To prevent repeatedly loading in the same file every time .process() is called, keep a dict for the
+most recent file to store the KDTree for lat,lon pairs and type values.
+Before the file is loaded in, it checks to see if the filename is within the dict.
+If it is, use those values.
+If not, load the file and add the filename and values to the dict.
 
 The KDTrees are stored instead of latitude and longitude values to prevent repeat processing
 of creating the KDTree when values are the same, since creating the KDTree takes as much time as
@@ -18,7 +18,7 @@ reading the file if not longer.
 #Main initialization (init() function) steps/resources required
 
 Create an algorithm memory for loading files.
-Set config for seaice concentration file directory
+Set config for seaice type file directory
 Set config for input and output projections
 Create projection transformer
 
@@ -27,7 +27,7 @@ Create projection transformer
 Use the date of the timestamp of each sample to find which file to use.
 Load in the file / read from the memory dict
 convert lat lon to x y points
-convert poitns to KDTree
+convert points to KDTree
 match points in sample to nearest point in KDTree
 find the value that corresponds to the nearest point
 save list of values to shared_dict
@@ -38,8 +38,7 @@ Delete latlon to xy transformer
 
 #Contribution to shared_dict
 
-'seaice_concentrations' (np.NDArray[float]) : Array of seaice concentration values for each
-    sample
+'seaice_type' (np.NDArray[float]) : Array of seaice type values for each sample
 
 #Requires from shared_dict
 
@@ -48,12 +47,12 @@ Delete latlon to xy transformer
 'measurement_time'
 
 Author: Ben Palmer
-Date: 01 Mar 2024
+Date: 02 Jul 2024
 """
 
 import glob
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Tuple
 
 import numpy as np
@@ -112,9 +111,9 @@ class Algorithm(BaseAlgorithm):
         # Store the data for the most recent file with this
         self.most_recent_file: Dict = {"date": ""}
 
-        self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
+        self.type_file_dir = self.config["alg_add_si_type"]["type_file_dir"]
 
-        input_projection = self.config["alg_add_si_conc"]["input_projection"]
+        input_projection = self.config["alg_add_si_type"]["input_projection"]
         output_projection = self.config["shared"]["output_projection"]
 
         self.log.info(
@@ -166,13 +165,13 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        si_concentration = np.zeros(shared_dict["sat_lat"].size) * np.nan
+        si_type = np.zeros(l1b["sat_lat"][:].size) * np.nan
 
         # for each timestamp, lat and lon in shared memory:
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
-            zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
+            zip(l1b["measurement_time"][:].data, l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
         ):
-            file_date = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc).strftime("%Y%m%d")
+            file_date = datetime.fromtimestamp(int(wv_timestamp)).strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
                 # If date is the same as the most recent file date, get values from dict
@@ -182,34 +181,33 @@ class Algorithm(BaseAlgorithm):
             else:
                 # Else, read the file, create the KDTree and store the values
                 # in most recent file dict for later use
-                self.log.info("Loading new concentration data file  - %s", file_date)
+                self.log.info("Loading new type data file  - %s", file_date)
 
                 # Find the correct file for the data
 
                 file_paths = glob.glob(
-                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*.dat")
+                    os.path.join(self.type_file_dir, f"ice_type_*_{file_date}*.dat")
                 )
 
                 # There should be 1 match for each date. If not, return an error
                 if len(file_paths) < 1:
                     self.log.error("Could not locate file matching - %s", file_date)
-                    return (False, "CONC_FILE_NOT_FOUND")
+                    return (False, "TYPE_FILE_NOT_FOUND")
                 if len(file_paths) > 1:
                     self.log.error(
                         "Too many files found that match - %s. Only one should be found.", file_date
                     )
-                    return (False, "CONC_FILE_TOO_MANY_FOUND")
+                    return (False, "TYPE_FILE_TOO_MANY_FOUND")
 
                 file_path = file_paths[0]
 
                 # Read the external file
 
-                sea_ice_conc = np.transpose(np.genfromtxt(file_path))
-                file_lats = sea_ice_conc[2]
+                sea_ice_type_file = np.transpose(np.genfromtxt(file_path))
+                file_lats = sea_ice_type_file[0]
                 # convert to 0..360 to match shared_dict values
-                file_lons = sea_ice_conc[3] % 360.0
-                file_values = sea_ice_conc[4]
-                file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+                file_lons = sea_ice_type_file[1] % 360.0
+                file_values = sea_ice_type_file[2]
 
                 # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
                 file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
@@ -227,20 +225,21 @@ class Algorithm(BaseAlgorithm):
             wv_x, wv_y = self.lonlat_to_xy.transform(wv_lon, wv_lat)
 
             file_neighbouring_indices = int(file_point_tree.query((wv_x, wv_y), k=1)[1])
-            si_concentration[wv_num] = file_values[file_neighbouring_indices]
+            si_type[wv_num] = file_values[file_neighbouring_indices]
 
-        self.log.info("NaNs in concentration array - %d", sum(np.isnan(si_concentration)))
-        self.log.info(
-            "Sea ice concentration: Max=%f Mean=%f Min=%f Zeroes=%d",
-            np.nanmax(si_concentration),
-            np.nanmean(si_concentration),
-            np.nanmin(si_concentration),
-            sum(si_concentration <= 0.0),
-        )
-        if all(np.isnan(si_concentration)):
-            self.log.info("WARNING - ALL CONCENTRATIONS ARE NaN")
+        si_type[
+            si_type == 255
+        ] = (
+            np.nan
+        )  # 255 is used as a value for invalid measurements in the external file, set them to NaN
 
-        shared_dict["seaice_concentration"] = si_concentration
+        self.log.info("Ice type counts:")
+        for i_type in sorted(np.unique(si_type)):
+            if np.isnan(i_type):
+                self.log.info(" %s - %d", "NaN", sum(np.isnan(si_type)))
+            else:
+                self.log.info(" %s - %d", str(i_type), sum(si_type == i_type))
+        shared_dict["seaice_type"] = si_type
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

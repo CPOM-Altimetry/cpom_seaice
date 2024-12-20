@@ -1,36 +1,37 @@
-"""clev2er.algorithms.seaice_stage_1.alg_threshold_retrack.py
+"""clev2er.algorithms.seaice.alg_thk_calculations.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Algorithm for retracking the smoothed diffuse waveforms which represent ice floes in sea
-ice processing. Retracks waveform to X% of the waveform, then Y% of the waveform, where X < Y.
-We measure the bin distance between the retracking values, and any sample which has a distance
-greater than the limit will not be processed further.
+Calculates the thickness of each ice sample from the freeboard
 
 #Main initialization (init() function) steps/resources required
 
-Get threshold and leading edge width settings from config file
+Load in parameters from config
 
 #Main process() function steps
 
-Retrack to lower threshold point
-Retrack to higher threshold point
-Generate index of which samples have a LEW less than the limit
+Compute thickness with snow depth
+
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-shared_dict["floe_retracking_points"] (np.ndarray[float]) : array of retracking points for floes
-shared_dict["idx_lew_gt_max"] (np.ndarray[int]) :   index array of samples with leading edge
-                                                    width greater than limit
+thickness: np.ndarray[np.float32] = ice thickness of each sample
 
 #Requires from shared_dict
 
-shared_dict["waveform_smooth"]
+freeboard
+seaice_type
+snow_depth
+snow_density
 
 Author: Ben Palmer
-Date: 23 Feb 2024
+Date: 05 Sep 2024
 """
 
 from typing import Tuple
@@ -40,23 +41,24 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.cs2.retrackers.threshold_retracker import threshold_retracker
+
+# pylint: disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
     """CLEV2ER Algorithm class
 
     contains:
-        .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
-        .config (dict) : configuration dictionary, set by BaseAlgorithm
+            .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
+            .config (dict) : configuration dictionary, set by BaseAlgorithm
 
-    functions that need completing:
-        .init() : Algorithm initialization function (run once at start of chain)
-        .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
-        .finalize() :   Algorithm finalization/closure function (run after all chain
-                        processing completed)
+        functions that need completing:
+            .init() : Algorithm initialization function (run once at start of chain)
+            .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
+            .finalize() :   Algorithm finalization/closure function (run after all chain
+                            processing completed)
 
-    Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
+        Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
 
     """
 
@@ -86,15 +88,10 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.threshold_high = self.config["alg_threshold_retrack"]["threshold_high"]
-        self.threshold_low = self.config["alg_threshold_retrack"]["threshold_low"]
-
-        self.lew_max = self.config["alg_threshold_retrack"]["lew_max"]
-
-        if self.threshold_high <= self.threshold_low:
-            raise ValueError(
-                "Threshold config values for alg_threshold_retrack are in the wrong order."
-            )
+        """ Load in parameters from config """
+        self.rho_fyi = self.config["alg_thk_calculations"]["rho_fyi"]
+        self.rho_myi = self.config["alg_thk_calculations"]["rho_myi"]
+        self.rho_sea = self.config["alg_thk_calculations"]["rho_sea"]
 
         # --- End of initialization steps ---
 
@@ -102,6 +99,8 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -130,34 +129,31 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        if shared_dict["diffuse_index"].size == 0:
-            self.log.info("No diffuse waves in file - skipping retracking...")
-            shared_dict["floe_retracking_points"] = np.array([])
-            return (success, error_str)
+        """ Compute thickness with snow depth """
 
-        points_higher = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_high
-        )
+        ice_densities = np.zeros(l1b["measurement_time"][:].size) * np.nan
+        ice_densities[shared_dict["seaice_type"] == 2] = self.rho_fyi
+        ice_densities[shared_dict["seaice_type"] == 3] = self.rho_myi
 
-        points_lower = np.apply_along_axis(
-            threshold_retracker, 1, shared_dict["waveform_smooth"], threshold=self.threshold_low
-        )
-
-        lews = np.abs(points_higher - points_lower)
-
-        # only keep points with leading edge width < max value
-        idx_lew_gt_max = np.where(lews > self.lew_max)[0]
+        thickness = (
+            (shared_dict["snow_depth"] * shared_dict["snow_density"])
+            + (shared_dict["freeboard_corr"] * ice_densities)
+        ) / (ice_densities - self.rho_sea)
 
         self.log.info(
-            "Number of samples that exceeded LEW limit - %d",
-            shared_dict["waveform_smooth"].shape[0] - idx_lew_gt_max.size,
+            "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(thickness),
+            np.nanstd(thickness),
+            np.nanmin(thickness),
+            np.nanmax(thickness),
+            thickness.shape[0],
+            sum(np.isnan(thickness)),
         )
 
-        shared_dict["floe_retracking_points"] = points_higher
-        shared_dict["idx_lew_gt_max"] = idx_lew_gt_max
+        shared_dict["thickness"] = thickness
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -180,7 +176,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
+
+        """ None """
 
         # ---------------------------------------------------------------------

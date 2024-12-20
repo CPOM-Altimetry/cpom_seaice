@@ -1,44 +1,51 @@
-"""clev2er.algorithms.seaice_stage_1.alg_giles_retrack.py
+"""clev2er.algorithms.seaice.alg_add_cell_area.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Retracks specular waves using the gaussian plus exponential retracker, or Giles' retracker
+Adds the cell area data from auxilliary file to shared_mem
 
 #Main initialization (init() function) steps/resources required
 
-If max_iterations has been set, use that value, else use the default value
+Read params from config
+Check cell area file exists
+Read data from file
+Prepare KDTree from data and save to algorithm memory
 
 #Main process() function steps
 
-Get specular waves from waveform using specular_index
-Get retracking points using retracker function
-Save specular retracking points as lead_retracking_points
+For each sample, get the closest matching cell area value
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-'lead_retracking_points' (npt.NDarray) : Retracking points found using this algorithm
+cell_area : np.ndarray(float) = Array of cell area values
 
 #Requires from shared_dict
 
-'waveform'
-'specular_index'
+sat_lat
+sat_lon
+measurement_time
 
 Author: Ben Palmer
-Date: 01 Mar 2024
+Date: 09 Sep 2024
 """
 
+import os
 from typing import Tuple
 
 import numpy as np
+import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.cs2.retrackers.gaussian_exponential_retracker import (
-    gauss_plus_exp_tracker,
-)
+
+# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -83,10 +90,69 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
+        # pylint:disable=unpacking-non-sequence
+        """ Read params from config
+        Check cell area file exists
+        Read data from file
+        Prepare KDTree from data and save to algorithm memory """
 
-        self.max_iterations = self.config["alg_giles_retrack"]["max_iterations"]
-        self.max_fit_err = self.config["alg_giles_retrack"]["max_fit_err"]
-        self.max_fit_sigma = self.config["alg_giles_retrack"]["max_fit_sigma"]
+        # Load params from config
+        cell_area_file_path = os.path.join(
+            self.config["shared"]["aux_file_path"], "cell_area_file.dat"
+        )
+        nlats = self.config["shared"]["grid_nlats"]
+        nlons = self.config["shared"]["grid_nlons"]
+
+        # Create projection transform
+        crs_input = proj.Proj(self.config["alg_add_cell_area"]["input_projection"])
+        crs_output = proj.Proj(self.config["shared"]["output_projection"])
+        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
+
+        # Wisdom from Andy Ridout
+        # Input and output files have the following format:
+        #     Col 1 : Latitude index
+        #     Col 2 : Longitude index
+        #     Col 3 : Latitude  of cell centre
+        #     Col 4 : Longitude of cell centre
+        #     Col 5 : Stored quantity
+
+        # Load cell area file
+        self.log.info("\tLoading cell area from %s", cell_area_file_path)
+        if not os.path.exists(cell_area_file_path):
+            self.log.error("Cannot find cell area file - %s", cell_area_file_path)
+            raise RuntimeError(f"Cannot find the cell area file at {cell_area_file_path}")
+        cell_area_file = np.transpose(np.genfromtxt(cell_area_file_path))
+        cell_area_lat = cell_area_file[0]
+        cell_area_lon = cell_area_file[1]
+        cell_area_values = cell_area_file[2]
+
+        cell_area_lat_index = ((cell_area_lat - 40) / 0.1).astype(int)
+        cell_area_lon_index = ((cell_area_lon + 180) / 0.5).astype(int)
+
+        # Filter to just the points in the area we want
+        inside_area = (
+            (cell_area_lat_index >= 0)
+            & (cell_area_lat_index < nlats)
+            & (cell_area_lon_index >= 0)
+            & (cell_area_lon_index < nlons)
+        )
+
+        cell_area_lat_index = cell_area_lat_index[inside_area]
+        cell_area_lon_index = cell_area_lon_index[inside_area]
+        cell_area_values = cell_area_values[inside_area]
+
+        # construct the grid
+        self.cell_area_grid = np.zeros((nlats, nlons), dtype=np.float64)
+        self.cell_area_grid[cell_area_lat_index, cell_area_lon_index] = cell_area_values
+
+        # Log details
+        self.log.info(
+            "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
+            np.count_nonzero(self.cell_area_grid),
+            np.min(self.cell_area_grid),
+            np.mean(self.cell_area_grid),
+            np.max(self.cell_area_grid),
+        )
 
         # --- End of initialization steps ---
 
@@ -94,6 +160,8 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -122,43 +190,11 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        if shared_dict["specular_index"].size == 0:
-            self.log.info("No specular waves in file - skipping retracking...")
-            shared_dict["lead_retracking_points"] = np.asarray([])
-            return (success, error_str)
-
-        specular_waves = shared_dict["waveform"][shared_dict["specular_index"]]
-
-        retracker_output = np.apply_along_axis(
-            gauss_plus_exp_tracker, 1, specular_waves, max_iterations=self.max_iterations
-        )
-        lead_retracking_points = retracker_output[:, 0]
-        fit_qualities = retracker_output[:, 1]
-        fit_sigmas = retracker_output[:, 2]
-
-        bad_fits = (
-            (0 > fit_qualities)
-            | (self.max_fit_err < fit_qualities)
-            | (fit_sigmas > self.max_fit_sigma)
-            | (fit_sigmas < 0.00001)
-        )
-
-        # set all retracking points to invalid
-        # lead_retracking_points[bad_fits] = np.nan
-        shared_dict["valid"][shared_dict["specular_index"][bad_fits]] = False
-
-        num_bad_fits = np.sum(bad_fits)
-
-        self.log.info("Number of bad fits returned by retracker - %d", num_bad_fits)
-
-        # If all retracking points are bad fits, skip file
-        if num_bad_fits == lead_retracking_points.size:
-            return (False, "SKIP_OK")
-
-        shared_dict["lead_retracking_points"] = lead_retracking_points
+        # Simply add the grid to the shared_dict
+        shared_dict["cell_area"] = self.cell_area_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -181,9 +217,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
 
-        # None needed
+        """ None """
 
         # ---------------------------------------------------------------------

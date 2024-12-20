@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_fbd_calculations
+clev2er.algorithms.seaice_stage_2.alg_warren_snow_means
 """
 
 import logging
@@ -11,13 +11,8 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_mss import Algorithm as AddMss
-from clev2er.algorithms.seaice_stage_2.alg_add_si_type import Algorithm as AddSIType
-from clev2er.algorithms.seaice_stage_2.alg_fbd_calculations import Algorithm
-from clev2er.algorithms.seaice_stage_2.alg_sla_calculations import Algorithm as CalcSLA
-from clev2er.algorithms.seaice_stage_2.alg_warren_snow_means import (
-    Algorithm as WarrenSnowMeans,
-)
+from clev2er.algorithms.seaice_stage_2.alg_add_si_type import Algorithm as AddIceType
+from clev2er.algorithms.seaice_stage_2.alg_warren_snow_means import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -55,10 +50,7 @@ def previous_steps(
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
         chain_previous_steps = {
-            "add_mss": AddMss(config, logger),
-            "add_si_type": AddSIType(config, logger),
-            "warren_snow_means": WarrenSnowMeans(config, logger),
-            "sla_calculations": CalcSLA(config, logger),
+            "add_ice_type": AddIceType(config, logger),
         }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
@@ -89,36 +81,37 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_fbd_calculations(
+def test_warren_snow_means(
     file_num,
     previous_steps: Dict,  # pylint: disable=redefined-outer-name
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_fbd_calculations.py
+    """test alg_fbd_calculations.py for SAR waves
 
     Test plan:
-    Load a merge file
+    Load an SAR file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'freeboard' and 'freeboard_corr' are in shared_dict and they are arrays of floats
+    test that 'freeboard' is in shared_dict, it is an array of floats, and
+        values are all positive
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
     # ================================== SAR FILE TESTING ==========================================
-    logger.info("Testing merge file:")
+    logger.info("Testing SAR file:")
 
-    # load merge file
-    l1b_merge_file = list(
+    # load SAR file
+    l1b_sar_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
     )[file_num]
 
     try:
-        l1b = Dataset(l1b_merge_file)
-        logger.info("Loaded %s", l1b_merge_file)
+        l1b = Dataset(l1b_sar_file)
+        logger.info("Loaded %s", l1b_sar_file)
     except IOError:
-        assert False, f"{l1b_merge_file} could not be read"
+        assert False, f"{l1b_sar_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
@@ -132,20 +125,24 @@ def test_fbd_calculations(
     assert success, f"SAR - Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "freeboard" in shared_dict, "'freeboard' not in shared_dict."
+    # tests for depth
+    assert "snow_depth" in shared_dict, "'snow_depth' not in shared_dict."
 
     assert isinstance(
-        shared_dict["freeboard"], np.ndarray
-    ), f"'freeboard' is {type(shared_dict['freeboard'])}, not ndarray."
+        shared_dict["snow_depth"], np.ndarray
+    ), f"'snow_depth' is {type(shared_dict['snow_depth'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["freeboard"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard' is {elev_dtype}, not float."
+    depth_dtype = str(shared_dict["snow_depth"].dtype)
+    assert "float" in depth_dtype.lower(), f"Dtype of 'snow_depth' is {depth_dtype}, not float."
 
-    assert "freeboard_corr" in shared_dict, "'freeboard_corr' not in shared_dict."
+    # tests of density
+    assert "snow_density" in shared_dict, "'snow_density' not in shared_dict."
 
     assert isinstance(
-        shared_dict["freeboard_corr"], np.ndarray
-    ), f"'freeboard_corr' is {type(shared_dict['freeboard_corr'])}, not ndarray."
+        shared_dict["snow_density"], np.ndarray
+    ), f"'snow_density' is {type(shared_dict['snow_density'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["freeboard_corr"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'freeboard_corr' is {elev_dtype}, not float."
+    density_dtype = str(shared_dict["snow_density"].dtype)
+    assert (
+        "float" in density_dtype.lower()
+    ), f"Dtype of 'snow_density' is {density_dtype}, not float."

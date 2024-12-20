@@ -1,59 +1,48 @@
-"""clev2er.algorithms.seaice_stage_1_stage_1.alg_add_si_conc.py
+"""clev2er.algorithms.seaice.alg_add_ice_extent.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Gets the seaice concentration data from an external file and adds the required values
-for the samples being processed. To prevent repeatedly loading in the same file every time
-.process() is called, keep a dict for the most recent file to store the KDTree for lat,lon
-pairs and concentration values. Before the file is loaded in, it checks to see if the filename
-is within the dict. If it is, use those values. If not, load the file and add the filename and
-values to the dict.
-
-The KDTrees are stored instead of latitude and longitude values to prevent repeat processing
-of creating the KDTree when values are the same, since creating the KDTree takes as much time as
-reading the file if not longer.
+Adds an ice extent mask to the shared_mem
 
 #Main initialization (init() function) steps/resources required
 
-Create an algorithm memory for loading files.
-Set config for seaice concentration file directory
-Set config for input and output projections
-Create projection transformer
+Load params from config
+Check auxilliary file directory exists
+Create place to keep auxilliary file data in memory between files/records
 
 #Main process() function steps
 
-Use the date of the timestamp of each sample to find which file to use.
-Load in the file / read from the memory dict
-convert lat lon to x y points
-convert poitns to KDTree
-match points in sample to nearest point in KDTree
-find the value that corresponds to the nearest point
-save list of values to shared_dict
+Create array for extent mask
+For each record:
+    Check if loaded data is relevant
+    If not, load relevant data to memory
+    Find the concentration for that lat/lon pair
+    If greater than threshold, value of mask is true, else it is false
+Save the mask to shared_mem
 
 #Main finalize() function steps
-Clear most recent file memory
-Delete latlon to xy transformer
+
+None
 
 #Contribution to shared_dict
 
-'seaice_concentrations' (np.NDArray[float]) : Array of seaice concentration values for each
-    sample
+extent_mask
 
 #Requires from shared_dict
 
-'sat_lat'
-'sat_lon'
-'measurement_time'
+measurement_time
+sat_lat
+sat_lon
 
 Author: Ben Palmer
-Date: 01 Mar 2024
+Date: 05 Sep 2024
 """
 
 import glob
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Tuple
 
 import numpy as np
@@ -61,9 +50,10 @@ import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import Transformer
-from scipy.spatial import cKDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -109,12 +99,26 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
+        """ Load params from config
+        Check auxilliary file directory exists
+        Create place to keep auxilliary file data in memory between files/records
+        """
+
+        # grid data parameters
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
+
+        # ice conc parameters
+        self.conc_threshold = self.config["alg_add_ice_extent"]["conc_threshold"]
+
         # Store the data for the most recent file with this
         self.most_recent_file: Dict = {"date": ""}
 
-        self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
+        self.extent_file_dir = os.path.join(
+            self.config["shared"]["aux_file_path"], "ice_extent_north"
+        )
 
-        input_projection = self.config["alg_add_si_conc"]["input_projection"]
+        input_projection = self.config["alg_add_ice_extent"]["input_projection"]
         output_projection = self.config["shared"]["output_projection"]
 
         self.log.info(
@@ -163,84 +167,97 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        si_concentration = np.zeros(shared_dict["sat_lat"].size) * np.nan
+        """Create array for extent mask
+        For each record:
+            Check if loaded data is relevant
+            If not, load relevant data to memory
+            Find the concentration for that lat/lon pair
+            If greater than threshold, value of mask is true, else it is false
+        Save the mask to shared_mem
+        """
+        # Get the middle time stamp and get the corresponding external file
+        # This probably isn't what andy does, but because he might have a different way of merging
+        # files, it is probably good enough
+        time = l1b["measurement_time"][:]
+        mid_timestamp = np.sort(time)[(len(time) // 2)]
 
-        # for each timestamp, lat and lon in shared memory:
-        for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
-            zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
-        ):
-            file_date = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc).strftime("%Y%m%d")
+        file_date = datetime.fromtimestamp(int(mid_timestamp)).strftime("%Y%m%d")
 
-            if self.most_recent_file["date"] == file_date:
-                # If date is the same as the most recent file date, get values from dict
-                file_point_tree = self.most_recent_file["tree"]
-                file_values = self.most_recent_file["values"]
+        if self.most_recent_file["date"] == file_date:
+            # If date is the same as the most recent file date, get values from dict
+            si_extent_grid = self.most_recent_file["grid"]
 
-            else:
-                # Else, read the file, create the KDTree and store the values
-                # in most recent file dict for later use
-                self.log.info("Loading new concentration data file  - %s", file_date)
+        else:
+            # Else, read the file, create the KDTree and store the values
+            # in most recent file dict for later use
+            self.log.info("Loading new extent data file  - %s", file_date)
 
-                # Find the correct file for the data
+            # Find the correct file for the data
+            file_paths = glob.glob(os.path.join(self.extent_file_dir, f"*{file_date}*.dat"))
 
-                file_paths = glob.glob(
-                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*.dat")
+            # There should be 1 match for each date. If not, return an error
+            if len(file_paths) < 1:
+                self.log.error("Could not locate file matching - %s", file_date)
+                return (False, "EXTENT_FILE_NOT_FOUND")
+            if len(file_paths) > 1:
+                self.log.error(
+                    "Too many files found that match - %s. Only one should be found.", file_date
                 )
+                return (False, "EXTENT_FILE_TOO_MANY_FOUND")
 
-                # There should be 1 match for each date. If not, return an error
-                if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching - %s", file_date)
-                    return (False, "CONC_FILE_NOT_FOUND")
-                if len(file_paths) > 1:
-                    self.log.error(
-                        "Too many files found that match - %s. Only one should be found.", file_date
-                    )
-                    return (False, "CONC_FILE_TOO_MANY_FOUND")
+            file_path = file_paths[0]
 
-                file_path = file_paths[0]
+            # Read the external file
+            # Wisdom from Andy Ridout
+            # Input and output files have the following format:
+            #     Col 1 : Latitude index
+            #     Col 2 : Longitude index
+            #     Col 3 : Latitude  of cell centre
+            #     Col 4 : Longitude of cell centre
+            #     Col 5 : Stored quantity
 
-                # Read the external file
+            sea_ice_extent = np.transpose(np.genfromtxt(file_path))
+            file_lat_index = sea_ice_extent[0].astype(int)
+            file_lon_index = sea_ice_extent[1].astype(int)
+            file_values = sea_ice_extent[4] >= self.conc_threshold
 
-                sea_ice_conc = np.transpose(np.genfromtxt(file_path))
-                file_lats = sea_ice_conc[2]
-                # convert to 0..360 to match shared_dict values
-                file_lons = sea_ice_conc[3] % 360.0
-                file_values = sea_ice_conc[4]
-                file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+            inside_grid = (
+                (file_lat_index >= 0)
+                & (file_lat_index < self.nlats)
+                & (file_lon_index >= 0)
+                & (file_lon_index < self.nlons)
+            )
+            file_lat_index = file_lat_index[inside_grid]
+            file_lon_index = file_lon_index[inside_grid]
+            file_values = file_values[inside_grid]
 
-                # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
-                file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
-                file_points = np.transpose((file_x, file_y))
-                file_point_tree = cKDTree(file_points)
+            si_extent_grid = np.zeros((self.nlats, self.nlons), dtype=bool)
+            si_extent_grid[file_lat_index, file_lon_index] = file_values
 
-                # Save the loaded date, KDTree, and values
-                # Faster to save the tree than save the lon + lat values and recreate
-                # the tree every time
+            # Log details
+            self.log.info(
+                "Cell Area - Count=%d Min=%f Mean=%f Max=%f",
+                np.sum(np.nonzero(si_extent_grid)),
+                np.min(si_extent_grid),
+                np.mean(si_extent_grid),
+                np.max(si_extent_grid),
+            )
 
-                self.most_recent_file["date"] = file_date
-                self.most_recent_file["tree"] = file_point_tree
-                self.most_recent_file["values"] = file_values
+            # Save the loaded date and grid to we can use this for other files
 
-            wv_x, wv_y = self.lonlat_to_xy.transform(wv_lon, wv_lat)
+            self.most_recent_file["date"] = file_date
+            self.most_recent_file["grid"] = si_extent_grid
 
-            file_neighbouring_indices = int(file_point_tree.query((wv_x, wv_y), k=1)[1])
-            si_concentration[wv_num] = file_values[file_neighbouring_indices]
-
-        self.log.info("NaNs in concentration array - %d", sum(np.isnan(si_concentration)))
         self.log.info(
-            "Sea ice concentration: Max=%f Mean=%f Min=%f Zeroes=%d",
-            np.nanmax(si_concentration),
-            np.nanmean(si_concentration),
-            np.nanmin(si_concentration),
-            sum(si_concentration <= 0.0),
+            "Ice Extent Mask - Count=%d nTrue=%d",
+            np.prod(si_extent_grid.shape),
+            np.sum(si_extent_grid),
         )
-        if all(np.isnan(si_concentration)):
-            self.log.info("WARNING - ALL CONCENTRATIONS ARE NaN")
 
-        shared_dict["seaice_concentration"] = si_concentration
+        shared_dict["extent_mask"] = si_extent_grid
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -263,11 +280,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
 
-        # clear file memory and remove lonlat transformer
-        self.most_recent_file.clear()
-        del self.lonlat_to_xy
+        """ None """
 
         # ---------------------------------------------------------------------

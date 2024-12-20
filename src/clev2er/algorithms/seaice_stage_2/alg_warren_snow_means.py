@@ -1,34 +1,51 @@
-"""clev2er.algorithms.seaice_stage_1.alg_giles_retrack.py
+"""clev2er.algorithms.seaice.alg_warren_snow_means.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Retracks specular waves using the gaussian plus exponential retracker, or Giles' retracker
+Adds snow depth and density values for each record to shared_mem. These values are precomputed
+and loaded from an auxilliary file 'warren_means.dat'.
+
 
 #Main initialization (init() function) steps/resources required
 
-If max_iterations has been set, use that value, else use the default value
+Check warren_means.dat exists and is readable
+Open file
+read file data to memory
+Close file
 
 #Main process() function steps
 
-Get specular waves from waveform using specular_index
-Get retracking points using retracker function
-Save specular retracking points as lead_retracking_points
+Determine which records have an ice type of 2 (First year ice)
+and which have a type of 3 (Multi-year ice)
+Create snow_depth array of np.nans (all records with ice types other than 2 or 3 will remain np.nan)
+Create snow_density array of np.nans
+Determine the month of each measurement from the time
+Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
+If ice_type is 2, divide snow_depth by 2
+Set records with type 2 or 3 ice to the corresponding month's snow_density mean
+Save snow_depth and snow_density to shared_mem
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-'lead_retracking_points' (npt.NDarray) : Retracking points found using this algorithm
+snow_depth : np.ndarray[float] = Precomputed mean snow depth
+snow_density : np.ndarray[float] = Precomputed mean snow density
 
 #Requires from shared_dict
 
-'waveform'
-'specular_index'
+seaice_type
 
 Author: Ben Palmer
-Date: 01 Mar 2024
+Date: 04 Sep 2024
 """
 
+import os
+from datetime import datetime
 from typing import Tuple
 
 import numpy as np
@@ -36,9 +53,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.cs2.retrackers.gaussian_exponential_retracker import (
-    gauss_plus_exp_tracker,
-)
 
 
 class Algorithm(BaseAlgorithm):
@@ -84,9 +98,24 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.max_iterations = self.config["alg_giles_retrack"]["max_iterations"]
-        self.max_fit_err = self.config["alg_giles_retrack"]["max_fit_err"]
-        self.max_fit_sigma = self.config["alg_giles_retrack"]["max_fit_sigma"]
+        # Check warren_means.dat exists and is readable
+        # Open file
+        # read file data to memory
+        # Close file
+
+        warren_means_file_path = os.path.join(
+            self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
+        )
+
+        self.log.info("\tLoading warren_means.dat...")
+        if not os.path.exists(warren_means_file_path):
+            raise FileNotFoundError(
+                f"Cannot find warren_means.dat in {self.config['shared']['aux_file_path']}"
+            )
+
+        _, self.wm_depth, self.wm_density = np.transpose(np.genfromtxt(warren_means_file_path))
+
+        self.log.info("\tLoaded data successfully!")
 
         # --- End of initialization steps ---
 
@@ -94,6 +123,8 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -122,43 +153,45 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        if shared_dict["specular_index"].size == 0:
-            self.log.info("No specular waves in file - skipping retracking...")
-            shared_dict["lead_retracking_points"] = np.asarray([])
-            return (success, error_str)
+        # Determine which records have an ice type of 2 (First year ice)
+        # and which have a type of 3 (Multi-year ice)
+        # Create snow_depth array of np.nans (all records with ice types other than 2
+        # or 3 will remain np.nan)
+        # Create snow_density array of np.nans
+        # Determine the month of each measurement from the time
+        # Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
+        # If ice_type is 2, divide snow_depth by 2
+        # Set records with type 2 or 3 ice to the corresponding month's snow_density mean
+        # Save snow_depth and snow_density to shared_mem
 
-        specular_waves = shared_dict["waveform"][shared_dict["specular_index"]]
+        has_fyi = shared_dict["seaice_type"] == 2
+        has_mfi = shared_dict["seaice_type"] == 3
 
-        retracker_output = np.apply_along_axis(
-            gauss_plus_exp_tracker, 1, specular_waves, max_iterations=self.max_iterations
-        )
-        lead_retracking_points = retracker_output[:, 0]
-        fit_qualities = retracker_output[:, 1]
-        fit_sigmas = retracker_output[:, 2]
+        # set all values to nans, anything that isnt fyi or mfi will remain unset
+        snow_depth = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
+        snow_density = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
 
-        bad_fits = (
-            (0 > fit_qualities)
-            | (self.max_fit_err < fit_qualities)
-            | (fit_sigmas > self.max_fit_sigma)
-            | (fit_sigmas < 0.00001)
-        )
+        # Need the month of each record to find the mean values
+        # would use lambda but mypy and ruff do not like that, need to define function instead
+        def ts_to_month(ts):
+            return datetime.fromtimestamp(ts).month
 
-        # set all retracking points to invalid
-        # lead_retracking_points[bad_fits] = np.nan
-        shared_dict["valid"][shared_dict["specular_index"][bad_fits]] = False
+        tsv = np.vectorize(ts_to_month)
+        measurement_months = tsv(l1b["measurement_time"][:].data.astype(int)) - 1
+        # Subtract 1 from the month so they match the indexes for the depth and density
 
-        num_bad_fits = np.sum(bad_fits)
+        # get the depth values for fyi and myi
+        snow_depth[(has_fyi | has_mfi)] = self.wm_depth[measurement_months][(has_fyi | has_mfi)]
+        snow_depth[has_fyi] /= 2  # if fyi, divide depth by 2
+        # get the density values for fyi and myi
+        snow_density[(has_fyi | has_mfi)] = self.wm_density[measurement_months][(has_fyi | has_mfi)]
 
-        self.log.info("Number of bad fits returned by retracker - %d", num_bad_fits)
-
-        # If all retracking points are bad fits, skip file
-        if num_bad_fits == lead_retracking_points.size:
-            return (False, "SKIP_OK")
-
-        shared_dict["lead_retracking_points"] = lead_retracking_points
+        # save to shared_dict
+        shared_dict["snow_depth"] = snow_depth
+        shared_dict["snow_density"] = snow_density
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -181,9 +214,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
 
-        # None needed
+        # None
 
         # ---------------------------------------------------------------------

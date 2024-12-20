@@ -186,6 +186,11 @@ class Algorithm(BaseAlgorithm):
         shared_dict["specular_index"] = np.where(specular_waves)[0]
         shared_dict["diffuse_index"] = np.where(diffuse_waves)[0]
 
+        # Making a validity variable, 0=Invalid 1=Valid
+        shared_dict["valid"] = np.ones(shape=shared_dict["measurement_time"].shape, dtype=bool)
+        # set all unknown values to invalid
+        shared_dict["valid"][shared_dict["lead_floe_class"] == 0] = False
+
         self.log.info("Class counts")
         for v in set([0, 1, 2, 3]).union(np.unique(shared_dict["lead_floe_class"])):
             self.log.info("\t %d - %5d", v, sum(shared_dict["lead_floe_class"] == v))
