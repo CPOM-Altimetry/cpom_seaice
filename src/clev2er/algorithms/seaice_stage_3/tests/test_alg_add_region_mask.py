@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_add_ice_extent
+clev2er.algorithms.seaice_stage_3.alg_add_region_mask
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_ice_extent import Algorithm
+from clev2er.algorithms.seaice_stage_3.alg_add_region_mask import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def config() -> dict:
         dict: config dictionary
     """
     # load config
-    chain_config, _, _, _, _ = load_config_files("seaice_stage_2")
+    chain_config, _, _, _, _ = load_config_files("seaice_stage_3")
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
@@ -78,27 +78,27 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_ice_extent(
+def test_add_region_mask(
     file_num,
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_ice_extent.py
+    """test alg_add_region_mask.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'extent_mask' is in shared_dict, it is an array of bools
+    test that 'region_mask' is in shared_dict, it is an array of bools
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ================================== SAR FILE TESTING ==========================================
-    logger.info("Testing SAR file:")
+    # ==================================  FILE TESTING ==========================================
+    logger.info("Testing  file:")
 
-    # load SAR file
+    # load  file
     l1b_merge_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
     )[file_num]
@@ -121,11 +121,11 @@ def test_add_ice_extent(
     assert success, f"Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "extent_mask" in shared_dict, "'mss' not in shared_dict."
+    assert "region_mask" in shared_dict, "'region_mask' not in shared_dict."
 
     assert isinstance(
-        shared_dict["extent_mask"], np.ndarray
-    ), f"'extent_mask' is {type(shared_dict['mss'])}, not ndarray."
+        shared_dict["region_mask"], np.ndarray
+    ), f"'region_mask' is {type(shared_dict['region_mask'])}, not ndarray."
 
-    mask_dtype = str(shared_dict["extent_mask"].dtype)
-    assert "bool" in mask_dtype.lower(), f"Dtype of 'bool' is {mask_dtype}, not float."
+    mask_dtype = str(shared_dict["region_mask"].dtype)
+    assert "bool" in mask_dtype.lower(), f"Dtype of 'region_mask' is {mask_dtype}, not bool."

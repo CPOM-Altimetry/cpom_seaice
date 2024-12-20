@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_add_ocean_frac
+clev2er.algorithms.seaice_stage_3.alg_add_cell_area
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_ocean_frac import Algorithm
+from clev2er.algorithms.seaice_stage_3.alg_add_cell_area import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def config() -> dict:
         dict: config dictionary
     """
     # load config
-    chain_config, _, _, _, _ = load_config_files("seaice_stage_2")
+    chain_config, _, _, _, _ = load_config_files("seaice_stage_3")
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
@@ -78,18 +78,18 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_ocean_frac_sar(
+def test_add_cell_area_sar(
     file_num,
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_ocean_frac.py
+    """test alg_add_cell_area.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'ocean_frac' is in shared_dict, it is an array of floats
+    test that 'cell_area' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -121,11 +121,11 @@ def test_add_ocean_frac_sar(
     assert success, f" Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "ocean_frac" in shared_dict, "'ocean_frac' not in shared_dict."
+    assert "cell_area" in shared_dict, "'cell_area' not in shared_dict."
 
     assert isinstance(
-        shared_dict["ocean_frac"], np.ndarray
-    ), f"'ocean_frac' is {type(shared_dict['ocean_frac'])}, not ndarray."
+        shared_dict["cell_area"], np.ndarray
+    ), f"'cell_area' is {type(shared_dict['cell_area'])}, not ndarray."
 
-    elev_dtype = str(shared_dict["ocean_frac"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'ocean_frac' is {elev_dtype}, not float."
+    elev_dtype = str(shared_dict["cell_area"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'cell_area' is {elev_dtype}, not float."
