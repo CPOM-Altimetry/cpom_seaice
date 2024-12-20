@@ -160,7 +160,7 @@ class Algorithm(BaseAlgorithm):
         """
 
         f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"])).strftime("%Y%M")
-        grid_file_name = f"{f_time}_grids.npz"
+        grid_file_name = f"{f_time}_grids.nc"
         grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
         # check if grids are already saved
