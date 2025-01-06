@@ -1,26 +1,19 @@
-"""clev2er.algorithms.seaice.alg_vol_calculations.py
+"""clev2er.algorithms.seaice.alg_vol_total.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Reads in the gridded data from the previous stage and calculates thickness and volume for each month
-Stores result in shared dict
+Calculates the totals for volume
 
 #Main initialization (init() function) steps/resources required
 
-Read config options
+None
 
 #Main process() function steps
 
-Create empty arrays for volume, area, fraction of fyi and myi and gaps
-Create empty arrays for grids used in filling process
-Calculate mean thickness, mean iceconc and volume
-Compute nearest neighbours for each cell
-Fill in empty cells using nearest neighbours
-Apply masks
-Calculate totals
-Add results to shared_dict
+Calculate totals and add to shared_dict
+Log totals to access them later
 
 #Main finalize() function steps
 
@@ -35,7 +28,7 @@ contributions
 requirements
 
 Author: Ben Palmer
-Date: 20 Dec 2024
+Date: 06 Jan 2025
 """
 
 from typing import Tuple
@@ -91,13 +84,7 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        """
-            Read config options 
-        """
-
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
-        self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
+        """ None """
 
         # --- End of initialization steps ---
 
@@ -105,11 +92,9 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
-        # pylint: disable=too-many-statements
-        # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
-        # pylint: disable=pointless-string-statement
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=pointless-string-statement
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -141,83 +126,44 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ 
-            Create empty arrays for volume, area, fraction of fyi and myi and gaps
-            Calculate mean thickness, mean iceconc and volume
-            Add results to shared_dict
-        """
+        """ Calculate totals and add to shared_dict
+        Log totals to access them later """
 
-        volume = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        area = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        frac_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        frac_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        gaps = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        # total up values
+        shared_dict["total_volume"] = np.sum(shared_dict["volume_grid"])
+        shared_dict["total_fyi_volume"] = np.sum(
+            shared_dict["volume_grid"] * shared_dict["frac_fyi_grid"]
+        )
+        shared_dict["total_myi_volume"] = np.sum(
+            shared_dict["volume_grid"] * shared_dict["frac_myi_grid"]
+        )
 
-        thickness = l1b["thickness"][:].data
-        thickness_fyi = l1b["thickness_fyi"][:].data
-        thickness_myi = l1b["thickness_myi"][:].data
-        iceconc = l1b["iceconc"][:].data
-        number_in = l1b["number_in"][:].data
-        nin_fyi = l1b["number_in_fyi"][:].data
-        nin_myi = l1b["number_in_myi"][:].data
+        shared_dict["total_area"] = np.sum(shared_dict["area_grid"])
+        shared_dict["total_fyi_area"] = np.sum(
+            shared_dict["area_grid"] * shared_dict["frac_fyi_grid"]
+        )
+        shared_dict["total_myi_area"] = np.sum(
+            shared_dict["area_grid"] * shared_dict["frac_myi_grid"]
+        )
 
-        # calculate thickness, conc and volume
-        # can improve this using numpy array magic stuff (after success)
-        for ilat in range(self.nlats):
-            for ilon in range(self.nlons):
-                if number_in[ilat, ilon] > self.ninmin:  # this prevents divide by 0 error
-                    thickness[ilat, ilon] /= number_in[ilat, ilon]
-                    iceconc[ilat, ilon] /= number_in[ilat, ilon]
-                    volume[ilat, ilon] = thickness[ilat, ilon] * 0.001 * iceconc[ilat, ilon] * 0.01
-
-                # stopping divide by 0 error
-                if thickness_fyi[ilat, ilon] > 0 or thickness_myi[ilat, ilon] > 0:
-                    frac_fyi[ilat, ilon] = thickness_fyi[ilat, ilon] / (
-                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
-                    )
-                    frac_myi[ilat, ilon] = thickness_myi[ilat, ilon] / (
-                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
-                    )
-
-        # apply aux values
-        # ocean fraction
-        volume *= shared_dict["ocean_frac"]
-        area *= shared_dict["ocean_frac"]
-
-        # cell area
-        volume *= shared_dict["cell_area"]
-        area *= shared_dict["cell_area"]
-
-        # extent mask
-        thickness *= shared_dict["extent_mask"]
-        volume *= shared_dict["extent_mask"]
-        iceconc *= shared_dict["extent_mask"]
-        area *= shared_dict["extent_mask"]
-
-        # region mask
-        thickness *= shared_dict["region_mask"]
-        volume *= shared_dict["region_mask"]
-        iceconc *= shared_dict["region_mask"]
-        area *= shared_dict["region_mask"]
-
-        # add arrays to shared_dict
-        shared_dict["volume_grid"] = volume
-        shared_dict["iceconc_grid"] = iceconc
-        shared_dict["thickness_grid"] = thickness
-        shared_dict["frac_fyi_grid"] = frac_fyi
-        shared_dict["frac_myi_grid"] = frac_myi
-        shared_dict["area_grid"] = area
-        shared_dict["gaps"] = gaps
-
-        shared_dict["number_in"] = number_in
-        shared_dict["number_in_fyi"] = nin_fyi
-        shared_dict["number_in_myi"] = nin_myi
+        # lots of logging :)
+        self.log.info("- Volume calculations -")
+        self.log.info("    All")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_area"])
+        self.log.info("    FYI")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_fyi_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_fyi_area"])
+        self.log.info("    MYI")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_myi_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_myi_area"])
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
 
     def finalize(self, stage: int = 0) -> None:
+        # pylint: disable=pointless-string-statement
         """Algorithm finalization function - called after all processing completed
 
         Can be used to clean up/free resources initialized in the init() function
@@ -227,8 +173,6 @@ class Algorithm(BaseAlgorithm):
                                     by the chain controller. Useful during multi-processing.
                                     Defaults to 0. Not normally used by Algorithms.
         """
-        # pylint: disable=pointless-string-statement
-
         self.log.info(
             "Finalize algorithm %s called at stage %d filenum %d",
             self.alg_name,
