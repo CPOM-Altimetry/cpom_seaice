@@ -43,7 +43,6 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from pyproj import Geod
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -99,10 +98,6 @@ class Algorithm(BaseAlgorithm):
         self.nlats = self.config["shared"]["grid_nlats"]
         self.nlons = self.config["shared"]["grid_nlons"]
         self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
-        self.nn_radius = self.config["alg_vol_calculations"]["nn_radius"]
-        self.projection = self.config["shared"]["output_projection"]
-
-        self.geod = Geod(ellps=self.projection)
 
         # --- End of initialization steps ---
 
@@ -148,12 +143,7 @@ class Algorithm(BaseAlgorithm):
 
         """ 
             Create empty arrays for volume, area, fraction of fyi and myi and gaps
-            Create empty arrays for grids used in filling process
             Calculate mean thickness, mean iceconc and volume
-            Compute nearest neighbours for each cell
-            Fill in empty cells using nearest neighbours
-            Apply masks
-            Calculate totals
             Add results to shared_dict
         """
 
@@ -162,13 +152,6 @@ class Algorithm(BaseAlgorithm):
         frac_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         frac_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         gaps = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-
-        fill_thk = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        fill_conc = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        fill_vol = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        fill_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        fill_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        fill_nin = np.zeros((self.nlats, self.nlons), dtype=np.float64)
 
         thickness = l1b["thickness"][:].data
         thickness_fyi = l1b["thickness_fyi"][:].data
@@ -195,89 +178,6 @@ class Algorithm(BaseAlgorithm):
                     frac_myi[ilat, ilon] = thickness_myi[ilat, ilon] / (
                         thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
                     )
-
-        # ==========================================================================================
-        # Compute nearest neighbour interpolation for empty cells
-        # ==========================================================================================
-        self.log.info("Computing nearest neighbour interpolation...")
-
-        # We're finding the number of lats to search around the target cell
-        for ilat in range(self.nlats + 1):
-            lat = 40 + (ilat * 0.1)
-            _, _, dist = self.geod.inv(-180, lat, -180, 40)
-            if dist > self.nn_radius:
-                break
-            if ilat == self.nlats:
-                return (False, "ERROR_NN_SEARCH_RADIUS")
-
-        search_lat_range = ilat - 1
-
-        # this part is O(n^4), there must be a better way to do this?
-        # scipy.KDTree or sklearn.NearestNeighbor probably
-        # See notes for plans for optimisation
-        for ilat in range(self.nlats):
-            # finding the number of lons to seach for around the target cell
-            for ilon in range(self.nlons + 1):
-                lon = -180 + (ilon * 0.5)
-                _, _, dist = self.geod.inv(lon, ilat, -180, 40)
-                if dist > self.nn_radius:
-                    break
-                if ilat == self.nlats:
-                    return (False, "ERROR_NN_SEARCH_RADIUS")
-
-            search_lon_range = ilon - 1
-
-            for ilon in range(self.nlons):
-                # specifying the search area
-                search_lat_min = (ilat - search_lat_range) if (ilat - search_lat_range) >= 0 else 0
-                search_lat_max = (
-                    (ilat + search_lat_range)
-                    if (ilat + search_lat_range) < self.nlats
-                    else self.nlats - 1
-                )
-                search_lon_min = (ilon - search_lon_range) if (ilon - search_lon_range) >= 0 else 0
-                search_lon_max = (
-                    (ilon + search_lon_range)
-                    if (ilon + search_lon_range) < self.nlons
-                    else self.nlons - 1
-                )
-
-                distmin = self.nn_radius
-
-                # finds the closest cell and copies the values over
-                for iilat in range(search_lat_min, search_lat_max):
-                    for iilon in range(search_lon_min, search_lon_max):
-                        _, _, dist = self.geod.inv(ilon, ilat, iilon, iilat)
-                        if dist >= distmin:
-                            continue
-                        distmin = dist
-                        fill_thk[ilat, ilon] = thickness[iilat, iilon]
-                        fill_conc[ilat, ilon] = iceconc[iilat, iilon]
-                        fill_vol[ilat, ilon] = volume[iilat, iilon]
-                        fill_fyi[ilat, ilon] = frac_fyi[iilat, iilon]
-                        fill_myi[ilat, ilon] = frac_myi[iilat, iilon]
-                        fill_nin[ilat, ilon] = number_in[iilat, iilon]
-
-        # fill in empty cells with nearest neighbour where possible
-        for ilat in range(self.nlats):
-            for ilon in range(self.nlons):
-                if fill_nin[ilat, ilon] > 0:
-                    # check we're not trying to fill in a cell which isnt empty
-                    if number_in[ilat, ilon] > 0:
-                        return (False, "FILLING_NONEMPTY_CELL")
-
-                    # copy values over
-                    thickness[ilat, ilon] = fill_thk[ilat, ilon]
-                    iceconc[ilat, ilon] = fill_conc[ilat, ilon]
-                    volume[ilat, ilon] = fill_vol[ilat, ilon]
-                    frac_fyi[ilat, ilon] = fill_fyi[ilat, ilon]
-                    frac_myi[ilat, ilon] = fill_myi[ilat, ilon]
-                    number_in[ilat, ilon] = fill_nin[ilat, ilon]
-                    if number_in[ilat, ilon] > 0:
-                        # not sure what this does, pretty sure we check for this several lines above
-                        # might change from fill value but why?
-                        gaps[ilat, ilon] = 0
-                        area[ilat, ilon] = 1.0
 
         # apply aux values
         # ocean fraction
@@ -323,9 +223,12 @@ class Algorithm(BaseAlgorithm):
 
         # add arrays to shared_dict
         shared_dict["volume_grid"] = volume
+        shared_dict["iceconc_grid"] = iceconc
+        shared_dict["thickness_grid"] = thickness
         shared_dict["frac_fyi_grid"] = frac_fyi
         shared_dict["frac_myi_grid"] = frac_myi
         shared_dict["area_grid"] = area
+        shared_dict["gaps"] = gaps
 
         shared_dict["number_in"] = number_in
         shared_dict["number_in_fyi"] = nin_fyi
