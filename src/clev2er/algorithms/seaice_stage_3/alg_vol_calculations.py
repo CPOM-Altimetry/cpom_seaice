@@ -179,11 +179,6 @@ class Algorithm(BaseAlgorithm):
                         thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
                     )
 
-        # apply aux values
-        # ocean fraction
-        volume *= shared_dict["ocean_frac"]
-        area *= shared_dict["ocean_frac"]
-
         # cell area
         volume *= shared_dict["cell_area"]
         area *= shared_dict["cell_area"]

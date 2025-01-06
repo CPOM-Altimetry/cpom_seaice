@@ -188,8 +188,12 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Just get the grid and add it to the shared memory
+        # Add ocean fraction grid to the shared memory
         shared_dict["ocean_frac"] = self.ocean_frac_grid
+
+        # Apply mask to volume and area
+        shared_dict["volume_grid"] *= shared_dict["ocean_frac"]
+        shared_dict["area_grid"] *= shared_dict["ocean_frac"]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
