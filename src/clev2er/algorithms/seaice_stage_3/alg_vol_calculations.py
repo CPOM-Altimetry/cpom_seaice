@@ -179,10 +179,6 @@ class Algorithm(BaseAlgorithm):
                         thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
                     )
 
-        # cell area
-        volume *= shared_dict["cell_area"]
-        area *= shared_dict["cell_area"]
-
         # extent mask
         thickness *= shared_dict["extent_mask"]
         volume *= shared_dict["extent_mask"]
