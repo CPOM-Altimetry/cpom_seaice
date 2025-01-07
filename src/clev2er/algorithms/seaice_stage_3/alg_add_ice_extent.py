@@ -259,6 +259,12 @@ class Algorithm(BaseAlgorithm):
 
         shared_dict["extent_mask"] = si_extent_grid
 
+        # apply extent mask to data
+        shared_dict["thickness_grid"] *= shared_dict["extent_mask"]
+        shared_dict["volume_grid"] *= shared_dict["extent_mask"]
+        shared_dict["iceconc_grid"] *= shared_dict["extent_mask"]
+        shared_dict["area_grid"] *= shared_dict["extent_mask"]
+
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)

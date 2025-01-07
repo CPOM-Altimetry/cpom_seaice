@@ -179,12 +179,6 @@ class Algorithm(BaseAlgorithm):
                         thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
                     )
 
-        # extent mask
-        thickness *= shared_dict["extent_mask"]
-        volume *= shared_dict["extent_mask"]
-        iceconc *= shared_dict["extent_mask"]
-        area *= shared_dict["extent_mask"]
-
         # region mask
         thickness *= shared_dict["region_mask"]
         volume *= shared_dict["region_mask"]
