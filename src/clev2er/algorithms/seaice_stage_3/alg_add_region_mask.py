@@ -180,6 +180,12 @@ class Algorithm(BaseAlgorithm):
 
         shared_dict["region_mask"] = self.region_mask_grid
 
+        # apply region mask to data
+        shared_dict["thickness_grid"] *= shared_dict["region_mask"]
+        shared_dict["volume_grid"] *= shared_dict["region_mask"]
+        shared_dict["iceconc_grid"] *= shared_dict["region_mask"]
+        shared_dict["area_grid"] *= shared_dict["region_mask"]
+
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
