@@ -13,7 +13,7 @@ Read params from config
 #Main process() function steps
 
 Check if grid file for month exists
-If not, create empty nc file and empty numpy arrays for thickness, conc, volume, thick_fyi, 
+If not, create empty nc file and empty numpy arrays for thickness, conc, volume, thick_fyi,
 thick_myi, fraction of fyi and myi, counts, and fill values
 If it does, load existing values from grid file
 Get grid index from location data
@@ -187,6 +187,8 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("number_in", "i4", ("lat", "lon"), compression="zlib")
             output_nc.createVariable("number_in_fyi", "i4", ("lat", "lon"), compression="zlib")
             output_nc.createVariable("number_in_myi", "i4", ("lat", "lon"), compression="zlib")
+
+            output_nc.fdate = f_time
 
             thickness = np.zeros((self.nlats, self.nlons), dtype=np.float64)
             thickness_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
