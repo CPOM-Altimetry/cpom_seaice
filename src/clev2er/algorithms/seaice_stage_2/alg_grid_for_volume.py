@@ -193,8 +193,8 @@ class Algorithm(BaseAlgorithm):
             nin_myi = np.zeros((self.nlats, self.nlons), dtype=np.int64)
 
         # calculate the indexes of each record
-        ilats = ((l1b["sat_lats"][:].data - 40) / 0.1).astype(int)
-        ilons = ((l1b["sat_lons"][:].data + 180) / 0.5).astype(int)
+        ilats = ((l1b["sat_lat"][:].data - 40) / 0.1).astype(int)
+        ilons = ((l1b["sat_lon"][:].data + 180) / 0.5).astype(int)
 
         # add thickness data to array with indexes
         thickness[ilats, ilons] += shared_dict["thickness"]
