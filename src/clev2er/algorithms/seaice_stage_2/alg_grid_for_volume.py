@@ -45,7 +45,6 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from pyproj import Geod
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -99,12 +98,7 @@ class Algorithm(BaseAlgorithm):
         """ Read params from config """
         self.nlats = self.config["shared"]["grid_nlats"]
         self.nlons = self.config["shared"]["grid_nlons"]
-        self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
-        self.nn_radius = self.config["alg_vol_calculations"]["nn_radius"]
-        self.projection = self.config["shared"]["output_projection"]
-        self.grid_directory = self.config["alg_vol_calculations"]["grid_directory"]
-
-        self.geod = Geod(ellps=self.projection)
+        self.grid_directory = self.config["alg_grid_for_volume"]["grid_directory"]
 
         # --- End of initialization steps ---
 
