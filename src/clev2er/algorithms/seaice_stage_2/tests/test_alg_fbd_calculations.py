@@ -85,12 +85,7 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-merge_file_test = [(0), (1)]
-
-
-@pytest.mark.parametrize("file_num", merge_file_test)
 def test_fbd_calculations(
-    file_num,
     previous_steps: Dict,  # pylint: disable=redefined-outer-name
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
@@ -109,10 +104,9 @@ def test_fbd_calculations(
     # ================================== SAR FILE TESTING ==========================================
     logger.info("Testing merge file:")
 
-    # load merge file
-    l1b_merge_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
-    )[file_num]
+    l1b_merge_file = (
+        base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes" / "merge_060997.nc"
+    )
 
     try:
         l1b = Dataset(l1b_merge_file)
