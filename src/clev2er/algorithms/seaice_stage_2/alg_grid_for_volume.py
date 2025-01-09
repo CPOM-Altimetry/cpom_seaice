@@ -153,7 +153,9 @@ class Algorithm(BaseAlgorithm):
             Save variables to output grid file
         """
 
-        f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"])).strftime("%Y%M")
+        f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
+            "%Y%M"
+        )
         grid_file_name = f"{f_time}_grids.nc"
         grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
