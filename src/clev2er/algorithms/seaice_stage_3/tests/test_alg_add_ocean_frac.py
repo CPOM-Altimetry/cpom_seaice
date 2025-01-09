@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_add_ice_extent
+clev2er.algorithms.seaice_stage_3.alg_add_ocean_frac
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_ice_extent import Algorithm
+from clev2er.algorithms.seaice_stage_3.alg_add_ocean_frac import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def config() -> dict:
         dict: config dictionary
     """
     # load config
-    chain_config, _, _, _, _ = load_config_files("seaice_stage_2")
+    chain_config, _, _, _, _ = load_config_files("seaice_stage_3")
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
@@ -74,26 +74,26 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-def test_add_ice_extent(
+def test_add_ocean_frac_sar(
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_ice_extent.py
+    """test alg_add_ocean_frac.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'extent_mask' is in shared_dict, it is an array of bools
+    test that 'ocean_frac' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ================================== SAR FILE TESTING ==========================================
-    logger.info("Testing SAR file:")
+    # ================================== MERGE FILE TESTING ========================================
+    logger.info("Testing merge file:")
 
-    # load SAR file
+    # load merge file
     l1b_merge_file = (
         base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes" / "merge_060997.nc"
     )
@@ -109,18 +109,18 @@ def test_add_ice_extent(
     for title, step in previous_steps.items():
         success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
         if not success:
-            logger.error("Error with previous step: %s\n%s", title, err_str)
+            logger.error(" Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
-    assert success, f"Algorithm failed due to: {err_str}"
+    assert success, f" Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "extent_mask" in shared_dict, "'mss' not in shared_dict."
+    assert "ocean_frac" in shared_dict, "'ocean_frac' not in shared_dict."
 
     assert isinstance(
-        shared_dict["extent_mask"], np.ndarray
-    ), f"'extent_mask' is {type(shared_dict['mss'])}, not ndarray."
+        shared_dict["ocean_frac"], np.ndarray
+    ), f"'ocean_frac' is {type(shared_dict['ocean_frac'])}, not ndarray."
 
-    mask_dtype = str(shared_dict["extent_mask"].dtype)
-    assert "bool" in mask_dtype.lower(), f"Dtype of 'bool' is {mask_dtype}, not float."
+    elev_dtype = str(shared_dict["ocean_frac"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'ocean_frac' is {elev_dtype}, not float."
