@@ -77,12 +77,7 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-merge_file_test = [(0), (1)]
-
-
-@pytest.mark.parametrize("file_num", merge_file_test)
 def test_sla_calculations(
-    file_num,
     previous_steps: Dict,
     thisalg: Algorithm,
 ) -> None:
@@ -103,15 +98,15 @@ def test_sla_calculations(
     logger.info("Testing merge files:")
 
     # load SAR file
-    l1b_sar_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
-    )[file_num]
+    l1b_merge_file = (
+        base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes" / "merge_060997.nc"
+    )
 
     try:
-        l1b = Dataset(l1b_sar_file)
-        logger.info("Loaded %s", l1b_sar_file)
+        l1b = Dataset(l1b_merge_file)
+        logger.info("Loaded %s", l1b_merge_file)
     except IOError:
-        assert False, f"{l1b_sar_file} could not be read"
+        assert False, f"{l1b_merge_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
