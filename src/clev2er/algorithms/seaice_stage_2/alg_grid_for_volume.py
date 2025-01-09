@@ -194,11 +194,21 @@ class Algorithm(BaseAlgorithm):
 
         # calculate the indexes of each record
         ilats = ((l1b["sat_lat"][:].data - 40) / 0.1).astype(int)
-        ilons = ((l1b["sat_lon"][:].data + 180) / 0.5).astype(int)
+        ilons = (((l1b["sat_lon"][:].data + 180) % 360) / 0.5).astype(int)
+        # line above is weird. Andy uses coordinates -180..180, we use 0..360
+        # but andy's ilon formula only works right now with -180..180
+        # to convert from former to latter, use: (lon + 180) % 360 - 180
+        # andy's formula for lon to ilon is: (lon + 180) / 0.5
+        # substituting the coordinate conversion into the ilon conversion, we get
+        # ilon = ((lon + 180) % 360 - 180 + 180) / 0.5
+        # can simplify as
+        # ilon = ((lon + 180) % 360) / 0.5
+        # you can probably simplify this by changing the ilon formula to work with
+        # 0..360 values, but thats a problem for another day
 
         # add thickness data to array with indexes
         thickness[ilats, ilons] += shared_dict["thickness"]
-        iceconc[ilats, ilons] += l1b["iceconc"][:].data
+        iceconc[ilats, ilons] += l1b["seaice_conc"][:].data
         nin[ilats, ilons] += 1
 
         sample_fyi = shared_dict["seaice_type"] == 2
