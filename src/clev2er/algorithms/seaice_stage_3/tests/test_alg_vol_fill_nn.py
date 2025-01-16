@@ -97,15 +97,15 @@ def test_vol_total(
     logger.info("Testing  file:")
 
     # load  file
-    grid_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
+    l1b_grid_file = (
+        base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_file" / "202110_grids.nc"
     )
 
     try:
-        l1b = Dataset(grid_file)
-        logger.info("Loaded %s", grid_file)
+        l1b = Dataset(l1b_grid_file)
+        logger.info("Loaded %s", l1b_grid_file)
     except IOError:
-        assert False, f"{grid_file} could not be read"
+        assert False, f"{l1b_grid_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
