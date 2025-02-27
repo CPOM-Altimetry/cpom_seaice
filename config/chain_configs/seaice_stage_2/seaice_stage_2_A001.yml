@@ -68,4 +68,7 @@ alg_thk_calculations:
   
 
 
+alg_grid_for_volume:
+  grid_directory: ${HOME}/sea_ice_processor/grid_files/
+
 # Resource Locators

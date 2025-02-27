@@ -129,7 +129,7 @@ def test_grid_for_volume(
         l1b = Dataset(l1b_sar_file)
         logger.info("Loaded %s", l1b_sar_file)
         f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
-            "%Y%M"
+            "%Y%m"
         )
         grid_file_name = f"{f_time}_grids.nc"
     except IOError:

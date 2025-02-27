@@ -179,7 +179,7 @@ class Algorithm(BaseAlgorithm):
             ncols=self.nlats,
         ) as gdf:
             if "f_time" not in gdf.get_attributes():
-                gdf.add_attributes({"f_time", f_time})
+                gdf.add_attributes({"f_time": f_time})
 
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
