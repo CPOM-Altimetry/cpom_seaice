@@ -199,7 +199,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["window_delay"] = l1b["window_del_20_ku"][:].data.astype(np.float64)
         shared_dict["waveform"] = l1b["pwr_waveform_20_ku"][:].data.astype(np.float64)
         shared_dict["waveform_ssd"] = l1b["stack_std_20_ku"][:].data.astype(np.float64)
-        shared_dict["mcd_flag"] = l1b["flag_mcd_20_ku"][:].data.astype(np.float64)
+        shared_dict["mcd_flag"] = l1b["flag_mcd_20_ku"][:].data.astype(np.int32)
 
         # shared_dict["sat_lat"] = self.unpack("lat_20_ku", l1b)
         # # convert longitude to 0..360 (from -180,180)

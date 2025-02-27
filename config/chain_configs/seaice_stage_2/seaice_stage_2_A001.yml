@@ -2,7 +2,7 @@
 
 # Set breakpoint file directory
 breakpoint_files:
-  default_dir: /tmp
+  default_dir: ${HOME}/sea_ice_processor/bp_files
   
 # Default locations for log files
 log_files:
@@ -32,17 +32,22 @@ shared: # Shared config parameters for multiple algorithms to use
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
-  aux_file_path: /home/jgnq4/Documents/sea_ice_processor/aux_files
+  aux_file_path: ${HOME}/sea_ice_processor/aux_files/
   grid_nlons: 720
   grid_nlats: 500
 
 alg_add_mss:
-  mss_file: /home/jgnq4/Documents/sea_ice_processor/andy_aux_files/mss/CryosatMSS-arco-2yr-140821.txt
+  mss_file: ${CPDATA_DIR}/MODELS/MSS/UCL01/CryosatMSS-arco-2yr-140821.txt
   mss_buffer: 0.2
   input_projection: epsg:4326
+  delta: 0.0625
+  nlons: 5761
+  nlats: 2689
+  latmin: -80.0
+  lonmin: -180.0
 
 alg_add_si_type:
-  type_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
+  type_file_dir: ${HOME}/sea_ice_processor/test_files/aux_files/si_type
   input_projection: epsg:4326
 
 alg_sla_calculations:

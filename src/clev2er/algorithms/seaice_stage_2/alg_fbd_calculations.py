@@ -124,7 +124,9 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         freeboard = (
-            shared_dict["elevation"] - shared_dict["mss"] - shared_dict["interpolated_sea_level"]
+            l1b["elevation"][:].data
+            - shared_dict["mss"]
+            - shared_dict["smoothed_sea_level_anomaly"]
         )
 
         self.log.info(

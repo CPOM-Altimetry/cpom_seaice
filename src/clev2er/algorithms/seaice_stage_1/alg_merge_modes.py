@@ -39,6 +39,7 @@ Date: 22 Jul 2024
 """
 
 import os
+from datetime import datetime
 from typing import Tuple
 
 import numpy as np
@@ -163,14 +164,15 @@ class Algorithm(BaseAlgorithm):
             return (False, "VarLengthError")
 
         # Create output file locations
+        sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
         output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
         output_dir = os.path.join(
-            self.merge_file_dir, l1b.creation_time[4:8], l1b.creation_time[9:11]
+            self.merge_file_dir, str(sensing_start.year), str(sensing_start.month)
         )
         if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
             self.log.info("Creating directory %s", output_dir)
             os.makedirs(output_dir)
-        output_file_path = os.path.join(self.merge_file_dir, output_file_name)
+        output_file_path = os.path.join(output_dir, output_file_name)
 
         # If output file does not already exist, create new file
         # Else, load up the output file
