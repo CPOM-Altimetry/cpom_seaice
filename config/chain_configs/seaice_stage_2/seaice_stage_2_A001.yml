@@ -47,7 +47,7 @@ alg_add_mss:
   lonmin: -180.0
 
 alg_add_si_type:
-  type_file_dir: ${HOME}/sea_ice_processor/test_files/aux_files/si_type
+  type_file_dir: ${HOME}/sea_ice_processor/aux_files/si_type
   input_projection: epsg:4326
 
 alg_sla_calculations:
