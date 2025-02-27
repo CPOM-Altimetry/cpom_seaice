@@ -74,4 +74,7 @@ alg_add_ocean_frac:
 alg_add_region_mask:
   mask_number: 1
 
+alg_grid_for_volume:
+  grid_directory: ${HOME}/sea_ice_processor/grid_files/
+
 # Resource Locators

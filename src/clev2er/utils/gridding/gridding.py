@@ -133,7 +133,8 @@ class GriddedDataFile(AbstractContextManager):
         Args:
             attributes (Dict[str, Any]): Dictionary of attributes as key-value pairs
         """
-        self.attributes.update(attributes)
+        for key, value in attributes.items():
+            setattr(self.nc, key, value)
 
     def grid_points(
         self,
