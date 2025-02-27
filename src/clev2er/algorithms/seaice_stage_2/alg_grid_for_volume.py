@@ -47,6 +47,7 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.gridding.gridding import GriddedDataFile, VariableSpec
 
 # pylint:disable=pointless-string-statement
 
@@ -99,6 +100,17 @@ class Algorithm(BaseAlgorithm):
         self.nlats = self.config["shared"]["grid_nlats"]
         self.nlons = self.config["shared"]["grid_nlons"]
         self.grid_directory = self.config["alg_grid_for_volume"]["grid_directory"]
+
+        # Define variables for the gridded data file
+        self.variable_specs = [
+            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib"),
+        ]
 
         # --- End of initialization steps ---
 
@@ -153,86 +165,43 @@ class Algorithm(BaseAlgorithm):
             Save variables to output grid file
         """
 
+        # Set up output file
         f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
-            "%Y%M"
+            "%Y%m"
         )
         grid_file_name = f"{f_time}_grids.nc"
         grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
-        # check if grids are already saved
-        if os.path.exists(grid_file_path):
-            # load grids from npz
-            output_nc: Dataset = Dataset(grid_file_path, mode="a")
-            thickness = output_nc["thickness"][:].data
-            thickness_fyi = output_nc["thickness_fyi"][:].data
-            thickness_myi = output_nc["thickness_myi"][:].data
-            iceconc = output_nc["iceconc"][:].data
-            nin = output_nc["number_in"][:].data
-            nin_fyi = output_nc["number_in_fyi"][:].data
-            nin_myi = output_nc["number_in_myi"][:].data
-        else:
-            # initialise all the arrays we need
-            output_nc: Dataset = Dataset(grid_file_path, mode="w")  # type: ignore
-            output_nc.createDimension("lat", self.nlats)
-            output_nc.createDimension("lon", self.nlons)
+        with GriddedDataFile(
+            variables=self.variable_specs,
+            filename=grid_file_path,
+            nrows=self.nlons,
+            ncols=self.nlats,
+        ) as gdf:
+            if "f_time" not in gdf.get_attributes():
+                gdf.add_attributes({"f_time", f_time})
 
-            output_nc.createVariable("thickness", "f8", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("thickness_fyi", "f8", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("thickness_myi", "f8", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("iceconc", "f8", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("number_in", "i4", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("number_in_fyi", "i4", ("lat", "lon"), compression="zlib")
-            output_nc.createVariable("number_in_myi", "i4", ("lat", "lon"), compression="zlib")
+            sample_fyi = shared_dict["seaice_type"] == 2
+            sample_myi = shared_dict["seaice_type"] == 3
 
-            output_nc.fdate = f_time
-
-            thickness = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-            thickness_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-            thickness_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-            iceconc = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-            nin = np.zeros((self.nlats, self.nlons), dtype=np.int64)
-            nin_fyi = np.zeros((self.nlats, self.nlons), dtype=np.int64)
-            nin_myi = np.zeros((self.nlats, self.nlons), dtype=np.int64)
-
-        # calculate the indexes of each record
-        ilats = ((l1b["sat_lat"][:].data - 40) / 0.1).astype(int)
-        ilons = (((l1b["sat_lon"][:].data + 180) % 360) / 0.5).astype(int)
-        # line above is weird. Andy uses coordinates -180..180, we use 0..360
-        # but andy's ilon formula only works right now with -180..180
-        # to convert from former to latter, use: (lon + 180) % 360 - 180
-        # andy's formula for lon to ilon is: (lon + 180) / 0.5
-        # substituting the coordinate conversion into the ilon conversion, we get
-        # ilon = ((lon + 180) % 360 - 180 + 180) / 0.5
-        # can simplify as
-        # ilon = ((lon + 180) % 360) / 0.5
-        # you can probably simplify this by changing the ilon formula to work with
-        # 0..360 values, but thats a problem for another day
-
-        # add thickness data to array with indexes
-        thickness[ilats, ilons] += shared_dict["thickness"]
-        iceconc[ilats, ilons] += l1b["seaice_conc"][:].data
-        nin[ilats, ilons] += 1
-
-        sample_fyi = shared_dict["seaice_type"] == 2
-        sample_myi = shared_dict["seaice_type"] == 3
-
-        # calculate values for mfy and fyi
-        thickness_fyi[ilats, ilons][sample_fyi] += shared_dict["thickness"][sample_fyi]
-        nin_fyi[ilats, ilons][sample_fyi] += 1
-
-        thickness_myi[ilats, ilons][sample_myi] += shared_dict["thickness"][sample_myi]
-        nin_myi[ilats, ilons][sample_myi] += 1
-
-        # save grids to nc file
-        output_nc["iceconc"] = iceconc
-        output_nc["thickness"] = thickness
-        output_nc["thick_fyi"] = thickness_fyi
-        output_nc["thick_myi"] = thickness_myi
-        output_nc["nin_fyi"] = nin_fyi
-        output_nc["nin_myi"] = nin_myi
-        output_nc["nin"] = nin
-
-        output_nc.close()
+            gdf.grid_points(
+                coordinates={"lat": l1b["sat_lat"][:].data, "lon": l1b["sat_lon"][:].data},
+                data={
+                    "thickness": shared_dict["thickness"],
+                    "iceconc": l1b["seaice_conc"][:].data,
+                    "number_in": 1,
+                    "thickness_fyi": shared_dict["thickness"],
+                    "number_in_fyi": 1,
+                    "thickness_myi": shared_dict["thickness"],
+                    "number_in_myi": 1,
+                },
+                conditions={
+                    "thickness_fyi": sample_fyi,
+                    "number_in_fyi": sample_fyi,
+                    "thickness_myi": sample_myi,
+                    "number_in_myi": sample_myi,
+                },
+            )
 
         self.log.info("Added data to grid %s", grid_file_name)
 
