@@ -33,34 +33,18 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
   aux_file_path: /home/jgnq4/Documents/sea_ice_processor/aux_files
-  grid_nlons: 720
-  grid_nlats: 500
+  grid_nlons: 360
+  grid_nlats: 250
 
-alg_add_mss:
-  mss_file: /home/jgnq4/Documents/sea_ice_processor/andy_aux_files/mss/CryosatMSS-arco-2yr-140821.txt
-  mss_buffer: 0.2
+alg_add_ice_extent:
+  conc_threshold: 15.0
   input_projection: epsg:4326
-
-alg_add_si_type:
-  type_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
-  input_projection: epsg:4326
-
-alg_sla_calculations:
-  clip_value: 3.0
-  sample_limit: 20.0
-  track_limit: 0.5
-  window_range: 100 # range limit between floes and leads in either direction in km
-  distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
-
-alg_fbd_calculations:
-  fb_min: -0.3
-  fb_max: 3.0
-
-alg_thk_calculations:
-  rho_fyi: 916.7
-  rho_myi: 882.0
-  rho_sea: 1023.9
   
+alg_add_cell_area:
+  input_projection: epsg:4326
 
+alg_add_ocean_frac:
+  input_projection: epsg:4326
 
-# Resource Locators
+alg_add_region_mask:
+  mask_number: 1
