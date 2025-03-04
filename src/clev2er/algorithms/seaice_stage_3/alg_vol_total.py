@@ -1,21 +1,19 @@
-"""clev2er.algorithms.seaice.alg_add_ocean_frac.py
+"""clev2er.algorithms.seaice.alg_vol_total.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Adds the ocean fraction data from auxilliary file to shared_mem
+Calculates the totals for volume
 
 #Main initialization (init() function) steps/resources required
 
-Read params from config
-Check ocean fraction file exists
-Read data from file
-Prepare KDTree from data and save to algorithm memory
+None
 
 #Main process() function steps
 
-For each sample, get the closest matching ocean fraction value
+Calculate totals and add to shared_dict
+Log totals to access them later
 
 #Main finalize() function steps
 
@@ -23,19 +21,16 @@ None
 
 #Contribution to shared_dict
 
-ocean_frac : np.ndarray(float) = Array of ocean fraction values
+contributions
 
 #Requires from shared_dict
 
-sat_lat
-sat_lon
-measurement_time
+requirements
 
 Author: Ben Palmer
-Date: 09 Sep 2024
+Date: 06 Jan 2025
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
@@ -43,8 +38,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-
-# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -65,6 +58,7 @@ class Algorithm(BaseAlgorithm):
     """
 
     def init(self) -> Tuple[bool, str]:
+        # pylint: disable=pointless-string-statement
         """Algorithm initialization function
 
         Add steps in this function that are run once at the beginning of the chain
@@ -89,65 +83,8 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
-        # pylint:disable=unpacking-non-sequence
-        """ Read params from config
-        Check ocean fraction file exists
-        Read data from file
-        Prepare KDTree from data and save to algorithm memory """
 
-        # Load params from config
-        ocean_frac_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "ocean_fraction_file_N.dat"
-        )
-        nlats = self.config["shared"]["grid_nlats"]
-        nlons = self.config["shared"]["grid_nlons"]
-
-        # Load ocean fraction file
-        self.log.info("\tLoading ocean fraction from %s", ocean_frac_file_path)
-        if not os.path.exists(ocean_frac_file_path):
-            self.log.error("Cannot find ocean fraction file - %s", ocean_frac_file_path)
-            raise RuntimeError(f"Cannot find the ocean fraction file at {ocean_frac_file_path}")
-
-        # read file data
-        # Wisdom from Andy Ridout
-        # Input and output files have the following format:
-        #     Col 1 : Latitude index
-        #     Col 2 : Longitude index
-        #     Col 3 : Latitude  of cell centre
-        #     Col 4 : Longitude of cell centre
-        #     Col 5 : Stored quantity
-
-        ocean_frac_file = np.transpose(np.genfromtxt(ocean_frac_file_path))
-        ocean_frac_lat = ocean_frac_file[0]
-        ocean_frac_lon = ocean_frac_file[1]
-        ocean_frac_values = ocean_frac_file[2]
-
-        ocean_frac_lat_index = ((ocean_frac_lat - 40) / 0.1).astype(int)
-        ocean_frac_lon_index = ((ocean_frac_lon + 180) / 0.5).astype(int)
-
-        # remove values outside of the target area
-        values_in_area = (
-            (ocean_frac_lat_index >= 0)
-            & (ocean_frac_lat_index < nlats)
-            & (ocean_frac_lon_index >= 0)
-            & (ocean_frac_lon_index < nlons)
-        )
-        ocean_frac_lat_index = ocean_frac_lat_index[values_in_area]
-        ocean_frac_lon_index = ocean_frac_lon_index[values_in_area]
-        ocean_frac_values = ocean_frac_values[values_in_area]
-
-        # construct the grid
-        self.ocean_frac_grid = np.zeros((nlats, nlons)) * np.nan
-        self.ocean_frac_grid[ocean_frac_lat_index, ocean_frac_lon_index] = ocean_frac_values
-
-        self.log.info(
-            "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f NaNs=%d",
-            self.ocean_frac_grid.shape,
-            np.nanmin(self.ocean_frac_grid),
-            np.nanmean(self.ocean_frac_grid),
-            np.nanmax(self.ocean_frac_grid),
-            np.sum(np.isnan(self.ocean_frac_grid.flatten())),
-        )
+        """ None """
 
         # --- End of initialization steps ---
 
@@ -157,6 +94,7 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=pointless-string-statement
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -188,18 +126,44 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Add ocean fraction grid to the shared memory
-        shared_dict["ocean_frac"] = self.ocean_frac_grid
+        """ Calculate totals and add to shared_dict
+        Log totals to access them later """
 
-        # Apply mask to volume and area
-        shared_dict["volume_grid"] *= shared_dict["ocean_frac"]
-        shared_dict["area_grid"] *= shared_dict["ocean_frac"]
+        # total up values
+        shared_dict["total_volume"] = np.sum(shared_dict["volume_grid"])
+        shared_dict["total_fyi_volume"] = np.sum(
+            shared_dict["volume_grid"] * shared_dict["frac_fyi_grid"]
+        )
+        shared_dict["total_myi_volume"] = np.sum(
+            shared_dict["volume_grid"] * shared_dict["frac_myi_grid"]
+        )
+
+        shared_dict["total_area"] = np.sum(shared_dict["area_grid"])
+        shared_dict["total_fyi_area"] = np.sum(
+            shared_dict["area_grid"] * shared_dict["frac_fyi_grid"]
+        )
+        shared_dict["total_myi_area"] = np.sum(
+            shared_dict["area_grid"] * shared_dict["frac_myi_grid"]
+        )
+
+        # lots of logging :)
+        self.log.info("- Volume calculations -")
+        self.log.info("    All")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_area"])
+        self.log.info("    FYI")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_fyi_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_fyi_area"])
+        self.log.info("    MYI")
+        self.log.info("        Total Volume -\t%f", shared_dict["total_myi_volume"])
+        self.log.info("        Total Area -\t%f", shared_dict["total_myi_area"])
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
 
     def finalize(self, stage: int = 0) -> None:
+        # pylint: disable=pointless-string-statement
         """Algorithm finalization function - called after all processing completed
 
         Can be used to clean up/free resources initialized in the init() function

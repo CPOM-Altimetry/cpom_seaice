@@ -1,21 +1,26 @@
-"""clev2er.algorithms.seaice.alg_add_ocean_frac.py
+"""clev2er.algorithms.seaice.alg_vol_calculations.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Adds the ocean fraction data from auxilliary file to shared_mem
+Reads in the gridded data from the previous stage and calculates thickness and volume for each month
+Stores result in shared dict
 
 #Main initialization (init() function) steps/resources required
 
-Read params from config
-Check ocean fraction file exists
-Read data from file
-Prepare KDTree from data and save to algorithm memory
+Read config options
 
 #Main process() function steps
 
-For each sample, get the closest matching ocean fraction value
+Create empty arrays for volume, area, fraction of fyi and myi and gaps
+Create empty arrays for grids used in filling process
+Calculate mean thickness, mean iceconc and volume
+Compute nearest neighbours for each cell
+Fill in empty cells using nearest neighbours
+Apply masks
+Calculate totals
+Add results to shared_dict
 
 #Main finalize() function steps
 
@@ -23,19 +28,16 @@ None
 
 #Contribution to shared_dict
 
-ocean_frac : np.ndarray(float) = Array of ocean fraction values
+contributions
 
 #Requires from shared_dict
 
-sat_lat
-sat_lon
-measurement_time
+requirements
 
 Author: Ben Palmer
-Date: 09 Sep 2024
+Date: 20 Dec 2024
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
@@ -43,8 +45,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-
-# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -65,6 +65,7 @@ class Algorithm(BaseAlgorithm):
     """
 
     def init(self) -> Tuple[bool, str]:
+        # pylint: disable=pointless-string-statement
         """Algorithm initialization function
 
         Add steps in this function that are run once at the beginning of the chain
@@ -89,65 +90,14 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
-        # pylint:disable=unpacking-non-sequence
-        """ Read params from config
-        Check ocean fraction file exists
-        Read data from file
-        Prepare KDTree from data and save to algorithm memory """
 
-        # Load params from config
-        ocean_frac_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "ocean_fraction_file_N.dat"
-        )
-        nlats = self.config["shared"]["grid_nlats"]
-        nlons = self.config["shared"]["grid_nlons"]
+        """
+            Read config options 
+        """
 
-        # Load ocean fraction file
-        self.log.info("\tLoading ocean fraction from %s", ocean_frac_file_path)
-        if not os.path.exists(ocean_frac_file_path):
-            self.log.error("Cannot find ocean fraction file - %s", ocean_frac_file_path)
-            raise RuntimeError(f"Cannot find the ocean fraction file at {ocean_frac_file_path}")
-
-        # read file data
-        # Wisdom from Andy Ridout
-        # Input and output files have the following format:
-        #     Col 1 : Latitude index
-        #     Col 2 : Longitude index
-        #     Col 3 : Latitude  of cell centre
-        #     Col 4 : Longitude of cell centre
-        #     Col 5 : Stored quantity
-
-        ocean_frac_file = np.transpose(np.genfromtxt(ocean_frac_file_path))
-        ocean_frac_lat = ocean_frac_file[0]
-        ocean_frac_lon = ocean_frac_file[1]
-        ocean_frac_values = ocean_frac_file[2]
-
-        ocean_frac_lat_index = ((ocean_frac_lat - 40) / 0.1).astype(int)
-        ocean_frac_lon_index = ((ocean_frac_lon + 180) / 0.5).astype(int)
-
-        # remove values outside of the target area
-        values_in_area = (
-            (ocean_frac_lat_index >= 0)
-            & (ocean_frac_lat_index < nlats)
-            & (ocean_frac_lon_index >= 0)
-            & (ocean_frac_lon_index < nlons)
-        )
-        ocean_frac_lat_index = ocean_frac_lat_index[values_in_area]
-        ocean_frac_lon_index = ocean_frac_lon_index[values_in_area]
-        ocean_frac_values = ocean_frac_values[values_in_area]
-
-        # construct the grid
-        self.ocean_frac_grid = np.zeros((nlats, nlons)) * np.nan
-        self.ocean_frac_grid[ocean_frac_lat_index, ocean_frac_lon_index] = ocean_frac_values
-
-        self.log.info(
-            "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f NaNs=%d",
-            self.ocean_frac_grid.shape,
-            np.nanmin(self.ocean_frac_grid),
-            np.nanmean(self.ocean_frac_grid),
-            np.nanmax(self.ocean_frac_grid),
-            np.sum(np.isnan(self.ocean_frac_grid.flatten())),
-        )
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
+        self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
 
         # --- End of initialization steps ---
 
@@ -155,7 +105,10 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
+        # pylint: disable=pointless-string-statement
         # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
@@ -188,12 +141,56 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Add ocean fraction grid to the shared memory
-        shared_dict["ocean_frac"] = self.ocean_frac_grid
+        """ 
+            Create empty arrays for volume, area, fraction of fyi and myi and gaps
+            Calculate mean thickness, mean iceconc and volume
+            Add results to shared_dict
+        """
 
-        # Apply mask to volume and area
-        shared_dict["volume_grid"] *= shared_dict["ocean_frac"]
-        shared_dict["area_grid"] *= shared_dict["ocean_frac"]
+        volume = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        area = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        frac_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        frac_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        gaps = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+
+        thickness = l1b["thickness"][:].data
+        thickness_fyi = l1b["thickness_fyi"][:].data
+        thickness_myi = l1b["thickness_myi"][:].data
+        iceconc = l1b["iceconc"][:].data
+        number_in = l1b["number_in"][:].data
+        nin_fyi = l1b["number_in_fyi"][:].data
+        nin_myi = l1b["number_in_myi"][:].data
+
+        # calculate thickness, conc and volume
+        # can improve this using numpy array magic stuff (after success)
+        for ilat in range(self.nlats):
+            for ilon in range(self.nlons):
+                if number_in[ilat, ilon] > self.ninmin:  # this prevents divide by 0 error
+                    thickness[ilat, ilon] /= number_in[ilat, ilon]
+                    iceconc[ilat, ilon] /= number_in[ilat, ilon]
+                    volume[ilat, ilon] = thickness[ilat, ilon] * 0.001 * iceconc[ilat, ilon] * 0.01
+
+                # stopping divide by 0 error
+                if thickness_fyi[ilat, ilon] > 0 or thickness_myi[ilat, ilon] > 0:
+                    frac_fyi[ilat, ilon] = thickness_fyi[ilat, ilon] / (
+                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
+                    )
+                    frac_myi[ilat, ilon] = thickness_myi[ilat, ilon] / (
+                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
+                    )
+
+        # add arrays to shared_dict
+        shared_dict["volume_grid"] = volume
+        shared_dict["iceconc_grid"] = iceconc
+        shared_dict["thickness_grid"] = thickness
+        shared_dict["frac_fyi_grid"] = frac_fyi
+        shared_dict["frac_myi_grid"] = frac_myi
+        shared_dict["area_grid"] = area
+        shared_dict["gaps"] = gaps
+
+        shared_dict["number_in"] = number_in
+        shared_dict["number_in_fyi"] = nin_fyi
+        shared_dict["number_in_myi"] = nin_myi
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -209,6 +206,8 @@ class Algorithm(BaseAlgorithm):
                                     by the chain controller. Useful during multi-processing.
                                     Defaults to 0. Not normally used by Algorithms.
         """
+        # pylint: disable=pointless-string-statement
+
         self.log.info(
             "Finalize algorithm %s called at stage %d filenum %d",
             self.alg_name,

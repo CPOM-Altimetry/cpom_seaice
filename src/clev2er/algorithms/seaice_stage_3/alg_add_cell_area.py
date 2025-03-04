@@ -193,8 +193,12 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Simply add the grid to the shared_dict
+        # add the grid to the shared_dict
         shared_dict["cell_area"] = self.cell_area_grid
+
+        # apply the cell area mask to the volume and area data
+        shared_dict["volume_grid"] *= shared_dict["cell_area"]
+        shared_dict["area_grid"] *= shared_dict["cell_area"]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
