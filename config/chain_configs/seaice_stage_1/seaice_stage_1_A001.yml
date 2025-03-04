@@ -2,7 +2,7 @@
 
 # Set breakpoint file directory
 breakpoint_files:
-  default_dir: /tmp
+  default_dir: $HOME/sea_ice_processor/bp_files
   
 # Default locations for log files
 log_files:
@@ -45,6 +45,7 @@ alg_area_filter:
 
 alg_flag_filters:
   surf_ocean_flag: 0 # flag used for the "ocean" surface type
+  binary_width: 32
 
 alg_crop_waveform:
   cropped_length: 128 
@@ -75,7 +76,7 @@ alg_giles_retrack:
   max_fit_sigma: 1000000
 
 alg_add_si_conc:
-  conc_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/aux_files
+  conc_file_dir: $CPDATA_DIR/SATS/PM/SSMI/north/
   input_projection: epsg:4326
 
 alg_elev_calculations:
@@ -85,6 +86,6 @@ alg_elev_calculations:
   tracking_bin : 64
 
 alg_merge_modes:
-  merge_file_dir: /home/jgnq4/Documents/sea_ice_processor/test_files/feb_2024/elev_merge
+  merge_file_dir: $HOME/sea_ice_processor/elev_merge_2
 # Resource Locators
 

@@ -230,15 +230,16 @@ class Algorithm(BaseAlgorithm):
             si_concentration[wv_num] = file_values[file_neighbouring_indices]
 
         self.log.info("NaNs in concentration array - %d", sum(np.isnan(si_concentration)))
-        self.log.info(
-            "Sea ice concentration: Max=%f Mean=%f Min=%f Zeroes=%d",
-            np.nanmax(si_concentration),
-            np.nanmean(si_concentration),
-            np.nanmin(si_concentration),
-            sum(si_concentration <= 0.0),
-        )
         if all(np.isnan(si_concentration)):
-            self.log.info("WARNING - ALL CONCENTRATIONS ARE NaN")
+            self.log.warning("ALL CONCENTRATIONS ARE NaN")
+        else:
+            self.log.info(
+                "Sea ice concentration: Max=%f Mean=%f Min=%f Zeroes=%d",
+                np.nanmax(si_concentration),
+                np.nanmean(si_concentration),
+                np.nanmin(si_concentration),
+                sum(si_concentration <= 0.0),
+            )
 
         shared_dict["seaice_concentration"] = si_concentration
 

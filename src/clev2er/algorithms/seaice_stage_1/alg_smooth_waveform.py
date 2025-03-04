@@ -125,6 +125,11 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        if shared_dict["diffuse_index"].size == 0:
+            self.log.info("No diffuse waves in file - skipping smoothing...")
+            shared_dict["waveform_smooth"] = np.array([])
+            return (success, error_str)
+
         diffuse_waves = shared_dict["waveform"][shared_dict["diffuse_index"]]
 
         smoothed_waves = np.apply_along_axis(

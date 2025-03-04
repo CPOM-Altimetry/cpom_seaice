@@ -117,14 +117,15 @@ class Algorithm(BaseAlgorithm):
 
         mss_values = mss_file[2]
         mss_lat = mss_file[1]
-        mss_lon = mss_file[0] % 360
+        mss_lon = mss_file[0]
+        mss_lon_adjusted = mss_lon % 360
 
         # Filter MSS to correct area
         inside_area = (
             (mss_lat > min_lat - buffer)
             & (mss_lat < max_lat + buffer)
-            & (mss_lon > min_lon - buffer)
-            & (mss_lon < max_lon + buffer)
+            & (mss_lon_adjusted > min_lon - buffer)
+            & (mss_lon_adjusted < max_lon + buffer)
         )
 
         # Assemble KDTree
@@ -134,6 +135,13 @@ class Algorithm(BaseAlgorithm):
 
         fdxlat = (((mss_lat - self.latmin) / self.delta) + 0.5).astype(int)
         fdxlon = (((mss_lon - self.lonmin) / self.delta) + 0.5).astype(int)
+
+        if np.any((0 > fdxlat) & (fdxlat >= self.nlats)):
+            self.log.error("fdxlat contains out of bounds values")
+            raise RuntimeError("fdxlat out of bounds")
+        if np.any((0 > fdxlon) & (fdxlon >= self.nlons)):
+            self.log.error("fdxlon contains out of bounds values")
+            raise RuntimeError("fdxlon out of bounds")
 
         self.mss_grid = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         self.mss_grid[fdxlat, fdxlon] = mss_vals
