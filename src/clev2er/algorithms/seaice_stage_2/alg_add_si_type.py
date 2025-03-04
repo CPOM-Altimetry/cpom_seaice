@@ -185,13 +185,15 @@ class Algorithm(BaseAlgorithm):
 
                 # Find the correct file for the data
 
-                file_paths = glob.glob(
-                    os.path.join(self.type_file_dir, f"ice_type_*_{file_date}*.dat")
+                folder_glob_string = os.path.join(
+                    self.type_file_dir, file_date[:4], f"ice_type_nh_*_{file_date}*.dat"
                 )
+
+                file_paths = glob.glob(folder_glob_string)
 
                 # There should be 1 match for each date. If not, return an error
                 if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching - %s", file_date)
+                    self.log.error("Could not locate file matching - %s", folder_glob_string)
                     return (False, "TYPE_FILE_NOT_FOUND")
                 if len(file_paths) > 1:
                     self.log.error(

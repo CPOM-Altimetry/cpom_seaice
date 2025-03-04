@@ -40,6 +40,8 @@ def gauss_plus_exp_tracker(
     x: npt.NDArray = np.arange(waveform.size).astype(float)
 
     tracking_point = np.nan
+    fit_qual = np.nan
+    fit_sigma = np.nan
 
     x0: np.intp = np.argmax(waveform)
     a: float = waveform[x0]
@@ -71,11 +73,11 @@ def gauss_plus_exp_tracker(
         fit_qual = _get_fit_qual(popt[0], popt[1], waveform, best_fit)
 
         tracking_point = popt[1]  # Update tracking point if successful, otherwise returns NaN
-        sigma = popt[2]
+        fit_sigma = popt[2]
     except RuntimeError:
         pass
 
-    return tracking_point, fit_qual, sigma
+    return tracking_point, fit_qual, fit_sigma
 
 
 def _gauss_plus_exp(x: npt.NDArray, a: float, x0: np.intp, sigma: float, k: float) -> npt.NDArray:

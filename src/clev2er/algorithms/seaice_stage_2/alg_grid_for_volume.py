@@ -1,34 +1,45 @@
-"""clev2er.algorithms.seaice_stage_1.alg_fbd_calculations.py
+"""clev2er.algorithms.seaice.alg_grid_for_volume.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Calculates the freeboard height for each sample.
+Combines files into grids for each month
 
 #Main initialization (init() function) steps/resources required
 
-Get window_size config option
+Read params from config
 
 #Main process() function steps
 
-Interpolate ocean surface elevation between leads.
-Subtract interpolated ocean surface from elevation.
-Save to shared_dict
+Check if grid file for month exists
+If not, create empty nc file and empty numpy arrays for thickness, conc, volume, thick_fyi,
+thick_myi, fraction of fyi and myi, counts, and fill values
+If it does, load existing values from grid file
+Get grid index from location data
+Add thickness and ice concentration values to relevant grid cells
+Increment number of samples inside by 1 each time
+Do the same with fyi and myi thickness
+Save variables to output grid file
+
+#Main finalize() function steps
+
+None
 
 #Contribution to shared_dict
 
-'freeboard' (np.ndarray[float]) : array of freeboard values
+grid_file_name
 
 #Requires from shared_dict
 
-'sea_level_anomaly'
-'smoothed_sea_level_anomaly'
+requirements
 
 Author: Ben Palmer
-Date: 21 Mar 2024
+Date: 19 Sep 2024
 """
 
+import os
+from datetime import datetime
 from typing import Tuple
 
 import numpy as np
@@ -36,9 +47,13 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.gridding.gridding import GriddedDataFile, VariableSpec
+
+# pylint:disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -81,17 +96,30 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.speed_light_vacuum = self.config["geophysical"]["speed_light_vacuum"]
-        self.speed_light_snow = self.config["geophysical"]["speed_light_snow"]
+        """ Read params from config """
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
+        self.grid_directory = self.config["alg_grid_for_volume"]["grid_directory"]
 
-        self.fb_min = self.config["alg_fbd_calculations"]["fb_min"]
-        self.fb_max = self.config["alg_fbd_calculations"]["fb_max"]
+        # Define variables for the gridded data file
+        self.variable_specs = [
+            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib"),
+        ]
+
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -112,6 +140,8 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-statements
+        # pylint:disable=too-many-branches
 
         # This step is required to support multi-processing. Do not modify
         success, error_str = self.process_setup(l1b)
@@ -120,45 +150,61 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # \/    down the chain in the 'shared_dict' dict     \/
+        # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        freeboard = (
-            l1b["elevation"][:].data
-            - shared_dict["mss"]
-            - shared_dict["smoothed_sea_level_anomaly"]
+        """ 
+            Check if grid file for month exists
+            If not, create empty nc file and empty numpy arrays for thickness, conc, volume, 
+            thick_fyi, thick_myi, fraction of fyi and myi, counts, and fill values
+            If it does, load existing values from grid file
+            Get grid index from location data
+            Add thickness and ice concentration values to relevant grid cells
+            Increment number of samples inside by 1 each time
+            Do the same with fyi and myi thickness
+            Save variables to output grid file
+        """
+
+        # Set up output file
+        f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
+            "%Y%m"
         )
+        grid_file_name = f"{f_time}_grids.nc"
+        grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
-        self.log.info(
-            "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard),
-            np.nanstd(freeboard),
-            np.nanmin(freeboard),
-            np.nanmax(freeboard),
-            freeboard.shape[0],
-            sum(np.isnan(freeboard)),
-        )
+        with GriddedDataFile(
+            variables=self.variable_specs,
+            filename=grid_file_path,
+            nrows=self.nlons,
+            ncols=self.nlats,
+        ) as gdf:
+            if "f_time" not in gdf.get_attributes():
+                gdf.add_attributes({"f_time", f_time})
 
-        # calculate the corrected freeboard of the ice
-        freeboard_corr = freeboard + (
-            shared_dict["snow_depth"] * ((self.speed_light_vacuum / self.speed_light_snow) - 1)
-        )
+            sample_fyi = shared_dict["seaice_type"] == 2
+            sample_myi = shared_dict["seaice_type"] == 3
 
-        # discard any samples outside of sensible range
-        freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
+            gdf.grid_points(
+                coordinates={"lat": l1b["sat_lat"][:].data, "lon": l1b["sat_lon"][:].data},
+                data={
+                    "thickness": shared_dict["thickness"],
+                    "iceconc": l1b["seaice_conc"][:].data,
+                    "number_in": 1,
+                    "thickness_fyi": shared_dict["thickness"],
+                    "number_in_fyi": 1,
+                    "thickness_myi": shared_dict["thickness"],
+                    "number_in_myi": 1,
+                },
+                conditions={
+                    "thickness_fyi": sample_fyi,
+                    "number_in_fyi": sample_fyi,
+                    "thickness_myi": sample_myi,
+                    "number_in_myi": sample_myi,
+                },
+            )
 
-        self.log.info(
-            "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(freeboard_corr),
-            np.nanstd(freeboard_corr),
-            np.nanmin(freeboard_corr),
-            np.nanmax(freeboard_corr),
-            freeboard_corr.shape[0],
-            sum(np.isnan(freeboard_corr)),
-        )
+        self.log.info("Added data to grid %s", grid_file_name)
 
-        shared_dict["freeboard"] = freeboard
-        shared_dict["freeboard_corr"] = freeboard_corr
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
@@ -180,7 +226,9 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here \/
+        # Add finalization steps here /
         # ---------------------------------------------------------------------
+
+        """ finalize """
 
         # ---------------------------------------------------------------------
