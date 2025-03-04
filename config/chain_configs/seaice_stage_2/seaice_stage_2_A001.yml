@@ -33,8 +33,8 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
   aux_file_path: /home/jgnq4/Documents/sea_ice_processor/aux_files
-  grid_nlons: 360
-  grid_nlats: 250
+  grid_nlons: 720
+  grid_nlats: 500
 
 alg_add_mss:
   mss_file: /home/jgnq4/Documents/sea_ice_processor/andy_aux_files/mss/CryosatMSS-arco-2yr-140821.txt
