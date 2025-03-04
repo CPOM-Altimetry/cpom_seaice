@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 logs/*.log
 src/clev2er/algorithms/seaice_stage_2/alg_ingest_merge.py
+.vscode/

@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_2.alg_add_region_mask
+clev2er.algorithms.seaice_stage_3.alg_add_region_mask
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_2.alg_add_region_mask import Algorithm
+from clev2er.algorithms.seaice_stage_3.alg_add_region_mask import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def config() -> dict:
         dict: config dictionary
     """
     # load config
-    chain_config, _, _, _, _ = load_config_files("seaice_stage_2")
+    chain_config, _, _, _, _ = load_config_files("seaice_stage_3")
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
