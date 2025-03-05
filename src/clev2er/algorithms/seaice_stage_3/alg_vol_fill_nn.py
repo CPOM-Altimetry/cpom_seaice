@@ -37,7 +37,7 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from pyproj import Geod
+from pyproj import CRS
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -93,7 +93,7 @@ class Algorithm(BaseAlgorithm):
         self.nn_radius = self.config["alg_vol_fill_nn"]["nn_radius"]
         self.projection = self.config["alg_vol_fill_nn"]["working_projection"]
 
-        self.geod = Geod(ellps=self.projection)
+        self.geod = CRS(self.projection).get_geod()
 
         # --- End of initialization steps ---
 
