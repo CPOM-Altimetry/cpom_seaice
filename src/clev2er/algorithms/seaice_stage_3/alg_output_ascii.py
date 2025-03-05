@@ -99,8 +99,8 @@ class Algorithm(BaseAlgorithm):
         Check that output directory exists
         """
 
-        self.nlats = self.config["shared"]["nlats"]
-        self.nlons = self.config["shared"]["nlons"]
+        self.nlats = self.config["shared"]["grid_nlats"]
+        self.nlons = self.config["shared"]["grid_nlons"]
         self.output_directory = Path(self.config["alg_output_ascii"]["output_directory"])
 
         if not self.output_directory.exists():

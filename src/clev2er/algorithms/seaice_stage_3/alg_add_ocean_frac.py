@@ -97,7 +97,7 @@ class Algorithm(BaseAlgorithm):
 
         # Load params from config
         ocean_frac_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "ocean_fraction_file_N.dat"
+            self.config["shared"]["aux_file_path"], "ocean_fraction", "ocean_fraction_file_N.dat"
         )
         nlats = self.config["shared"]["grid_nlats"]
         nlons = self.config["shared"]["grid_nlons"]

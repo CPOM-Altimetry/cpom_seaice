@@ -91,7 +91,7 @@ class Algorithm(BaseAlgorithm):
         self.nlats = self.config["shared"]["grid_nlats"]
         self.nlons = self.config["shared"]["grid_nlons"]
         self.nn_radius = self.config["alg_vol_fill_nn"]["nn_radius"]
-        self.projection = self.config["shared"]["output_projection"]
+        self.projection = self.config["alg_vol_fill_nn"]["working_projection"]
 
         self.geod = Geod(ellps=self.projection)
 

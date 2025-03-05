@@ -8,7 +8,11 @@ l1b_file_selectors:
 
 # List of algorithms to call in order
 algorithms:
+  - alg_vol_calculations
+  - alg_vol_fill_nn
   - alg_add_cell_area
   - alg_add_ice_extent
   - alg_add_ocean_frac
   - alg_add_region_mask
+  - alg_vol_total
+  - alg_output_ascii

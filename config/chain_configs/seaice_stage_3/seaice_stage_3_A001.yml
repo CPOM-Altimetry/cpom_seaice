@@ -2,7 +2,7 @@
 
 # Set breakpoint file directory
 breakpoint_files:
-  default_dir: /tmp
+  default_dir: ${HOME}/sea_ice_processor/bp_files
   
 # Default locations for log files
 log_files:
@@ -32,9 +32,15 @@ shared: # Shared config parameters for multiple algorithms to use
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
-  aux_file_path: /home/jgnq4/Documents/sea_ice_processor/aux_files
-  grid_nlons: 360
-  grid_nlats: 250
+  aux_file_path: ${HOME}/sea_ice_processor/aux_files
+  nlons: 720
+  nlats: 500
+
+alg_vol_calculations:
+  ninmin: 5
+
+alg_vol_fill_nn:
+  working_projection: epsg:3413
 
 alg_add_ice_extent:
   conc_threshold: 15.0
@@ -48,3 +54,6 @@ alg_add_ocean_frac:
 
 alg_add_region_mask:
   mask_number: 1
+
+alg_output_ascii:
+  output_directory: ${HOME}/sea_ice_processor/ascii_outputs

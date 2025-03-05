@@ -98,7 +98,7 @@ class Algorithm(BaseAlgorithm):
 
         # Load params from config
         cell_area_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "cell_area_file.dat"
+            self.config["shared"]["aux_file_path"], "cell_area", "cell_area_file.dat"
         )
         nlats = self.config["shared"]["grid_nlats"]
         nlons = self.config["shared"]["grid_nlons"]

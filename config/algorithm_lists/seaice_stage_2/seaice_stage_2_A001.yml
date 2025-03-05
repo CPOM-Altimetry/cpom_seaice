@@ -13,3 +13,5 @@ algorithms:
   - alg_sla_calculations
   - alg_fbd_calculations
   - alg_warren_snow_means
+  - alg_thk_calculations
+  - alg_grid_for_volume
