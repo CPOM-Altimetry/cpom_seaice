@@ -155,11 +155,11 @@ class Algorithm(BaseAlgorithm):
         """
 
         # check if year folder exists
-        year_folder = self.output_directory / l1b.year
+        year_folder = self.output_directory / l1b.f_time[:4]
         if not year_folder.exists():
             os.makedirs(year_folder)
 
-        filename = f"{l1b.year:04d}_{l1b.month:02d}"
+        filename = f"{l1b.f_time[:4]}_{l1b.f_time[4:]}"
 
         vol_file = year_folder / (filename + ".vol")
         thickness_file = year_folder / (filename + ".thk")
