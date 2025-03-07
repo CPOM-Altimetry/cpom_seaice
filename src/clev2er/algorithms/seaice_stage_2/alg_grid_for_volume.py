@@ -103,13 +103,17 @@ class Algorithm(BaseAlgorithm):
 
         # Define variables for the gridded data file
         self.variable_specs = [
-            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec(
+                "thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
+            ),
+            VariableSpec(
+                "thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
+            ),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
         ]
 
         # --- End of initialization steps ---
