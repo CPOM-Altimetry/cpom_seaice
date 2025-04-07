@@ -184,8 +184,13 @@ class Algorithm(BaseAlgorithm):
         )
         shared_dict["elevation"] = elevations
 
-        shared_dict["valid"][shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]] = False
-        shared_dict["valid"][shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]] = False
+        if shared_dict["diffuse_index"].size > 0 and shared_dict["idx_lew_gt_max"].size > 0:
+            shared_dict["valid"][
+                shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
+            ] = False
+            shared_dict["valid"][
+                shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
+            ] = False
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

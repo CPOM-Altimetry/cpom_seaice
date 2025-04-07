@@ -217,9 +217,10 @@ class Algorithm(BaseAlgorithm):
                     file_lats > self.fill_lat_threshold
                 )  # get points above threshold
                 find_nans = np.isnan(file_values)  # get nans
-                fill_value = np.mean(
-                    file_values[lats_above_threshold & ~find_nans]
+                fill_value = np.nanmean(
+                    file_values[lats_above_threshold]
                 )  # get mean of non-nans above threshold
+                self.log.info("Filling concentrations using mean value - %0.3f", fill_value)
                 file_values[lats_above_threshold & find_nans] = fill_value
 
                 # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
