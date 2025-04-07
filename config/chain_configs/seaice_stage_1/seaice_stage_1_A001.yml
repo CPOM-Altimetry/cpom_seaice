@@ -78,6 +78,7 @@ alg_giles_retrack:
 alg_add_si_conc:
   conc_file_dir: $CPDATA_DIR/SATS/PM/SSMI/north/
   input_projection: epsg:4326
+  fill_lat_threshold: 86.5
 
 alg_elev_calculations:
   diffuse_retracker_bias: 0.1626
