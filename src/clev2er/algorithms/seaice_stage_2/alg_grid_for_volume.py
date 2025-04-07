@@ -179,8 +179,8 @@ class Algorithm(BaseAlgorithm):
         with GriddedDataFile(
             variables=self.variable_specs,
             filename=grid_file_path,
-            nrows=self.nlons,
-            ncols=self.nlats,
+            nrows=self.nlats,
+            ncols=self.nlons,
         ) as gdf:
             if "f_time" not in gdf.get_attributes():
                 gdf.add_attributes({"f_time": f_time})
