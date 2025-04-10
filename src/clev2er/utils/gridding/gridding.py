@@ -220,7 +220,7 @@ class GriddedDataFile(AbstractContextManager):
 
             # Don't grid any nans
             var_is_nan = np.isnan(var_data)
-            if np.any(var_is_nan):
+            if isinstance(var_data, np.ndarray) and np.any(var_is_nan):
                 mask &= ~var_is_nan
 
             # If there are any conditions given, mask for them
