@@ -216,11 +216,13 @@ class GriddedDataFile(AbstractContextManager):
         ilats, ilons = get_cell_indexes_from_lat_lon(coordinates["lat"], coordinates["lon"])
 
         for var_name, var_data in data.items():
+            if not isinstance(var_data, np.ndarray):
+                var_data = np.full((len(coordinates["lat"])), fill_value=var_data, dtype=np.float64)
             mask = np.ones_like(var_data, dtype=np.bool_)
 
             # Don't grid any nans
             var_is_nan = np.isnan(var_data)
-            if isinstance(var_data, np.ndarray) and np.any(var_is_nan):
+            if np.any(var_is_nan):
                 mask &= ~var_is_nan
 
             # If there are any conditions given, mask for them
