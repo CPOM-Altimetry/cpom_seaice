@@ -186,7 +186,6 @@ class Algorithm(BaseAlgorithm):
 
         for sample_i, sample_point in enumerate(sample_points):
             _, sample_mss_indices = self.mss_tree.query(sample_point, k=4)
-            print(sample_mss_indices)
             sample_mss[sample_i] = np.mean(self.mss_vals[sample_mss_indices])
 
         self.log.info(

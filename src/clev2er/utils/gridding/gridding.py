@@ -217,7 +217,11 @@ class GriddedDataFile(AbstractContextManager):
 
         for var_name, var_data in data.items():
             if not isinstance(var_data, np.ndarray):
-                var_data = np.full((len(coordinates["lat"])), fill_value=var_data, dtype=np.float64)
+                var_data = np.full(
+                    (len(coordinates["lat"])),
+                    fill_value=var_data,
+                    dtype=self.arrays[var_name].dtype,
+                )
             mask = np.ones_like(var_data, dtype=np.bool_)
 
             # Don't grid any nans
