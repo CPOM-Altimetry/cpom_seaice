@@ -92,9 +92,9 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         # SLA related values
-        self.clip_value = self.config["alg_sla_calculations"]["clip_value"]
-        self.track_limit = self.config["alg_sla_calculations"]["track_limit"]
-        self.sample_limit = self.config["alg_sla_calculations"]["sample_limit"]
+        self.raw_sla_clip_value = self.config["alg_sla_calculations"]["raw_sla_clip_value"]
+        self.sla_track_limit = self.config["alg_sla_calculations"]["sla_track_limit"]
+        self.lead_sample_limit = self.config["alg_sla_calculations"]["lead_sample_limit"]
         self.window_range = self.config["alg_sla_calculations"]["window_range"]
         self.distance_projection = self.config["alg_sla_calculations"]["distance_projection"]
 
@@ -144,7 +144,7 @@ class Algorithm(BaseAlgorithm):
         # of SLA from specular echoes for cycle 013 shows almost
         # no data above +2m and below -1m.
 
-        raw_sla[(raw_sla > self.clip_value) & (raw_sla < -self.clip_value)] = np.nan
+        raw_sla[(raw_sla > self.raw_sla_clip_value) & (raw_sla < -self.raw_sla_clip_value)] = np.nan
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(raw_sla)))
 
@@ -183,7 +183,9 @@ class Algorithm(BaseAlgorithm):
         )
 
         # find lead samples where sla is inside acceptable range
-        indx_lead_sla_inside_range = np.isclose(interp_sla[interp_leads], 0, atol=self.sample_limit)
+        indx_lead_sla_inside_range = np.isclose(
+            interp_sla[interp_leads], 0, atol=self.lead_sample_limit
+        )
 
         self.log.info(
             "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
@@ -194,7 +196,7 @@ class Algorithm(BaseAlgorithm):
 
         # skip track if mean SLA of leads is outside of limit
         if not np.isclose(
-            mean_sla := np.nanmean(interp_sla[interp_leads]), 0, atol=self.track_limit
+            mean_sla := np.nanmean(interp_sla[interp_leads]), 0, atol=self.sla_track_limit
         ):
             self.log.info("Mean SLA is outside of acceptable range - %f", mean_sla)
             self.log.info("Skipping file...")
