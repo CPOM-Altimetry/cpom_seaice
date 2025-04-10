@@ -53,8 +53,8 @@ alg_add_si_type:
   input_projection: epsg:4326
 
 alg_sla_calculations:
-  clip_value: 3.0
-  sample_limit: 20.0
+  clip_value: 20.0
+  sample_limit: 3.0
   track_limit: 0.5
   window_range: 100 # range limit between floes and leads in either direction in km
   distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
