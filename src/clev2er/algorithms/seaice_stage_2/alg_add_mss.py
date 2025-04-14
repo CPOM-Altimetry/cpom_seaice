@@ -37,7 +37,6 @@ import numpy as np
 import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from scipy.spatial import KDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -98,6 +97,8 @@ class Algorithm(BaseAlgorithm):
         min_lon = self.config["shared"]["min_longitude"]
 
         self.delta = self.config["alg_add_mss"]["delta"]
+        self.lonmin = self.config["alg_add_mss"]["lonmin"]
+        self.latmin = self.config["alg_add_mss"]["latmin"]
         self.nlats = self.config["alg_add_mss"]["nlats"]
         self.nlons = self.config["alg_add_mss"]["nlons"]
 
@@ -116,26 +117,34 @@ class Algorithm(BaseAlgorithm):
 
         mss_values = mss_file[2]
         mss_lat = mss_file[1]
-        mss_lon = mss_file[0] % 360
+        mss_lon = mss_file[0]
+        mss_lon_adjusted = mss_lon % 360
 
         # Filter MSS to correct area
         inside_area = (
             (mss_lat > min_lat - buffer)
             & (mss_lat < max_lat + buffer)
-            & (mss_lon > min_lon - buffer)
-            & (mss_lon < max_lon + buffer)
+            & (mss_lon_adjusted > min_lon - buffer)
+            & (mss_lon_adjusted < max_lon + buffer)
         )
 
         # Assemble KDTree
         mss_lat = mss_lat[inside_area]
         mss_lon = mss_lon[inside_area]
-        self.mss_vals = mss_values[inside_area]
+        mss_vals = mss_values[inside_area]
 
-        mss_x, mss_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            mss_lon, mss_lat
-        )
-        mss_points = np.transpose((mss_x, mss_y))
-        self.mss_tree = KDTree(mss_points)
+        fdxlat = (((mss_lat - self.latmin) / self.delta) + 0.5).astype(int)
+        fdxlon = (((mss_lon - self.lonmin) / self.delta) + 0.5).astype(int)
+
+        if np.any((0 > fdxlat) & (fdxlat >= self.nlats)):
+            self.log.error("fdxlat contains out of bounds values")
+            raise RuntimeError("fdxlat out of bounds")
+        if np.any((0 > fdxlon) & (fdxlon >= self.nlons)):
+            self.log.error("fdxlon contains out of bounds values")
+            raise RuntimeError("fdxlon out of bounds")
+
+        self.mss_grid = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        self.mss_grid[fdxlat, fdxlon] = mss_vals
 
         # --- End of initialization steps ---
 
@@ -178,15 +187,43 @@ class Algorithm(BaseAlgorithm):
 
         sample_mss = np.zeros(l1b["sat_lat"][:].data.size) * np.nan
 
-        # Get the fdx of lats and lons
-        sample_x, sample_y = self.lonlat_to_xy.transform(  # pylint: disable=unpacking-non-sequence
-            l1b["sat_lon"][:].data, l1b["sat_lat"][:].data
-        )
-        sample_points = np.transpose((sample_x, sample_y))
+        for sample_i, (sample_lat, sample_lon) in enumerate(
+            zip(l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
+        ):
+            # Get the fdx of lats and lons
+            sample_fdxlat = (sample_lat - self.latmin) / self.delta
+            sample_fdxlon = (sample_lon - self.lonmin) / self.delta
 
-        for sample_i, sample_point in enumerate(sample_points):
-            _, sample_mss_indices = self.mss_tree.query(sample_point, k=4)
-            sample_mss[sample_i] = np.mean(self.mss_vals[sample_mss_indices])
+            # skip if we can't interpolate
+            if (
+                (sample_fdxlat < 0)
+                or (sample_fdxlat >= self.nlats - 1)
+                or (sample_fdxlon < 0)
+                or (sample_fdxlon >= self.nlons - 1)
+            ):
+                continue
+
+            # Do interpolation of mss in the area (lat is x, lon is y)
+            # Get fraction of lats and lons
+            frac_lats, _ = np.modf(sample_fdxlat)
+            frac_lons, _ = np.modf(sample_fdxlon)
+
+            # Convert to integers so we can use as indices
+            sample_fdxlat = sample_fdxlat.astype(int)
+            sample_fdxlon = sample_fdxlon.astype(int)
+
+            # get mss values around indices
+            mss_1 = self.mss_grid[sample_fdxlat, sample_fdxlon]
+            mss_2 = self.mss_grid[sample_fdxlat + 1, sample_fdxlon]
+            mss_3 = self.mss_grid[sample_fdxlat, sample_fdxlon + 1]
+            mss_4 = self.mss_grid[sample_fdxlat + 1, sample_fdxlon + 1]
+
+            sample_mss[sample_i] = (
+                ((1 - frac_lats) * (1 - frac_lons) * mss_1)
+                + (frac_lats * (1 - frac_lons) * mss_2)
+                + ((1 - frac_lats) * frac_lons * mss_3)
+                + (frac_lats * frac_lons * mss_4)
+            )
 
         self.log.info(
             "MSS - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
