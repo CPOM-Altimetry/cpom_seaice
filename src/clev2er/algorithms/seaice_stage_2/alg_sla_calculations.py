@@ -144,7 +144,7 @@ class Algorithm(BaseAlgorithm):
         # of SLA from specular echoes for cycle 013 shows almost
         # no data above +2m and below -1m.
 
-        raw_sla[(raw_sla > self.raw_sla_clip_value) & (raw_sla < -self.raw_sla_clip_value)] = np.nan
+        raw_sla[(raw_sla > self.raw_sla_clip_value) | (raw_sla < -self.raw_sla_clip_value)] = np.nan
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(raw_sla)))
 
