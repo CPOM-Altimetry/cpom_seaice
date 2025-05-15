@@ -199,15 +199,15 @@ class Algorithm(BaseAlgorithm):
 
         self.log.info(
             "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(raw_sla),
-            np.nanstd(raw_sla),
-            np.nanmin(raw_sla),
-            np.nanmax(raw_sla),
-            raw_sla.shape[0],
-            sum(np.isnan(raw_sla)),
+            np.nanmean(lead_sla),
+            np.nanstd(lead_sla),
+            np.nanmin(lead_sla),
+            np.nanmax(lead_sla),
+            lead_sla.shape[0],
+            sum(np.isnan(lead_sla)),
         )
 
-        shared_dict["raw_sea_level_anomaly"] = raw_sla
+        shared_dict["raw_sea_level_anomaly"] = lead_sla
         shared_dict["smoothed_sea_level_anomaly"] = interp_sla
         shared_dict["lead_indx"] = lead_indx
 
