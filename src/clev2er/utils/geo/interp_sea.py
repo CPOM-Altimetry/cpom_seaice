@@ -16,7 +16,6 @@ def interp_sea_regression(
     lats_data: npt.NDArray,
     lons_data: npt.NDArray,
     sea_level_data: npt.NDArray,
-    lead_index: npt.NDArray,
     window_size: float,
     distance_projection: str = "WGS84",
 ) -> npt.NDArray:
@@ -44,15 +43,8 @@ def interp_sea_regression(
     """
     # pylint: disable=too-many-arguments
     # pylint: disable=too-many-locals
-    if (
-        lats_data.shape[0] != lons_data.shape[0]
-        and lats_data.shape[0] != sea_level_data.shape[0]
-        and lats_data.shape[0] != lead_index.shape[0]
-    ):
+    if lats_data.shape[0] != lons_data.shape[0] and lats_data.shape[0] != sea_level_data.shape[0]:
         raise ValueError("Input arrays arrays do not have homogenous shape on axis 0.")
-
-    if "bool" not in str(lead_index.dtype).lower():
-        raise ValueError("Lead_index array must contain bool values")
 
     geod: proj.Geod = proj.Geod(ellps=distance_projection)
 
@@ -107,7 +99,7 @@ def interp_sea_regression(
         y_arr = []
 
         for jdx in range(idx, lats_data.shape[0]):
-            if lead_index[jdx]:
+            if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(dist)
                 y_arr.append(sea_level_data[jdx])
                 nupper += 1 if jdx > idx else 0
@@ -116,7 +108,7 @@ def interp_sea_regression(
                 break
 
         for jdx in range(idx, -1, -1):
-            if lead_index[jdx]:
+            if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(-dist)
                 y_arr.append(sea_level_data[jdx])
                 nlower += 1

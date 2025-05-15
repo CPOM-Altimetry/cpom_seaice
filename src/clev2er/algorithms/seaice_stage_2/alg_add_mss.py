@@ -97,10 +97,6 @@ class Algorithm(BaseAlgorithm):
         min_lat = self.config["shared"]["min_latitude"]
         min_lon = self.config["shared"]["min_longitude"]
 
-        self.delta = self.config["alg_add_mss"]["delta"]
-        self.nlats = self.config["alg_add_mss"]["nlats"]
-        self.nlons = self.config["alg_add_mss"]["nlons"]
-
         # Create projection transform
         crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
         crs_output = proj.Proj(self.config["shared"]["output_projection"])
