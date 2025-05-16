@@ -198,7 +198,7 @@ class Algorithm(BaseAlgorithm):
             return (False, "SKIP_OK")
 
         smoothed_sla = interp_sla
-        smoothed_sla[np.isfinite(lead_sla)] = lead_sla
+        smoothed_sla[lead_indx] = lead_sla[lead_indx]
 
         self.log.info(
             "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
