@@ -129,7 +129,7 @@ class Algorithm(BaseAlgorithm):
             - shared_dict["smoothed_sea_level_anomaly"]
         )
 
-        floe_indx = l1b["lead_floe_class"][:].data
+        floe_indx = l1b["lead_floe_class"][:].data == 3
         freeboard[~floe_indx] = np.nan
 
         self.log.info(
