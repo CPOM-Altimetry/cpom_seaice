@@ -197,18 +197,21 @@ class Algorithm(BaseAlgorithm):
             self.log.info("Skipping file...")
             return (False, "SKIP_OK")
 
+        smoothed_sla = interp_sla
+        smoothed_sla[np.isfinite(lead_sla)] = lead_sla
+
         self.log.info(
             "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(lead_sla),
-            np.nanstd(lead_sla),
-            np.nanmin(lead_sla),
-            np.nanmax(lead_sla),
-            lead_sla.shape[0],
+            np.nanmean(smoothed_sla),
+            np.nanstd(smoothed_sla),
+            np.nanmin(smoothed_sla),
+            np.nanmax(smoothed_sla),
+            smoothed_sla.shape[0],
             sum(np.isnan(lead_sla)),
         )
 
         shared_dict["raw_sea_level_anomaly"] = lead_sla
-        shared_dict["smoothed_sea_level_anomaly"] = interp_sla
+        shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
         shared_dict["lead_indx"] = lead_indx
 
         # -------------------------------------------------------------------
