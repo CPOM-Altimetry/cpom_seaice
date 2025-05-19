@@ -149,9 +149,11 @@ class Algorithm(BaseAlgorithm):
         # of SLA from specular echoes for cycle 013 shows almost
         # no data above +2m and below -1m.
 
-        lead_sla[
-            (lead_sla > self.raw_sla_clip_value) | (lead_sla < -self.raw_sla_clip_value)
-        ] = np.nan
+        lead_outside_range = (lead_sla > self.raw_sla_clip_value) | (
+            lead_sla < -self.raw_sla_clip_value
+        )
+        lead_sla[lead_outside_range] = np.nan
+        original_flag = lead_outside_range & lead_indx
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(lead_sla)))
 
@@ -213,6 +215,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["raw_sea_level_anomaly"] = lead_sla
         shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
         shared_dict["lead_indx"] = lead_indx
+        shared_dict["original_flag"] = original_flag
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
