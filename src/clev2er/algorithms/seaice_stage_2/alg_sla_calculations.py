@@ -153,7 +153,7 @@ class Algorithm(BaseAlgorithm):
             lead_sla < -self.raw_sla_clip_value
         )
         lead_sla[lead_outside_range] = np.nan
-        original_flag = lead_outside_range & lead_indx
+        original_flag = lead_indx & ~lead_outside_range
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(lead_sla)))
 
@@ -181,16 +181,14 @@ class Algorithm(BaseAlgorithm):
         )
 
         # find lead samples where sla is inside acceptable range
-        indx_lead_sla_inside_range = (interp_sla[lead_indx] < self.lead_sample_limit) & (
-            interp_sla[lead_indx] > -self.lead_sample_limit
-        )
+        indx_lead_sla_outside_range = (
+            (interp_sla > self.lead_sample_limit) | (interp_sla < -self.lead_sample_limit)
+        ) & lead_indx
 
-        self.log.info(
-            "Leads with SLA outside of range - %d", np.sum(np.invert(indx_lead_sla_inside_range))
-        )
+        self.log.info("Leads with SLA outside of range - %d", np.sum((indx_lead_sla_outside_range)))
 
         # remove leads with SLAs outside of acceptable values
-        interp_sla[lead_indx][indx_lead_sla_inside_range] = np.nan
+        interp_sla[indx_lead_sla_outside_range] = np.nan
 
         # skip track if mean SLA of leads is outside of limit
         mean_sla = np.nanmean(interp_sla)
