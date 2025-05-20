@@ -137,29 +137,28 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         lead_indx = l1b["lead_floe_class"][:].data == 2
+        original_flag = lead_indx
+        if np.sum(lead_indx) == 0:
+            self.log.info("No leads in file, unable to interpolate sea elevation")
+            return (False, "SKIP_OK")
 
         raw_sla = l1b["elevation"][:].data - shared_dict["mss"]
-
-        lead_sla = np.full_like(raw_sla, fill_value=np.nan)
-        lead_sla[lead_indx] = raw_sla[lead_indx]
 
         # Remove values -clip<x<clip
         # From Andy:
         # Rejected anything more than 3m from MSS. A histogram
         # of SLA from specular echoes for cycle 013 shows almost
         # no data above +2m and below -1m.
-
-        lead_outside_range = (lead_sla > self.raw_sla_clip_value) | (
-            lead_sla < -self.raw_sla_clip_value
+        sla_outside_range = (raw_sla > self.raw_sla_clip_value) | (
+            raw_sla < -self.raw_sla_clip_value
         )
-        lead_sla[lead_outside_range] = np.nan
-        original_flag = lead_indx & ~lead_outside_range
+        raw_sla[sla_outside_range] = np.nan
+        # original_flag[sla_outside_range] = False
+
+        lead_sla = np.full_like(raw_sla, fill_value=np.nan)
+        lead_sla[lead_indx] = raw_sla[lead_indx]
 
         self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(lead_sla)))
-
-        if np.sum(lead_indx) == 0:
-            self.log.info("No leads in file, unable to interpolate sea elevation")
-            return (False, "SKIP_OK")
 
         interp_sla = interp_sea_regression(
             l1b["sat_lat"][:].data,
@@ -169,7 +168,7 @@ class Algorithm(BaseAlgorithm):
             self.distance_projection,
         )
 
-        if interp_sla.size == 0:
+        if interp_sla.size == 0 or np.isnan(interp_sla).all():
             self.log.info("No SLA values found, skipping file")
             return (False, "SKIP_OK")
 
