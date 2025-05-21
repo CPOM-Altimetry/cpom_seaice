@@ -96,7 +96,6 @@ class Algorithm(BaseAlgorithm):
         self.sla_track_limit = self.config["alg_sla_calculations"]["sla_track_limit"]
         self.lead_sample_limit = self.config["alg_sla_calculations"]["lead_sample_limit"]
         self.window_range = self.config["alg_sla_calculations"]["window_range"]
-        self.distance_projection = self.config["alg_sla_calculations"]["distance_projection"]
 
         # --- End of initialization steps ---
 
@@ -162,10 +161,9 @@ class Algorithm(BaseAlgorithm):
 
         interp_sla = interp_sea_regression(
             l1b["sat_lat"][:].data,
-            l1b["sat_lon"][:].data,
+            ((l1b["sat_lon"][:].data - 180) % 360) - 180,
             lead_sla,
             self.window_range * 1000,  # convert window_range from km to m
-            self.distance_projection,
         )
 
         if interp_sla.size == 0 or np.isnan(interp_sla).all():
