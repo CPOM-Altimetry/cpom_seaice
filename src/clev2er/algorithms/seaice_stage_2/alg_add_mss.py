@@ -34,7 +34,6 @@ import os
 from typing import Tuple
 
 import numpy as np
-import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -97,11 +96,6 @@ class Algorithm(BaseAlgorithm):
         self.nlats = self.config["alg_add_mss"]["nlats"]
         self.nlons = self.config["alg_add_mss"]["nlons"]
 
-        # Create projection transform
-        crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["shared"]["output_projection"])
-        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
-
         # Load MSS file
         self.log.info("\tLoading MSS from %s", mss_file_path)
         if not os.path.exists(mss_file_path):
@@ -114,7 +108,7 @@ class Algorithm(BaseAlgorithm):
         mss_lat = mss_file[1]
         mss_lon = mss_file[0] % 360
 
-        self.mss_grid = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        self.mss_grid = np.full((self.nlats, self.nlons), fill_value=np.nan)
 
         for lat, lon, val in zip(mss_lat, mss_lon, mss_values):
             fdxlat = (lat - self.latmin) / self.delta
