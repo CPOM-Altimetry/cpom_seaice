@@ -114,6 +114,7 @@ class Algorithm(BaseAlgorithm):
             VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=0),
         ]
 
         # --- End of initialization steps ---
@@ -198,6 +199,7 @@ class Algorithm(BaseAlgorithm):
                     "number_in_fyi": 1,
                     "thickness_myi": shared_dict["thickness"],
                     "number_in_myi": 1,
+                    "freeboard": shared_dict["freeboard"],
                 },
                 conditions={
                     "thickness_fyi": sample_fyi,
