@@ -31,22 +31,31 @@ def grid_points_sum(
         where (np.ndarray, optional): Option to index array using boolean or index array.
             Defaults to None.
     """
-    if where is None:
-        # Can't add to NaNs, make them equal 0 if the grid is NaN
-        grid_isnan = np.isnan(grid_array)
-        if np.any(grid_isnan[ilats, ilons]):
-            grid_points_equals(ilats, ilons, 0, grid_array, grid_isnan[ilats, ilons])
+    # if where is None:
+    #     # Can't add to NaNs, make them equal 0 if the grid is NaN
+    #     grid_isnan = np.isnan(grid_array)
+    #     if np.any(grid_isnan[ilats, ilons]):
+    #         grid_points_equals(ilats, ilons, 0, grid_array, grid_isnan[ilats, ilons])
 
-        grid_array[ilats, ilons] += z
-    else:
-        grid_isnan = np.isnan(grid_array)
-        if np.any(grid_isnan[ilats[where], ilons[where]]):
-            grid_points_equals(
-                ilats[where], ilons[where], 0, grid_array, grid_isnan[ilats[where], ilons[where]]
-            )
-        if not isinstance(z, np.ndarray):
-            z = np.full_like(ilats, z)
-        grid_array[ilats[where], ilons[where]] += z[where]
+    #     grid_array[ilats, ilons] += z
+    # else:
+    #     grid_isnan = np.isnan(grid_array)
+    #     if np.any(grid_isnan[ilats[where], ilons[where]]):
+    #         grid_points_equals(
+    #             ilats[where], ilons[where], 0, grid_array, grid_isnan[ilats[where], ilons[where]]
+    #         )
+    #     if not isinstance(z, np.ndarray):
+    #         z = np.full_like(ilats, z)
+    #     grid_array[ilats[where], ilons[where]] += z[where]
+    if where is None:
+        where = np.full_like(ilats, True).astype(bool)
+    if not isinstance(z, np.ndarray):
+        z = np.full_like(ilats, z)
+    for t_ilat, t_ilon, t_z, t_w in zip(ilats, ilons, z, where):
+        if t_w:
+            if np.isnan(grid_array[t_ilat, t_ilon]):
+                grid_array[t_ilat, t_ilon] = 0
+            grid_array[t_ilat, t_ilon] += t_z
 
 
 def grid_points_equals(
