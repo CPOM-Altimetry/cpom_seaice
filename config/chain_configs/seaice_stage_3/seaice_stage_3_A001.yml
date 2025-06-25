@@ -53,7 +53,7 @@ alg_add_ocean_frac:
   input_projection: epsg:4326
 
 alg_add_region_mask:
-  mask_number: 1
+  mask_number: 0 # mask number is the equivalent to a basin ID
 
 alg_output_ascii:
   output_directory: ${HOME}/sea_ice_processor/ascii_outputs

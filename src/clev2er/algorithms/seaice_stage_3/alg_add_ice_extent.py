@@ -219,7 +219,7 @@ class Algorithm(BaseAlgorithm):
             sea_ice_extent = np.transpose(np.genfromtxt(file_path))
             file_lat_index = sea_ice_extent[0].astype(int)
             file_lon_index = sea_ice_extent[1].astype(int)
-            file_values = sea_ice_extent[4] >= self.conc_threshold
+            file_values = (sea_ice_extent[4] >= self.conc_threshold) | (file_lat_index > 86.6)
 
             inside_grid = (
                 (file_lat_index >= 0)

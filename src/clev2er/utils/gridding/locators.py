@@ -7,8 +7,9 @@ import numpy as np
 import numpy.typing as npt
 
 
+@np.vectorize
 def get_cell_indexes_from_lat_lon(
-    lats: npt.ArrayLike, lons: npt.ArrayLike
+    lats: np.float128, lons: np.float128
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculates cell indexes for lat lon pairs
 
@@ -19,10 +20,6 @@ def get_cell_indexes_from_lat_lon(
     Returns:
         tuple[np.ndarray, np.ndarray]: tuple of (ilats, ilons)
     """
-    if not isinstance(lats, np.ndarray):
-        lats = np.asarray(lats)
-    if not isinstance(lons, np.ndarray):
-        lons = np.asarray(lons)
 
     ilats = ((lats - 40) / 0.1).astype(int)
     ilons = (((lons + 180) % 360) / 0.5).astype(int)
