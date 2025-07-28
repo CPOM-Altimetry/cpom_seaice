@@ -189,6 +189,8 @@ class Algorithm(BaseAlgorithm):
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
 
+            sample_not_nan = np.isfinite(shared_dict["thickness"])
+
             gdf.grid_points(
                 coordinates={"lat": l1b["sat_lat"][:].data, "lon": l1b["sat_lon"][:].data},
                 data={
@@ -202,10 +204,12 @@ class Algorithm(BaseAlgorithm):
                     "freeboard": shared_dict["freeboard"],
                 },
                 conditions={
-                    "thickness_fyi": sample_fyi,
-                    "number_in_fyi": sample_fyi,
-                    "thickness_myi": sample_myi,
-                    "number_in_myi": sample_myi,
+                    "thickness": sample_not_nan,
+                    "number_in": sample_not_nan,
+                    "thickness_fyi": sample_fyi & sample_not_nan,
+                    "number_in_fyi": sample_fyi & sample_not_nan,
+                    "thickness_myi": sample_myi & sample_not_nan,
+                    "number_in_myi": sample_myi & sample_not_nan,
                 },
             )
 

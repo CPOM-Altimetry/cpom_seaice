@@ -53,6 +53,8 @@ def grid_points_sum(
         z = np.full_like(ilats, z)
     for t_ilat, t_ilon, t_z, t_w in zip(ilats, ilons, z, where):
         if t_w:
+            if np.isnan(t_z):
+                continue
             if np.isnan(grid_array[t_ilat, t_ilon]):
                 grid_array[t_ilat, t_ilon] = 0
             grid_array[t_ilat, t_ilon] += t_z
