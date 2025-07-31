@@ -195,6 +195,8 @@ class Algorithm(BaseAlgorithm):
         # Apply mask to volume and area
         shared_dict["volume_grid"] *= shared_dict["ocean_frac"]
         shared_dict["area_grid"] *= shared_dict["ocean_frac"]
+        shared_dict["number_in"] *= shared_dict["ocean_frac"] > 0
+        shared_dict["fill_nin"] *= shared_dict["ocean_frac"] > 0
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
