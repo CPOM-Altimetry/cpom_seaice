@@ -186,8 +186,9 @@ class Algorithm(BaseAlgorithm):
         shared_dict["volume_grid"] *= shared_dict["region_mask"]
         shared_dict["iceconc_grid"] *= shared_dict["region_mask"]
         shared_dict["area_grid"] *= shared_dict["region_mask"]
-        shared_dict["number_in"] *= shared_dict["region_mask"]
-        shared_dict["fill_nin"] *= shared_dict["region_mask"]
+        shared_dict["number_in"] *= shared_dict["region_mask"].astype(int)
+        shared_dict["fill_nin"] *= shared_dict["region_mask"].astype(int)
+        shared_dict["fill_flag"] *= shared_dict["region_mask"].astype(int)
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

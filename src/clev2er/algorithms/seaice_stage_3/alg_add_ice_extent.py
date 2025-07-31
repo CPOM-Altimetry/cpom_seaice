@@ -264,6 +264,7 @@ class Algorithm(BaseAlgorithm):
         shared_dict["area_grid"] *= shared_dict["extent_mask"]
         shared_dict["number_in"] *= shared_dict["extent_mask"]
         shared_dict["fill_nin"] *= shared_dict["extent_mask"]
+        shared_dict["fill_flag"] *= shared_dict["extent_mask"]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

@@ -97,8 +97,6 @@ class Algorithm(BaseAlgorithm):
 
         self.geod = CRS(self.projection).get_geod()
 
-        self.n_cells_processed = 0
-
         # --- End of initialization steps ---
 
         return (True, "")
@@ -156,6 +154,7 @@ class Algorithm(BaseAlgorithm):
 
         # fill statistics
         fill_flag = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        n_cells_processed = 0
         n_cells_filled = 0
 
         # ==========================================================================================
@@ -183,7 +182,7 @@ class Algorithm(BaseAlgorithm):
 
             # skip if there are no useful values in search area
             if (shared_dict["number_in"][search_lat_min:search_lat_max, :] == 0).all():
-                self.n_cells_processed += self.nlons
+                n_cells_processed += self.nlons
                 continue
 
             lat = 40 + (ilat * 0.1)
@@ -204,11 +203,11 @@ class Algorithm(BaseAlgorithm):
                 # Prints progress once it reaches a percentage of competion that a
                 # multiple of 5, then waits until it reaches the next multiple of five
                 # to log the progress again
-                self.n_cells_processed += 1
-                percent_processed = (self.n_cells_processed / self.ncells) * 100
+                n_cells_processed += 1
+                percent_processed = (n_cells_processed / self.ncells) * 100
                 if (percent_processed // 1) % 5 == 0 and print_next_percent:
                     self.log.info(
-                        "%d cells processed (%0.1f)", self.n_cells_processed, percent_processed
+                        "%d cells processed (%0.1f)", n_cells_processed, percent_processed
                     )
                     print_next_percent = False
                 if (percent_processed // 1) % 5 != 0 and not print_next_percent:
@@ -304,6 +303,7 @@ class Algorithm(BaseAlgorithm):
         # Add filling grids to shared_mem
         shared_dict["fill_thick"] = fill_thk
         shared_dict["fill_nin"] = fill_nin
+        shared_dict["fill_flag"] = fill_flag
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

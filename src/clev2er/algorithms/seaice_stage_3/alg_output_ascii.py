@@ -207,6 +207,7 @@ class Algorithm(BaseAlgorithm):
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
                         f"{shared_dict['fill_thick'][ilat, ilon]: 10.4f}"
                         f"{int(shared_dict['fill_nin'][ilat, ilon]): 6d}"
+                        f"{int(shared_dict['fill_flag'][ilat, ilon]): 1d}"
                         "\n"
                     )
 

@@ -151,7 +151,7 @@ class Algorithm(BaseAlgorithm):
         area = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         frac_fyi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         frac_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        gaps = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        gaps = np.ones((self.nlats, self.nlons), dtype=np.float64)
 
         thickness = l1b["thickness"][:].data
         thickness_fyi = l1b["thickness_fyi"][:].data
