@@ -99,8 +99,8 @@ class Algorithm(BaseAlgorithm):
         ocean_frac_file_path = os.path.join(
             self.config["shared"]["aux_file_path"], "ocean_fraction", "ocean_fraction_file_N.dat"
         )
-        nlats = self.config["shared"]["grid_nlats"]
-        nlons = self.config["shared"]["grid_nlons"]
+        nlats = self.config["shared"]["nlats"]
+        nlons = self.config["shared"]["nlons"]
 
         # Load ocean fraction file
         self.log.info("\tLoading ocean fraction from %s", ocean_frac_file_path)
@@ -122,8 +122,8 @@ class Algorithm(BaseAlgorithm):
         ocean_frac_lon = ocean_frac_file[1]
         ocean_frac_values = ocean_frac_file[2]
 
-        ocean_frac_lat_index = ((ocean_frac_lat - 40) / 0.1).astype(int)
-        ocean_frac_lon_index = ((ocean_frac_lon + 180) / 0.5).astype(int)
+        ocean_frac_lat_index = np.around((ocean_frac_lat - 40) / 0.1, 0).astype(int)
+        ocean_frac_lon_index = np.around((ocean_frac_lon + 180) / 0.5, 0).astype(int)
 
         # remove values outside of the target area
         values_in_area = (
@@ -137,8 +137,9 @@ class Algorithm(BaseAlgorithm):
         ocean_frac_values = ocean_frac_values[values_in_area]
 
         # construct the grid
-        self.ocean_frac_grid = np.zeros((nlats, nlons)) * np.nan
-        self.ocean_frac_grid[ocean_frac_lat_index, ocean_frac_lon_index] = ocean_frac_values
+        self.ocean_frac_grid = np.zeros((nlats, nlons))
+        for ilat, ilon, val in zip(ocean_frac_lat_index, ocean_frac_lon_index, ocean_frac_values):
+            self.ocean_frac_grid[ilat, ilon] = val
 
         self.log.info(
             "Ocean Fraction - shape=%s Min=%f Mean=%f Max=%f NaNs=%d",

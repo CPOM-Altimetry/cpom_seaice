@@ -43,6 +43,7 @@ from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -88,12 +89,15 @@ class Algorithm(BaseAlgorithm):
 
         """ Read config options """
 
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
+        self.nlats = self.config["shared"]["nlats"]
+        self.nlons = self.config["shared"]["nlons"]
+        self.ncells = self.nlats * self.nlons
         self.nn_radius = self.config["alg_vol_fill_nn"]["nn_radius"]
         self.projection = self.config["alg_vol_fill_nn"]["working_projection"]
 
         self.geod = CRS(self.projection).get_geod()
+
+        self.n_cells_processed = 0
 
         # --- End of initialization steps ---
 
@@ -150,14 +154,19 @@ class Algorithm(BaseAlgorithm):
         fill_myi = np.zeros((self.nlats, self.nlons), dtype=np.float64)
         fill_nin = np.zeros((self.nlats, self.nlons), dtype=np.float64)
 
+        # fill statistics
+        fill_flag = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        n_cells_filled = 0
+
         # ==========================================================================================
         # Compute nearest neighbour interpolation for empty cells
         # ==========================================================================================
+        print_next_percent = False
         self.log.info("Computing nearest neighbour interpolation...")
 
-        # We're finding the number of lats to search around the target cell
+        # find the number of lats to search around the target cell
         for ilat in range(self.nlats + 1):
-            lat = 40 + (ilat * 0.1)
+            lat = 40 + ((ilat + 1) * 0.1)
             _, _, dist = self.geod.inv(-180, lat, -180, 40)
             if dist > self.nn_radius:
                 break
@@ -167,13 +176,22 @@ class Algorithm(BaseAlgorithm):
         search_lat_range = ilat - 1
 
         # this part is O(n^4), there must be a better way to do this?
-        # scipy.KDTree or sklearn.NearestNeighbor probably
-        # See notes for plans for optimisation
         for ilat in range(self.nlats):
+            # define latitude search area
+            search_lat_min = max(ilat - search_lat_range, 0)
+            search_lat_max = min(ilat + search_lat_range, self.nlats - 1)
+
+            # skip if there are no useful values in search area
+            if (shared_dict["number_in"][search_lat_min:search_lat_max, :] == 0).all():
+                self.n_cells_processed += self.nlons
+                continue
+
+            lat = 40 + (ilat * 0.1)
+
             # finding the number of lons to seach for around the target cell
             for ilon in range(self.nlons + 1):
-                lon = -180 + (ilon * 0.5)
-                _, _, dist = self.geod.inv(lon, ilat, -180, 40)
+                lon = -180 + ((ilon + 1) * 0.5)
+                _, _, dist = self.geod.inv(lon, lat, -180, lat)
                 if dist > self.nn_radius:
                     break
                 if ilat == self.nlats:
@@ -182,25 +200,62 @@ class Algorithm(BaseAlgorithm):
             search_lon_range = ilon - 1
 
             for ilon in range(self.nlons):
-                # specifying the search area
-                search_lat_min = max(ilat - search_lat_range, 0)
-                search_lat_max = min(ilat + search_lat_range, self.nlats - 1)
+                # This part is to make sure it runs properly
+                # Prints progress once it reaches a percentage of competion that a
+                # multiple of 5, then waits until it reaches the next multiple of five
+                # to log the progress again
+                self.n_cells_processed += 1
+                percent_processed = (self.n_cells_processed / self.ncells) * 100
+                if (percent_processed // 1) % 5 == 0 and print_next_percent:
+                    self.log.info(
+                        "%d cells processed (%0.1f)", self.n_cells_processed, percent_processed
+                    )
+                    print_next_percent = False
+                if (percent_processed // 1) % 5 != 0 and not print_next_percent:
+                    print_next_percent = True
+
+                # skips if the cell already has values in it
+                if shared_dict["number_in"][ilat, ilon] > 0:
+                    continue
+
+                # specifying longitude search area
                 search_lon_min = max(ilon - search_lon_range, 0)
                 search_lon_max = min(ilon + search_lon_range, self.nlons - 1)
 
+                # skips if all cells in the search area don't contain anything useful
+                if (
+                    shared_dict["number_in"][
+                        search_lat_min:search_lat_max, search_lon_min:search_lon_max
+                    ]
+                    == 0
+                ).all():
+                    continue
+
+                # set the distance maximum for the NN search
                 distmin = self.nn_radius
 
                 # finds the closest cell and copies the values over
                 for iilat in range(search_lat_min, search_lat_max):
+                    # skip if there are no useful values in row
+                    if (shared_dict["number_in"][iilat, :] == 0).all():
+                        continue
+
                     for iilon in range(search_lon_min, search_lon_max):
+                        # don't fill with an empty cell
+                        if shared_dict["number_in"][iilat, iilon] == 0:
+                            continue
+
                         # need to convert indexes to lon lats here
                         lat_1 = 40 + (ilat * 0.1)
                         lon_1 = -180 + (ilon * 0.5)
                         lat_2 = 40 + (iilat * 0.1)
                         lon_2 = -180 + (iilon * 0.5)
                         _, _, dist = self.geod.inv(lon_1, lat_1, lon_2, lat_2)
+
+                        # skip if the distance is >= to the the current measurement
                         if dist >= distmin:
                             continue
+
                         distmin = dist
                         fill_thk[ilat, ilon] = shared_dict["thickness_grid"][iilat, iilon]
                         fill_conc[ilat, ilon] = shared_dict["iceconc_grid"][iilat, iilon]
@@ -209,13 +264,24 @@ class Algorithm(BaseAlgorithm):
                         fill_myi[ilat, ilon] = shared_dict["frac_myi_grid"][iilat, iilon]
                         fill_nin[ilat, ilon] = shared_dict["number_in"][iilat, iilon]
 
+        # ==============================================================================
         # fill in empty cells with nearest neighbour where possible
+        # ==============================================================================
+        self.log.info("Filling in empty cells...")
         for ilat in range(self.nlats):
+            # skip row if no useful values exist
+            if (fill_nin[ilat, :] == 0).all():
+                continue
+
             for ilon in range(self.nlons):
                 if fill_nin[ilat, ilon] > 0:
                     # check we're not trying to fill in a cell which isnt empty
                     if shared_dict["number_in"][ilat, ilon] > 0:
                         return (False, "FILLING_NONEMPTY_CELL")
+
+                    # mark cell as filled
+                    fill_flag[ilat, ilon] = 1
+                    n_cells_filled += 1
 
                     # copy values over
                     shared_dict["thickness_grid"][ilat, ilon] = fill_thk[ilat, ilon]
@@ -224,14 +290,38 @@ class Algorithm(BaseAlgorithm):
                     shared_dict["frac_fyi_grid"][ilat, ilon] = fill_fyi[ilat, ilon]
                     shared_dict["frac_myi_grid"][ilat, ilon] = fill_myi[ilat, ilon]
                     shared_dict["number_in"][ilat, ilon] = fill_nin[ilat, ilon]
+
+                    # not sure what this does, pretty sure we check for this several lines above
+                    # might change from fill value but why?
+                    # might be redundant now as we constantly check if the value we're filling with
+                    # is >0 anyways
                     if shared_dict["number_in"][ilat, ilon] > 0:
-                        # not sure what this does, pretty sure we check for this several lines above
-                        # might change from fill value but why?
                         shared_dict["gaps"][ilat, ilon] = 0
                         shared_dict["area_grid"][ilat, ilon] = 1.0
 
+        self.log.info("Number of cells filled: %d", n_cells_filled)
+
+        # Add filling grids to shared_mem
+        shared_dict["fill_thick"] = fill_thk
+        shared_dict["fill_nin"] = fill_nin
+
         # -------------------------------------------------------------------
         # Returns (True,'') if success
+
+        # import matplotlib.pyplot as plt
+
+        # plt.imshow(fill_flag)
+        # plt.savefig("/home/benpalmer/sea_ice_processor/plots/nn_fill_flag.png")
+        # plt.close()
+
+        # plt.imshow(fill_nin)
+        # plt.savefig("/home/benpalmer/sea_ice_processor/plots/nn_fill_nin.png")
+        # plt.close()
+
+        # plt.imshow(shared_dict["thickness_grid"] != 0)
+        # plt.savefig("/home/benpalmer/sea_ice_processor/plots/nn_thickness.png")
+        # plt.close()
+
         return (success, error_str)
 
     def finalize(self, stage: int = 0) -> None:

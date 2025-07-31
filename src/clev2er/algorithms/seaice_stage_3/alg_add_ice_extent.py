@@ -104,8 +104,8 @@ class Algorithm(BaseAlgorithm):
         """
 
         # grid data parameters
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
+        self.nlats = self.config["shared"]["nlats"]
+        self.nlons = self.config["shared"]["nlons"]
 
         # ice conc parameters
         self.conc_threshold = self.config["alg_add_ice_extent"]["conc_threshold"]
@@ -218,8 +218,9 @@ class Algorithm(BaseAlgorithm):
 
             sea_ice_extent = np.transpose(np.genfromtxt(file_path))
             file_lat_index = sea_ice_extent[0].astype(int)
+            file_lats = sea_ice_extent[2]
             file_lon_index = sea_ice_extent[1].astype(int)
-            file_values = (sea_ice_extent[4] >= self.conc_threshold) | (file_lat_index > 86.6)
+            file_values = (sea_ice_extent[4] >= self.conc_threshold) | (file_lats > 86.6)
 
             inside_grid = (
                 (file_lat_index >= 0)

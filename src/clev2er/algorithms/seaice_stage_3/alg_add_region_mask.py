@@ -101,8 +101,8 @@ class Algorithm(BaseAlgorithm):
             "region_masks",
             f"region_mask_N{self.config['alg_add_region_mask']['mask_number']:02}.dat",
         )
-        nlats = self.config["shared"]["grid_nlats"]
-        nlons = self.config["shared"]["grid_nlons"]
+        nlats = self.config["shared"]["nlats"]
+        nlons = self.config["shared"]["nlons"]
 
         # Load region mask file
         self.log.info("\tLoading region mask from %s", region_mask_file_path)
@@ -113,8 +113,8 @@ class Algorithm(BaseAlgorithm):
 
         # read data
 
-        file_lat_index = region_mask_file[0]
-        file_lon_index = region_mask_file[1]
+        file_lat_index = region_mask_file[0].astype(int)
+        file_lon_index = region_mask_file[1].astype(int)
         file_values = region_mask_file[4]
 
         # Filter region mask to correct area
@@ -129,8 +129,9 @@ class Algorithm(BaseAlgorithm):
         file_values = file_values[in_area]
 
         # Assemble region grid
-        self.region_mask_grid = np.zeros((nlats, nlons)) * np.nan
-        self.region_mask_grid[file_lat_index, file_lon_index] = file_values
+        self.region_mask_grid = np.zeros((nlats, nlons))
+        for ilat, ilon, val in zip(file_lat_index, file_lon_index, file_values):
+            self.region_mask_grid[ilat, ilon] = val
 
         self.log.info(
             "Region Mask - Count=%d nTrue=%d",

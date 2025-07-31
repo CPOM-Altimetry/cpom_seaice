@@ -95,8 +95,8 @@ class Algorithm(BaseAlgorithm):
             Read config options 
         """
 
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
+        self.nlats = self.config["shared"]["nlats"]
+        self.nlons = self.config["shared"]["nlons"]
         self.ninmin = self.config["alg_vol_calculations"]["ninmin"]
 
         # --- End of initialization steps ---

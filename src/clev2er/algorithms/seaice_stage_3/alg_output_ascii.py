@@ -99,8 +99,8 @@ class Algorithm(BaseAlgorithm):
         Check that output directory exists
         """
 
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
+        self.nlats = self.config["shared"]["nlats"]
+        self.nlons = self.config["shared"]["nlons"]
         self.output_directory = Path(self.config["alg_output_ascii"]["output_directory"])
 
         if not self.output_directory.exists():
@@ -186,26 +186,35 @@ class Algorithm(BaseAlgorithm):
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
                         "\n"
                     )
+
                     gaps_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
-                        f"{shared_dict['gaps'][ilat, ilon]: 4d}"
+                        f"{int(shared_dict['gaps'][ilat, ilon]): 4d}"
                         "\n"
                     )
+
                     area_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['area_grid'][ilat, ilon]: 10.2f}"
                         f"{shared_dict['frac_fyi_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['frac_myi_grid'][ilat, ilon]: 10.4f}"
+                        "\n"
                     )
+
                     thick_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['thickness_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
+                        f"{shared_dict['fill_thick'][ilat, ilon]: 10.4f}"
+                        f"{int(shared_dict['fill_nin'][ilat, ilon]): 6d}"
+                        "\n"
                     )
+
                     conc_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['iceconc_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
+                        "\n"
                     )
 
         self.log.info("Saved volume to %s", vol_file)

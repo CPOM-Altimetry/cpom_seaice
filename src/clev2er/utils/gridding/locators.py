@@ -21,8 +21,8 @@ def get_cell_indexes_from_lat_lon(
         tuple[np.ndarray, np.ndarray]: tuple of (ilats, ilons)
     """
 
-    ilats = ((lats - 40) / 0.1).astype(int)
-    ilons = (((lons + 180) % 360) / 0.5).astype(int)
+    ilats = np.around((lats - 40) / 0.1, 0).astype(int)
+    ilons = np.around(((lons + 180) % 360) / 0.5, 0).astype(int)
     # line above is weird. Andy uses coordinates -180..180, we use 0..360
     # but andy's ilon formula only works right now with -180..180
     # to convert from former to latter, use: (lon + 180) % 360 - 180
