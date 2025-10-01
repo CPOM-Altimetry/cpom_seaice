@@ -32,6 +32,7 @@ Author: Ben Palmer
 Date: 06 Jan 2025
 """
 
+import warnings
 from typing import Tuple
 
 import numpy as np
@@ -40,6 +41,10 @@ from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import CRS
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.geo.interp_sea import earth_dist
+from clev2er.utils.gridding.locators import get_lat_lon_from_cell_indexes
+
+warnings.filterwarnings("error")
 
 
 class Algorithm(BaseAlgorithm):
@@ -106,6 +111,7 @@ class Algorithm(BaseAlgorithm):
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-statements
+        # pylint: disable=too-many-nested-blocks
         # pylint: disable=unpacking-non-sequence
         # pylint: disable=pointless-string-statement
         """Main algorithm processing function, called for every L1b file
@@ -153,7 +159,7 @@ class Algorithm(BaseAlgorithm):
         fill_nin = np.zeros((self.nlats, self.nlons), dtype=np.float64)
 
         # fill statistics
-        fill_flag = np.zeros((self.nlats, self.nlons), dtype=np.float64)
+        fill_flag = np.zeros((self.nlats, self.nlons), dtype=np.int32)
         n_cells_processed = 0
         n_cells_filled = 0
 
@@ -163,10 +169,14 @@ class Algorithm(BaseAlgorithm):
         print_next_percent = False
         self.log.info("Computing nearest neighbour interpolation...")
 
+        ilat = 0
+        ilon = 0
+
+        lat0, lon0 = get_lat_lon_from_cell_indexes(ilat, ilon)
         # find the number of lats to search around the target cell
-        for ilat in range(self.nlats + 1):
-            lat = 40 + ((ilat + 1) * 0.1)
-            _, _, dist = self.geod.inv(-180, lat, -180, 40)
+        for ilat in range(1, self.nlats + 1):
+            lat, lon = get_lat_lon_from_cell_indexes(ilat, ilon)
+            dist = earth_dist(lat, lon, lat0, lon0)
             if dist > self.nn_radius:
                 break
             if ilat == self.nlats:
@@ -177,23 +187,23 @@ class Algorithm(BaseAlgorithm):
         # this part is O(n^4), there must be a better way to do this?
         for ilat in range(self.nlats):
             # define latitude search area
-            search_lat_min = max(ilat - search_lat_range, 0)
-            search_lat_max = min(ilat + search_lat_range, self.nlats - 1)
+            search_lat_min = np.max((ilat - search_lat_range, 0))
+            search_lat_max = np.min((ilat + search_lat_range, self.nlats))
 
             # skip if there are no useful values in search area
             if (shared_dict["number_in"][search_lat_min:search_lat_max, :] == 0).all():
                 n_cells_processed += self.nlons
                 continue
 
-            lat = 40 + (ilat * 0.1)
+            lat0, lon0 = get_lat_lon_from_cell_indexes(ilat, ilon)
 
             # finding the number of lons to seach for around the target cell
-            for ilon in range(self.nlons + 1):
-                lon = -180 + ((ilon + 1) * 0.5)
-                _, _, dist = self.geod.inv(lon, lat, -180, lat)
+            for ilon in range(1, self.nlons):
+                lat, lon = get_lat_lon_from_cell_indexes(ilat, ilon)
+                dist = earth_dist(lat, lon, lat0, lon0)
                 if dist > self.nn_radius:
                     break
-                if ilat == self.nlats:
+                if ilon == self.nlons:
                     return (False, "ERROR_NN_SEARCH_RADIUS")
 
             search_lon_range = ilon - 1
@@ -218,8 +228,8 @@ class Algorithm(BaseAlgorithm):
                     continue
 
                 # specifying longitude search area
-                search_lon_min = max(ilon - search_lon_range, 0)
-                search_lon_max = min(ilon + search_lon_range, self.nlons - 1)
+                search_lon_min = np.max((ilon - search_lon_range, 0))
+                search_lon_max = np.min((ilon + search_lon_range, self.nlons))
 
                 # skips if all cells in the search area don't contain anything useful
                 if (
@@ -232,6 +242,7 @@ class Algorithm(BaseAlgorithm):
 
                 # set the distance maximum for the NN search
                 distmin = self.nn_radius
+                nearest_point = None
 
                 # finds the closest cell and copies the values over
                 for iilat in range(search_lat_min, search_lat_max):
@@ -244,24 +255,26 @@ class Algorithm(BaseAlgorithm):
                         if shared_dict["number_in"][iilat, iilon] == 0:
                             continue
 
-                        # need to convert indexes to lon lats here
-                        lat_1 = 40 + (ilat * 0.1)
-                        lon_1 = -180 + (ilon * 0.5)
-                        lat_2 = 40 + (iilat * 0.1)
-                        lon_2 = -180 + (iilon * 0.5)
-                        _, _, dist = self.geod.inv(lon_1, lat_1, lon_2, lat_2)
-
-                        # skip if the distance is >= to the the current measurement
-                        if dist >= distmin:
+                        if ilat == iilat and ilon == iilon:
                             continue
 
-                        distmin = dist
-                        fill_thk[ilat, ilon] = shared_dict["thickness_grid"][iilat, iilon]
-                        fill_conc[ilat, ilon] = shared_dict["iceconc_grid"][iilat, iilon]
-                        fill_vol[ilat, ilon] = shared_dict["volume_grid"][iilat, iilon]
-                        fill_fyi[ilat, ilon] = shared_dict["frac_fyi_grid"][iilat, iilon]
-                        fill_myi[ilat, ilon] = shared_dict["frac_myi_grid"][iilat, iilon]
-                        fill_nin[ilat, ilon] = shared_dict["number_in"][iilat, iilon]
+                        # need to convert indexes to lon lats here
+                        lat_1, lon_1 = get_lat_lon_from_cell_indexes(ilat, ilon)
+                        lat_2, lon_2 = get_lat_lon_from_cell_indexes(iilat, iilon)
+
+                        dist = earth_dist(lat_1, lon_1, lat_2, lon_2)
+
+                        if dist < distmin:
+                            distmin = dist
+                            nearest_point = [iilat, iilon]
+                            if ilat == 378 and ilon == 557:
+                                print(nearest_point, dist)
+                            fill_thk[ilat, ilon] = shared_dict["thickness_grid"][iilat, iilon]
+                            fill_conc[ilat, ilon] = shared_dict["iceconc_grid"][iilat, iilon]
+                            fill_vol[ilat, ilon] = shared_dict["volume_grid"][iilat, iilon]
+                            fill_fyi[ilat, ilon] = shared_dict["frac_fyi_grid"][iilat, iilon]
+                            fill_myi[ilat, ilon] = shared_dict["frac_myi_grid"][iilat, iilon]
+                            fill_nin[ilat, ilon] = shared_dict["number_in"][iilat, iilon]
 
         # ==============================================================================
         # fill in empty cells with nearest neighbour where possible

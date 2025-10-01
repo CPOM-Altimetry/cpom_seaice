@@ -41,6 +41,7 @@ alg_vol_calculations:
 
 alg_vol_fill_nn:
   working_projection: epsg:3413
+  nn_radius: 300000 # Nearest Neighbour search radius in m
 
 alg_add_ice_extent:
   conc_threshold: 15.0

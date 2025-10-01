@@ -165,19 +165,21 @@ class Algorithm(BaseAlgorithm):
         # can improve this using numpy array magic stuff (after success)
         for ilat in range(self.nlats):
             for ilon in range(self.nlons):
-                if number_in[ilat, ilon] > self.ninmin:  # this prevents divide by 0 error
+                if number_in[ilat, ilon] >= self.ninmin:  # this prevents divide by 0 error
                     thickness[ilat, ilon] /= number_in[ilat, ilon]
                     iceconc[ilat, ilon] /= number_in[ilat, ilon]
                     volume[ilat, ilon] = thickness[ilat, ilon] * 0.001 * iceconc[ilat, ilon] * 0.01
 
-                # stopping divide by 0 error
-                if thickness_fyi[ilat, ilon] > 0 or thickness_myi[ilat, ilon] > 0:
-                    frac_fyi[ilat, ilon] = thickness_fyi[ilat, ilon] / (
-                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
-                    )
-                    frac_myi[ilat, ilon] = thickness_myi[ilat, ilon] / (
-                        thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
-                    )
+                    # stopping divide by 0 error
+                    if thickness_fyi[ilat, ilon] > 0 or thickness_myi[ilat, ilon] > 0:
+                        frac_fyi[ilat, ilon] = thickness_fyi[ilat, ilon] / (
+                            thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
+                        )
+                        frac_myi[ilat, ilon] = thickness_myi[ilat, ilon] / (
+                            thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
+                        )
+                else:
+                    number_in[ilat, ilon] = 0
 
         # add arrays to shared_dict
         shared_dict["volume_grid"] = volume

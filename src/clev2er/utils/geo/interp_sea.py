@@ -138,7 +138,7 @@ def earth_dist(dlat1, dlon1, dlat2, dlon2) -> float:
     Returns:
         float: distance in meters
     """
-    lat1, lon1, lat2, lon2 = np.radians([dlat1, dlon1, dlat2, dlon2])
+    lat1, lon1, lat2, lon2 = np.asarray([dlat1, dlon1, dlat2, dlon2]) * np.pi / 180.0
 
     tmp1 = np.sin(lat1) * np.sin(lat2)
     tmp2 = np.cos(lat1) * np.cos(lat2)

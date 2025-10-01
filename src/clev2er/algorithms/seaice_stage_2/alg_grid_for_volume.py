@@ -191,8 +191,14 @@ class Algorithm(BaseAlgorithm):
 
             sample_not_nan = np.isfinite(shared_dict["thickness"])
 
+            # lon needs to be converted from 0..360 to -180..180
+            # to convert from former to latter, use: (lon + 180) % 360 - 180
+
             gdf.grid_points(
-                coordinates={"lat": l1b["sat_lat"][:].data, "lon": l1b["sat_lon"][:].data},
+                coordinates={
+                    "lat": l1b["sat_lat"][:].data,
+                    "lon": (l1b["sat_lon"][:].data + 180) % 360 - 180,
+                },
                 data={
                     "thickness": shared_dict["thickness"],
                     "iceconc": l1b["seaice_conc"][:].data,
