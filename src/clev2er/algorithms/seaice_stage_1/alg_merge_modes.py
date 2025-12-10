@@ -147,6 +147,8 @@ class Algorithm(BaseAlgorithm):
             == shared_dict["elevation"].size
             == shared_dict["lead_floe_class"].size
             == shared_dict["valid"].size
+            == shared_dict["gaussexp_sigma"].size
+            == shared_dict["gaussexp_err"].size
         ):
             self.log.error("Variables that will be added to merge file are not of equal length")
 
@@ -159,6 +161,8 @@ class Algorithm(BaseAlgorithm):
                 "elevation",
                 "lead_floe_class",
                 "valid",
+                "gaussexp_sigma",
+                "gaussexp_err",
             ]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
@@ -168,7 +172,7 @@ class Algorithm(BaseAlgorithm):
         sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
         output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
         output_dir = os.path.join(
-            self.merge_file_dir, str(sensing_start.year), str(sensing_start.month)
+            self.merge_file_dir, f"{sensing_start.year:04d}", f"{sensing_start.month:02d}"
         )
         if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
             self.log.info("Creating directory %s", output_dir)
@@ -191,6 +195,8 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("lead_floe_class", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
             output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("gaussexp_sigma", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("gaussexp_err", "f4", ("n_samples",), compression="zlib")
         else:
             output_nc = Dataset(output_file_path, mode="a")
 
@@ -211,6 +217,10 @@ class Algorithm(BaseAlgorithm):
         seaice_conc = np.concatenate(
             (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
         )
+        gaussexp_sigma = np.concatenate(
+            (output_nc["gaussexp_sigma"][:], shared_dict["gaussexp_sigma"])
+        )
+        gaussexp_err = np.concatenate((output_nc["gaussexp_err"][:], shared_dict["gaussexp_err"]))
 
         # sort data by measurement time
         sort_order = np.argsort(measurement_time)
@@ -225,6 +235,8 @@ class Algorithm(BaseAlgorithm):
         lead_floe_class = lead_floe_class[sort_order]
         valid = valid[sort_order]
         seaice_conc = seaice_conc[sort_order]
+        gaussexp_sigma = gaussexp_sigma[sort_order]
+        gaussexp_err = gaussexp_err[sort_order]
 
         # add the data to the merge file
         output_nc["packet_count"][:] = packet_count
@@ -237,6 +249,8 @@ class Algorithm(BaseAlgorithm):
         output_nc["lead_floe_class"][:] = lead_floe_class
         output_nc["valid"][:] = valid
         output_nc["seaice_conc"][:] = seaice_conc
+        output_nc["gaussexp_sigma"][:] = gaussexp_sigma
+        output_nc["gaussexp_err"][:] = gaussexp_err
 
         # close file
         output_nc.close()

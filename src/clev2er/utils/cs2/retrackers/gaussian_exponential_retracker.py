@@ -16,7 +16,12 @@ from scipy.optimize import OptimizeWarning, curve_fit
 
 
 def gauss_plus_exp_tracker(
-    waveform: npt.NDArray, max_iterations: int = 3000
+    waveform: npt.NDArray,
+    max_iterations: int = 3000,
+    min_sigma: float = 0.00001,
+    ftol: float = 1e-8,
+    xtol: float = 1e-8,
+    gtol: float = 1e-8,
 ) -> tuple[float, float, float]:
     """Gaussian plus exponential retracker, or Giles' retracker.
 
@@ -26,6 +31,11 @@ def gauss_plus_exp_tracker(
 
     Args:
         waveform (npt.NDArray): Input waveform
+        max_iterations (int): Maximum number of iterations that the curve_fit can run for
+        min_sigma (float): The minimum sigma that can be returned from the curve fit function
+        ftol: See scipy.optimize.least_squares
+        xtol: See scipy.optimize.least_squares
+        gtol: See scipy.optimize.least_squares
 
     Raises:
         RuntimeError: Raised if GaussPlusExp function encounters an error while fitting.
@@ -33,6 +43,8 @@ def gauss_plus_exp_tracker(
     Returns:
         float: The retracking point
     """
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
 
     warnings.simplefilter("ignore", RuntimeWarning)
     warnings.simplefilter("ignore", OptimizeWarning)
@@ -60,7 +72,7 @@ def gauss_plus_exp_tracker(
             break
 
     try:
-        popt, _ = curve_fit(  # pylint: disable=unbalanced-tuple-unpacking
+        popt, _, infodict, _, ier = curve_fit(  # pylint: disable=unbalanced-tuple-unpacking
             _gauss_plus_exp,
             x,
             waveform,
@@ -68,12 +80,19 @@ def gauss_plus_exp_tracker(
             method="lm",
             maxfev=max_iterations,
             jac=_jacgexp,
+            full_output=True,
+            ftol=ftol,
+            xtol=xtol,
+            gtol=gtol,
         )
-        best_fit = _gauss_plus_exp(x, *popt)
-        fit_qual = _get_fit_qual(popt[0], popt[1], waveform, best_fit)
 
-        tracking_point = popt[1]  # Update tracking point if successful, otherwise returns NaN
-        fit_sigma = popt[2]
+        n_iterations = infodict["nfev"]
+
+        if ier in [1, 2, 3, 4] and n_iterations < max_iterations and np.abs(popt[2]) > min_sigma:
+            best_fit = _gauss_plus_exp(x, *popt)
+            fit_qual = _get_fit_qual(popt[0], popt[1], waveform, best_fit)
+            tracking_point = popt[1]  # Update tracking point if successful, otherwise returns NaN
+            fit_sigma = popt[2]
     except RuntimeError:
         pass
 
@@ -132,6 +151,17 @@ def _gauss_plus_exp(x: npt.NDArray, a: float, x0: np.intp, sigma: float, k: floa
 
 
 def _jacgexp(x, a, x0, sigma, k):
+    """Internal function used by curve fitting retracker to calculate jacobians of fit
+
+    Args:
+        x (npt.NDArray): Array of x values
+        a (float): maximum amplitude of the distribution
+        x0 (np.intp): x when amplitude = maximum
+        k (float): rate of decay for the decaying exponential function
+        sigma (float): standard deviation of the Gaussian function
+    Returns:
+        NDArray: Jacobians
+    """
     # pylint: disable=too-many-locals
     m = 4
     n = len(x)
@@ -193,6 +223,18 @@ def _jacgexp(x, a, x0, sigma, k):
 
 
 def _get_fit_qual(a, x0, waveform, best_fit_waveform, n_bins=5):
+    """Generates score of fit quality
+
+    Args:
+        a (float): maximum amplitude of the distribution
+        x0 (np.intp): x when amplitude = maximum
+        waveform (np.ndarray[float]): Original waveform
+        best_fit_waveform (np.ndarray[float]): Best fit achieved through least squares method
+        n_bins (int, optional): Number of bins to use before x0. Defaults to 5.
+
+    Returns:
+        float: fit quality score
+    """
     x0 = int(np.ceil(x0))
     b_min = x0 - n_bins
 

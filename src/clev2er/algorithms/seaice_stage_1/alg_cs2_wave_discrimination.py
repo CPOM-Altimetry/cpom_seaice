@@ -29,6 +29,7 @@ Set lead floe class of diffuse waves to ocean (floes found later)
 shared_dict["specular_index"] (np.array[int]) : index of specular waves
                                                 in shared_dict["waveform"]
 shared_dict["diffuse_index"] (np.array[int]) : index of diffuse waves in shared_dict["waveform"]
+shared_dict["valid"] (np.array[bool]) : boolean array of which samples are valid
 
 #Requires from shared_dict
 
@@ -36,6 +37,9 @@ shared_dict["waveform"]
 shared_dict["waveform_ssd"]
 shared_dict["pulse_peakiness"]
 shared_dict["instr_mode"]
+shared_dict["lead_floe_class"]
+shared_dict["measurement_time"]
+shared_dict["sat_lat"]
 
 """
 
@@ -153,23 +157,23 @@ class Algorithm(BaseAlgorithm):
 
         # find diffuse waveforms
 
-        diffuse_waves = (shared_dict["pulse_peakiness"] < self.diffuse_peakiness) & (
+        diffuse_waves = (shared_dict["pulse_peakiness"] <= self.diffuse_peakiness) & (
             shared_dict["waveform_ssd"] > ssd_threshold
         )
 
         shared_dict["lead_floe_class"][
-            diffuse_waves & (shared_dict["seaice_concentration"] <= 0.0)
+            diffuse_waves & (shared_dict["seaice_concentration"] == 0.0)
         ] = 1
 
         shared_dict["lead_floe_class"][
-            diffuse_waves & (shared_dict["seaice_concentration"] > self.conc_threshold)
+            diffuse_waves & (shared_dict["seaice_concentration"] >= self.conc_threshold)
         ] = 3
 
         self.log.info("Number of diffuse waves - %d", sum(diffuse_waves))
 
         # find specular waveforms
 
-        specular_waves = (shared_dict["pulse_peakiness"] > self.specular_peakiness) & (
+        specular_waves = (shared_dict["pulse_peakiness"] >= self.specular_peakiness) & (
             shared_dict["waveform_ssd"] < ssd_threshold
         )
 

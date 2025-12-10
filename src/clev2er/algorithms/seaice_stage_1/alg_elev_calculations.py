@@ -19,6 +19,7 @@ Calculate the retracking correction.
 Calculate the elevation subtracting the satellite range, geophysical corrections, and
     retracking correction from the satellite altitude.
 Subtract the retracker bias from the elevations from diffuse waveforms.
+Remove any that diffuse waves that exceed the leading edge width.
 Save elevations to dict.
 
 #Contribution to shared_dict
@@ -44,6 +45,8 @@ Save elevations to dict.
 'lead_retracking_points'
 'floe_retracking_points'
 'bin_shift'
+'sat_lat'
+'valid'
 
 Author: Ben Palmer
 Date: 05 Mar 2024
@@ -157,7 +160,7 @@ class Algorithm(BaseAlgorithm):
 
         sat_range = self.c / 2 * shared_dict["window_delay"]
 
-        retracking_points = np.zeros(shared_dict["sat_lat"].size) * np.nan
+        retracking_points = np.full(shared_dict["sat_lat"].size, np.nan)
         retracking_points[shared_dict["specular_index"]] = shared_dict["lead_retracking_points"]
         retracking_points[shared_dict["diffuse_index"]] = shared_dict["floe_retracking_points"]
 
@@ -185,9 +188,9 @@ class Algorithm(BaseAlgorithm):
         shared_dict["elevation"] = elevations
 
         if shared_dict["diffuse_index"].size > 0 and shared_dict["idx_lew_gt_max"].size > 0:
-            shared_dict["valid"][
+            shared_dict["elevation"][
                 shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
-            ] = False
+            ] = np.nan
             shared_dict["valid"][
                 shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
             ] = False

@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def config() -> dict:
+def config(tmp_path) -> dict:
     """Pytest fixture for the config dictionary
 
     Returns:
@@ -56,9 +56,7 @@ def config() -> dict:
 
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
-    chain_config["alg_merge_modes"][
-        "merge_file_dir"
-    ] = "/home/jgnq4/Documents/sea_ice_processor/test_files/feb_2024/elev_merge_test"
+    chain_config["alg_merge_modes"]["merge_file_dir"] = str(tmp_path)
     return chain_config
 
 
