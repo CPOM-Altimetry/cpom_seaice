@@ -190,9 +190,11 @@ def test_gauss_expo_retracker(
 
     logger.info("Testing gauss_plus_exp_tracker")
 
-    retracking_point = gauss_plus_exp_tracker(test_waveform)
+    retracking_result = gauss_plus_exp_tracker(test_waveform)
 
-    assert isinstance(retracking_point, float), "Retracker does not return a float value"
+    assert isinstance(retracking_result, tuple), "Retracker does not return a float value"
+
+    retracking_point = retracking_result[0]
 
     # atol is larger here than other closeness checks, different devices return slightly different
     # retracking values, but it should return a value be within range for this waveform
