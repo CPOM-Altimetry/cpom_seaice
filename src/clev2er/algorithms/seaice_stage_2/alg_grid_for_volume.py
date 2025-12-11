@@ -9,18 +9,13 @@ Combines files into grids for each month
 #Main initialization (init() function) steps/resources required
 
 Read params from config
+Create variable specifications
 
 #Main process() function steps
 
-Check if grid file for month exists
-If not, create empty nc file and empty numpy arrays for thickness, conc, volume, thick_fyi,
-thick_myi, fraction of fyi and myi, counts, and fill values
-If it does, load existing values from grid file
-Get grid index from location data
-Add thickness and ice concentration values to relevant grid cells
-Increment number of samples inside by 1 each time
-Do the same with fyi and myi thickness
-Save variables to output grid file
+Set output file name and path
+Open GriddedFile with file path and variable specs
+Grid the valid data points
 
 #Main finalize() function steps
 
@@ -28,11 +23,12 @@ None
 
 #Contribution to shared_dict
 
-grid_file_name
-
 #Requires from shared_dict
 
-requirements
+shared_dict["freeboard"]
+shared_dict["seaice_type"]
+shared_dict["thickness"]
+shared_dict["valid"]
 
 Author: Ben Palmer
 Date: 19 Sep 2024
@@ -107,10 +103,10 @@ class Algorithm(BaseAlgorithm):
             VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
-            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=0),
         ]
 
         # --- End of initialization steps ---
@@ -154,23 +150,12 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ 
-            Check if grid file for month exists
-            If not, create empty nc file and empty numpy arrays for thickness, conc, volume, 
-            thick_fyi, thick_myi, fraction of fyi and myi, counts, and fill values
-            If it does, load existing values from grid file
-            Get grid index from location data
-            Add thickness and ice concentration values to relevant grid cells
-            Increment number of samples inside by 1 each time
-            Do the same with fyi and myi thickness
-            Save variables to output grid file
-        """
-
         # Set up output file
         f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
         grid_file_name = f"{f_time}_grids.nc"
         grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
+        # open gridded data file
         with GriddedDataFile(
             variables=self.variable_specs,
             filename=grid_file_path,
@@ -183,6 +168,7 @@ class Algorithm(BaseAlgorithm):
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
 
+            # valid samples are where the thickness value is finite and where valid == True
             sample_valid = np.isfinite(shared_dict["thickness"]) & shared_dict["valid"].astype(
                 np.bool_
             )
@@ -217,13 +203,13 @@ class Algorithm(BaseAlgorithm):
                 },
                 conditions={
                     "thickness": sample_valid,
-                    "number_in": sample_valid,
-                    "freeboard": sample_valid,
                     "iceconc": sample_valid,
+                    "number_in": sample_valid,
                     "thickness_fyi": sample_fyi & sample_valid,
                     "number_in_fyi": sample_fyi & sample_valid,
                     "thickness_myi": sample_myi & sample_valid,
                     "number_in_myi": sample_myi & sample_valid,
+                    "freeboard": sample_valid,
                 },
             )
 

@@ -10,6 +10,8 @@ most recent file to store the KDTree for lat,lon pairs and type values.
 Before the file is loaded in, it checks to see if the filename is within the dict.
 If it is, use those values.
 If not, load the file and add the filename and values to the dict.
+This method works if the files are processed in order of time. If randomly ordered, there won't be
+a significant difference in speed.
 
 The KDTrees are stored instead of latitude and longitude values to prevent repeat processing
 of creating the KDTree when values are the same, since creating the KDTree takes as much time as
@@ -167,19 +169,20 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        si_type = np.zeros(l1b["sat_lat"][:].size) * np.nan
-        found_file = False
-        if found_file:
+        si_type = np.full_like(l1b["sat_lat"][:].size, np.nan)
+
+        file_date = Time(l1b["measurement_time"][:].data[0], format="unix_tai").strftime("%Y%m%d")
+
+        if file_date == self.most_recent_file["date"]:
             # If date is the same as the most recent file date, get values from dict
             file_point_tree = self.most_recent_file["tree"]
             file_values = self.most_recent_file["values"]
+            file_lats = self.most_recent_file["lats"]
+            file_lons = self.most_recent_file["lons"]
 
         else:
             # Else, read the file, create the KDTree and store the values
             # in most recent file dict for later use
-            file_date = Time(l1b["measurement_time"][:].data[0], format="unix_tai").strftime(
-                "%Y%m%d"
-            )
             self.log.info("Loading new type data file  - %s", file_date)
 
             # Find the correct file for the data
@@ -225,24 +228,29 @@ class Algorithm(BaseAlgorithm):
             self.most_recent_file["tree"] = file_point_tree
             self.most_recent_file["values"] = file_values
 
-            found_file = True
-
+        # convert l1b file lat and lons to x y
         wv_x, wv_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
 
+        # query tree for the nearest points to each sample
         _, file_neighbouring_indices = file_point_tree.query(np.transpose((wv_x, wv_y)), k=10)
 
+        # convert to radians
+        # NOTE: Andy does degree*pi/180, this isn't as accurate as np.radians but we don't
+        # care for now
         wv_rlats = (l1b["sat_lat"][:].data * np.pi) / 180
         wv_rlons = (l1b["sat_lon"][:].data * np.pi) / 180
 
         file_rlats = (file_lats * np.pi) / 180
         file_rlons = (file_lons * np.pi) / 180
 
+        # for each sample, find the nearest grid cell and get
         for i, neighbours in enumerate(file_neighbouring_indices):
             tmp1 = np.sin(wv_rlats[i]) * np.sin(file_rlats[neighbours])
             tmp2 = np.cos(wv_rlats[i]) * np.cos(file_rlats[neighbours])
             tmp3 = np.cos(wv_rlons[i] - file_rlons[neighbours])
             tmp4 = tmp1 + (tmp2 * tmp3)
 
+            # This is very unstable as results in a RuntimeWarning, don't worry about it
             distances = self.radius * np.arccos(tmp4)
 
             si_type[i] = file_values[neighbours[np.argmin(distances)]]
@@ -259,6 +267,7 @@ class Algorithm(BaseAlgorithm):
                 self.log.info(" %s - %d", "NaN", sum(np.isnan(si_type)))
             else:
                 self.log.info(" %s - %d", str(i_type), sum(si_type == i_type))
+
         shared_dict["seaice_type"] = si_type
 
         # -------------------------------------------------------------------
