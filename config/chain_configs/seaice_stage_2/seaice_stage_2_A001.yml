@@ -8,9 +8,9 @@ breakpoint_files:
 log_files:
   append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
                                       # or <logtype>_YYYY.log (if only year specified) 
-  errors: ${SI_LOG_DIR}/errors.log    # or errors_MMYYYY.log
-  info:   ${SI_LOG_DIR}/info.log
-  debug:  ${SI_LOG_DIR}/debug.log
+  errors: ${SI_LOG_DIR}/stage_2/errors.log    # or errors_MMYYYY.log
+  info:   ${SI_LOG_DIR}/stage_2/info.log
+  debug:  ${SI_LOG_DIR}/stage_2/debug.log
 
 # CS2 instrument parameters
 instrument:
@@ -50,9 +50,9 @@ alg_add_si_type:
   input_projection: epsg:4326
 
 alg_sla_calculations:
-  raw_sla_clip_value: 20.0
+  raw_sla_clip_value: 3.0
   sla_track_limit: 0.5
-  lead_sample_limit: 3.0
+  lead_sample_limit: 20.0
   window_range: 100 # range limit between floes and leads in either direction in km
   distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
 

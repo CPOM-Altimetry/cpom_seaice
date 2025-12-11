@@ -39,10 +39,10 @@ Date: 19 Sep 2024
 """
 
 import os
-from datetime import datetime
 from typing import Tuple
 
 import numpy as np
+from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -103,15 +103,11 @@ class Algorithm(BaseAlgorithm):
 
         # Define variables for the gridded data file
         self.variable_specs = [
-            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib", init_value=0),
-            VariableSpec(
-                "thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
-            ),
-            VariableSpec(
-                "thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
-            ),
-            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
@@ -171,9 +167,7 @@ class Algorithm(BaseAlgorithm):
         """
 
         # Set up output file
-        f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
-            "%Y%m"
-        )
+        f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
         grid_file_name = f"{f_time}_grids.nc"
         grid_file_path = os.path.join(self.grid_directory, grid_file_name)
 
@@ -189,7 +183,19 @@ class Algorithm(BaseAlgorithm):
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
 
-            sample_not_nan = np.isfinite(shared_dict["thickness"])
+            sample_valid = np.isfinite(shared_dict["thickness"]) & shared_dict["valid"].astype(
+                np.bool_
+            )
+
+            self.log.info("Number of valid samples: %d", np.sum(sample_valid))
+            self.log.info("Number of FYI samples: %d", np.sum(sample_fyi & sample_valid))
+            self.log.info("Number of MYI samples: %d", np.sum(sample_myi & sample_valid))
+            self.log.info(
+                "Mean thickness: %0.4f fyi=%0.4f myi=%0.4f",
+                np.nanmean(shared_dict["thickness"][sample_valid]),
+                np.nanmean(shared_dict["thickness"][sample_fyi & sample_valid]),
+                np.nanmean(shared_dict["thickness"][sample_myi & sample_valid]),
+            )
 
             # lon needs to be converted from 0..360 to -180..180
             # to convert from former to latter, use: (lon + 180) % 360 - 180
@@ -210,12 +216,14 @@ class Algorithm(BaseAlgorithm):
                     "freeboard": shared_dict["freeboard"],
                 },
                 conditions={
-                    "thickness": sample_not_nan,
-                    "number_in": sample_not_nan,
-                    "thickness_fyi": sample_fyi & sample_not_nan,
-                    "number_in_fyi": sample_fyi & sample_not_nan,
-                    "thickness_myi": sample_myi & sample_not_nan,
-                    "number_in_myi": sample_myi & sample_not_nan,
+                    "thickness": sample_valid,
+                    "number_in": sample_valid,
+                    "freeboard": sample_valid,
+                    "iceconc": sample_valid,
+                    "thickness_fyi": sample_fyi & sample_valid,
+                    "number_in_fyi": sample_fyi & sample_valid,
+                    "thickness_myi": sample_myi & sample_valid,
+                    "number_in_myi": sample_myi & sample_valid,
                 },
             )
 

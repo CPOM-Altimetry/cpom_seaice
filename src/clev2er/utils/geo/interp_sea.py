@@ -8,6 +8,72 @@ Date: 18 Mar 2024
 
 import numpy as np
 import numpy.typing as npt
+from sklearn.neighbors import BallTree
+
+
+def interp_sea_regression_tree(
+    lats_data,
+    lons_data,
+    sea_level_data,
+    window_size: float,
+    earth_radius: float,
+):
+    """Returns an array of interpolated sea levels using linear regression.
+
+    Uses linear regression to find interpolated sea level values for arrays of lat, lon and sea
+    level data. Uses a lead index to find leads within the window range of each point. To find a
+    regressed value for a point, it must have at least one lead within window range on each side.
+    This version uses a sklean.BallTree to find the points, which is significantly faster than
+    the previous version.
+
+    Args:
+        lats_data (npt.NDArray): Latitude data
+        lons_data (npt.NDArray): Longitude data
+        sea_level_data (npt.NDArray): Sea level data
+        window_size (float): Maximum distance that a point can be from the current point
+
+    Raises:
+        ValueError: Raised if input arrays are different sizes on axis 0.
+        ValueError: Raised if the lead_index input is not an array of bools.
+
+    Returns:
+        npt.NDArray: The array of regressed sea level values.
+    """
+    # pylint: disable=too-many-locals
+    if lats_data.shape[0] != lons_data.shape[0] and lats_data.shape[0] != sea_level_data.shape[0]:
+        raise ValueError("Input arrays arrays do not have homogenous shape on axis 0.")
+
+    out = np.zeros(lats_data.shape[0], dtype=int) * np.nan
+
+    data_points = (np.transpose([lats_data, lons_data]) * np.pi) / 180
+    valid_data = np.isfinite(sea_level_data)
+    where_points = np.where(valid_data)[0]
+    tree_points = data_points[valid_data]
+    interp_tree = BallTree(tree_points, metric="haversine")
+
+    nearest_points, distances = interp_tree.query_radius(
+        data_points, r=window_size / earth_radius, return_distance=True, sort_results=True
+    )
+
+    distances *= earth_radius
+
+    for i, (this_nearest_points, this_dist) in enumerate(zip(nearest_points, distances)):
+        if not this_nearest_points.size > 0:
+            continue
+        actual_indices = where_points[this_nearest_points]
+
+        before_i = actual_indices < i
+        after_i = actual_indices > i
+        if not before_i.any() or not after_i.any():
+            continue
+
+        interp_values = np.concatenate(
+            [sea_level_data[actual_indices[before_i]], sea_level_data[actual_indices[after_i]]]
+        )
+        interp_distances = np.concatenate([this_dist[before_i] * -1, this_dist[after_i]])
+
+        _, out[i] = regress(interp_distances, interp_values)
+    return out
 
 
 def interp_sea_regression(
@@ -26,10 +92,7 @@ def interp_sea_regression(
         lats_data (npt.NDArray): Latitude data
         lons_data (npt.NDArray): Longitude data
         sea_level_data (npt.NDArray): Sea level data
-        lead_index (npt.NDArray): Boolean array of leads
         window_size (float): Maximum distance that a point can be from the current point
-        distance_projection (str, optional): Projection that is used when
-            calculating distance. Defaults to "WGS84".
 
     Raises:
         ValueError: Raised if input arrays are different sizes on axis 0.
@@ -43,7 +106,7 @@ def interp_sea_regression(
     if lats_data.shape[0] != lons_data.shape[0] and lats_data.shape[0] != sea_level_data.shape[0]:
         raise ValueError("Input arrays arrays do not have homogenous shape on axis 0.")
 
-    out: npt.NDArray = np.zeros(lats_data.shape[0], dtype=int) * np.nan
+    out: npt.NDArray = np.zeros(lats_data.shape[0], dtype=float) * np.nan
 
     # NOTE: There are 2 versions of this function; the "Python-y" version and the  direct
     #       translation of Andy's code. I found that they produced the same results, but Andy's
@@ -93,25 +156,23 @@ def interp_sea_regression(
         x_arr = []
         y_arr = []
 
-        for jdx in range(idx, lats_data.shape[0]):
+        for jdx in range(idx + 1, lats_data.shape[0]):
+            dist = earth_dist(lats_data[idx], lons_data[idx], lats_data[jdx], lons_data[jdx])
+            if dist > window_size:
+                break
             if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(dist)
                 y_arr.append(sea_level_data[jdx])
                 nupper += 1 if jdx > idx else 0
-            # _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+
+        for jdx in range(idx - 1, -1, -1):
             dist = earth_dist(lats_data[idx], lons_data[idx], lats_data[jdx], lons_data[jdx])
             if dist > window_size:
                 break
-
-        for jdx in range(idx, -1, -1):
             if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(-dist)
                 y_arr.append(sea_level_data[jdx])
                 nlower += 1
-            # _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
-            dist = earth_dist(lats_data[idx], lons_data[idx], lats_data[jdx], lons_data[jdx])
-            if dist > window_size:
-                break
 
         if nlower > 0 and nupper > 0:
             # lr = LinearRegression().fit(X=np.asarray(x_arr).reshape(-1, 1), y=np.asarray(y_arr))
@@ -144,6 +205,34 @@ def earth_dist(dlat1, dlon1, dlat2, dlon2) -> float:
     tmp2 = np.cos(lat1) * np.cos(lat2)
     tmp3 = np.cos(lon1 - lon2)
     return 6356.752 * np.arccos(tmp1 + (tmp2 * tmp3)) * 1000
+
+
+def earth_dist_points(points1, points2) -> float:
+    """Finds the distance in km between two points
+
+    Author : Andy Ridout 13-OCT-2004
+    Translate to Python: Ben Palmer 20-MAY-2025
+
+    Args:
+        dlat1 (float): Latitude in degrees
+        dlon1 (float): Longitude in degrees
+        dlat2 (float): Latitude in degrees
+        dlon2 (float): Longitude in degrees
+
+    Returns:
+        float: distance in meters
+    """
+
+    # lat lon points might be almost exactly the same but differ by incredibly
+    # small amounts, so check if they're equal to 4 decimal places
+    if np.abs(np.sum(points1 - points2)) < 0.0001:
+        return 0
+
+    dist = 6356.752 * np.arccos(
+        np.sin(points1[0]) * np.sin(points2[0])
+        + (np.cos(points1[0]) * np.cos(points2[0]) * np.cos(points1[1] - points2[1]))
+    )
+    return dist
 
 
 def regress(x_arr: np.ndarray, y_arr: np.ndarray) -> tuple:

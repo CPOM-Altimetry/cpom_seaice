@@ -52,15 +52,15 @@ Date: 02 Jul 2024
 
 import glob
 import os
-from datetime import datetime
 from typing import Dict, Tuple
 
 import numpy as np
 import pyproj as proj
+from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import Transformer
-from scipy.spatial import cKDTree
+from scipy.spatial import KDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -126,6 +126,8 @@ class Algorithm(BaseAlgorithm):
         crs_output = proj.Proj(output_projection)
         self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
+        self.radius = 6356.752
+
         # --- End of initialization steps ---
 
         return (True, "")
@@ -166,68 +168,84 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         si_type = np.zeros(l1b["sat_lat"][:].size) * np.nan
+        found_file = False
+        if found_file:
+            # If date is the same as the most recent file date, get values from dict
+            file_point_tree = self.most_recent_file["tree"]
+            file_values = self.most_recent_file["values"]
 
-        # for each timestamp, lat and lon in shared memory:
-        for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
-            zip(l1b["measurement_time"][:].data, l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
-        ):
-            file_date = datetime.fromtimestamp(int(wv_timestamp)).strftime("%Y%m%d")
+        else:
+            # Else, read the file, create the KDTree and store the values
+            # in most recent file dict for later use
+            file_date = Time(l1b["measurement_time"][:].data[0], format="unix_tai").strftime(
+                "%Y%m%d"
+            )
+            self.log.info("Loading new type data file  - %s", file_date)
 
-            if self.most_recent_file["date"] == file_date:
-                # If date is the same as the most recent file date, get values from dict
-                file_point_tree = self.most_recent_file["tree"]
-                file_values = self.most_recent_file["values"]
+            # Find the correct file for the data
 
-            else:
-                # Else, read the file, create the KDTree and store the values
-                # in most recent file dict for later use
-                self.log.info("Loading new type data file  - %s", file_date)
+            folder_glob_string = os.path.join(
+                self.type_file_dir, file_date[:4], f"ice_type_nh_*_{file_date}*.dat"
+            )
 
-                # Find the correct file for the data
+            file_paths = glob.glob(folder_glob_string)
 
-                folder_glob_string = os.path.join(
-                    self.type_file_dir, file_date[:4], f"ice_type_nh_*_{file_date}*.dat"
+            # There should be 1 match for each date. If not, return an error
+            if len(file_paths) < 1:
+                self.log.error("Could not locate file matching - %s", folder_glob_string)
+                return (False, "TYPE_FILE_NOT_FOUND")
+            if len(file_paths) > 1:
+                self.log.error(
+                    "Too many files found that match - %s. Only one should be found.", file_date
                 )
+                return (False, "TYPE_FILE_TOO_MANY_FOUND")
 
-                file_paths = glob.glob(folder_glob_string)
+            file_path = file_paths[0]
 
-                # There should be 1 match for each date. If not, return an error
-                if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching - %s", folder_glob_string)
-                    return (False, "TYPE_FILE_NOT_FOUND")
-                if len(file_paths) > 1:
-                    self.log.error(
-                        "Too many files found that match - %s. Only one should be found.", file_date
-                    )
-                    return (False, "TYPE_FILE_TOO_MANY_FOUND")
+            # Read the external file
 
-                file_path = file_paths[0]
+            sea_ice_type_file = np.transpose(np.genfromtxt(file_path))
+            file_lats = sea_ice_type_file[0]
+            # convert to 0..360 to match shared_dict values
+            file_lons = sea_ice_type_file[1] % 360.0
+            file_values = sea_ice_type_file[2]
 
-                # Read the external file
+            # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
+            file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
+            file_points = np.transpose((file_x, file_y))
+            file_point_tree = KDTree(file_points)
 
-                sea_ice_type_file = np.transpose(np.genfromtxt(file_path))
-                file_lats = sea_ice_type_file[0]
-                # convert to 0..360 to match shared_dict values
-                file_lons = sea_ice_type_file[1] % 360.0
-                file_values = sea_ice_type_file[2]
+            # Save the loaded date, KDTree, and values
+            # Faster to save the tree than save the lon + lat values and recreate
+            # the tree every time
 
-                # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
-                file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
-                file_points = np.transpose((file_x, file_y))
-                file_point_tree = cKDTree(file_points)
+            self.most_recent_file["date"] = file_date
+            self.most_recent_file["lats"] = file_lats
+            self.most_recent_file["lons"] = file_lons
+            self.most_recent_file["tree"] = file_point_tree
+            self.most_recent_file["values"] = file_values
 
-                # Save the loaded date, KDTree, and values
-                # Faster to save the tree than save the lon + lat values and recreate
-                # the tree every time
+            found_file = True
 
-                self.most_recent_file["date"] = file_date
-                self.most_recent_file["tree"] = file_point_tree
-                self.most_recent_file["values"] = file_values
+        wv_x, wv_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
 
-            wv_x, wv_y = self.lonlat_to_xy.transform(wv_lon, wv_lat)
+        _, file_neighbouring_indices = file_point_tree.query(np.transpose((wv_x, wv_y)), k=10)
 
-            file_neighbouring_indices = int(file_point_tree.query((wv_x, wv_y), k=1)[1])
-            si_type[wv_num] = file_values[file_neighbouring_indices]
+        wv_rlats = (l1b["sat_lat"][:].data * np.pi) / 180
+        wv_rlons = (l1b["sat_lon"][:].data * np.pi) / 180
+
+        file_rlats = (file_lats * np.pi) / 180
+        file_rlons = (file_lons * np.pi) / 180
+
+        for i, neighbours in enumerate(file_neighbouring_indices):
+            tmp1 = np.sin(wv_rlats[i]) * np.sin(file_rlats[neighbours])
+            tmp2 = np.cos(wv_rlats[i]) * np.cos(file_rlats[neighbours])
+            tmp3 = np.cos(wv_rlons[i] - file_rlons[neighbours])
+            tmp4 = tmp1 + (tmp2 * tmp3)
+
+            distances = self.radius * np.arccos(tmp4)
+
+            si_type[i] = file_values[neighbours[np.argmin(distances)]]
 
         si_type[
             si_type == 255

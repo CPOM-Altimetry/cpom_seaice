@@ -123,6 +123,8 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        shared_dict["valid"] = l1b["valid"][:].data.astype(np.bool_)
+
         freeboard = (
             l1b["elevation"][:].data
             - shared_dict["mss"]
@@ -131,6 +133,7 @@ class Algorithm(BaseAlgorithm):
 
         floe_indx = l1b["lead_floe_class"][:].data == 3
         freeboard[~floe_indx] = np.nan
+        shared_dict["valid"][~floe_indx] = False
 
         self.log.info(
             "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
@@ -149,6 +152,9 @@ class Algorithm(BaseAlgorithm):
 
         # discard any samples outside of sensible range
         freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
+        shared_dict["valid"][
+            (freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)
+        ] = False
 
         self.log.info(
             "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
