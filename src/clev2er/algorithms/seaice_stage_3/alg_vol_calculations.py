@@ -15,11 +15,9 @@ Read config options
 
 Create empty arrays for volume, area, fraction of fyi and myi and gaps
 Create empty arrays for grids used in filling process
+If a gridcell does not have enough samples, remove the values
 Calculate mean thickness, mean iceconc and volume
-Compute nearest neighbours for each cell
-Fill in empty cells using nearest neighbours
-Apply masks
-Calculate totals
+Calculate fraction of MYI and FYI
 Add results to shared_dict
 
 #Main finalize() function steps
@@ -28,11 +26,20 @@ None
 
 #Contribution to shared_dict
 
-contributions
+shared_dict["area_grid"]
+shared_dict["frac_fyi_grid"]
+shared_dict["frac_myi_grid"]
+shared_dict["gaps"]
+shared_dict["iceconc_grid"]
+shared_dict["number_in"]
+shared_dict["number_in_fyi"]
+shared_dict["number_in_myi"]
+shared_dict["thickness_grid"]
+shared_dict["volume_grid"]
 
 #Requires from shared_dict
 
-requirements
+None
 
 Author: Ben Palmer
 Date: 20 Dec 2024
@@ -161,10 +168,17 @@ class Algorithm(BaseAlgorithm):
         nin_fyi = l1b["number_in_fyi"][:].data
         nin_myi = l1b["number_in_myi"][:].data
 
+        n_cells_removed = 0
+        n_samples_removed = 0
+
         # calculate thickness, conc and volume
         # can improve this using numpy array magic stuff (after success)
         for ilat in range(self.nlats):
             for ilon in range(self.nlons):
+                if number_in[ilat, ilon] > 0:
+                    area[ilat, ilon] = 1
+                    gaps[ilat, ilon] = 0
+
                 if number_in[ilat, ilon] >= self.ninmin:  # this prevents divide by 0 error
                     thickness[ilat, ilon] /= number_in[ilat, ilon]
                     iceconc[ilat, ilon] /= number_in[ilat, ilon]
@@ -179,6 +193,8 @@ class Algorithm(BaseAlgorithm):
                             thickness_fyi[ilat, ilon] + thickness_myi[ilat, ilon]
                         )
                 else:
+                    n_cells_removed += 1
+                    n_samples_removed += number_in[ilat, ilon]
                     number_in[ilat, ilon] = 0
 
         # add arrays to shared_dict
@@ -193,6 +209,9 @@ class Algorithm(BaseAlgorithm):
         shared_dict["number_in"] = number_in
         shared_dict["number_in_fyi"] = nin_fyi
         shared_dict["number_in_myi"] = nin_myi
+
+        self.log.info("N cells with <5 samples: %d", n_cells_removed)
+        self.log.info("N samples removed from cells with <5 samples: %d", n_samples_removed)
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

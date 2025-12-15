@@ -30,11 +30,17 @@ None
 
 #Requires from shared_dict
 
-volume_grid
-thickness_grid
-gaps
-area_grid
-iceconc_grid
+shared_dict['area_grid']
+shared_dict['fill_flag']
+shared_dict['fill_nin']
+shared_dict['fill_thick']
+shared_dict['frac_fyi_grid']
+shared_dict['frac_myi_grid']
+shared_dict['gaps']
+shared_dict['iceconc_grid']
+shared_dict['number_in']
+shared_dict['thickness_grid']
+shared_dict['volume_grid']
 
 Author: Ben Palmer
 Date: 08 Jan 2025
