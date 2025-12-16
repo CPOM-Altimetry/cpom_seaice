@@ -169,7 +169,7 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        si_type = np.full_like(l1b["sat_lat"][:].size, np.nan)
+        si_type = np.full(l1b["sat_lat"][:].size, np.nan)
 
         file_date = Time(l1b["measurement_time"][:].data[0], format="unix_tai").strftime("%Y%m%d")
 
