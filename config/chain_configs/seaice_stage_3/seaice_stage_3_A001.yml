@@ -58,3 +58,6 @@ alg_add_region_mask:
 
 alg_output_ascii:
   output_directory: ${HOME}/sea_ice_processor/ascii_outputs
+
+alg_output_nc:
+  output_directory: ${HOME}/sea_ice_processor/nc_outputs

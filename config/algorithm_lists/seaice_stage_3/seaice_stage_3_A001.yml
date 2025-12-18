@@ -16,3 +16,4 @@ algorithms:
   - alg_add_region_mask
   - alg_vol_total
   - alg_output_ascii
+  - alg_output_nc
