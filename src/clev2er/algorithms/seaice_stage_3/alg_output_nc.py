@@ -167,11 +167,11 @@ class Algorithm(BaseAlgorithm):
         """
 
         # check if year folder exists
-        year_folder = self.output_directory / l1b.f_time[:4]
+        year_folder: Path = self.output_directory / l1b.f_time[:4]
         if not year_folder.exists():
-            os.makedirs(year_folder)
+            year_folder.mkdir(parents=True)
 
-        filename = f"CPOM_SI_CS2_{l1b.f_time}.nc"
+        filename = str(year_folder / f"CPOM_SI_CS2_{l1b.f_time}.nc")
 
         with Dataset(filename, mode="w") as out_nc:
             # attributes
