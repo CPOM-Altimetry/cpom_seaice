@@ -222,7 +222,13 @@ def _jacgexp(x, a, x0, sigma, k):
     return jac
 
 
-def _get_fit_qual(a, x0, waveform, best_fit_waveform, n_bins=5):
+def _get_fit_qual(
+    a: float,
+    x0: int,
+    waveform: npt.NDArray[np.float_],
+    best_fit_waveform: npt.NDArray[np.float_],
+    n_bins: int = 5,
+):
     """Generates score of fit quality
 
     Args:
@@ -238,8 +244,12 @@ def _get_fit_qual(a, x0, waveform, best_fit_waveform, n_bins=5):
     x0 = int(np.ceil(x0))
     b_min = x0 - n_bins
 
-    tmp1 = 0
-    tmp2 = 0
+    tmp1: int = 0
+    tmp2: float = 0
+
+    # if x0 or b_min are < 0 or > length of waveform, return nan
+    if len(waveform) < x0 <= 0 or len(waveform) < b_min < 0:
+        return np.nan
 
     for i in range(b_min, x0):
         tmp1 += (waveform[i] - best_fit_waveform[i]) ** 2
