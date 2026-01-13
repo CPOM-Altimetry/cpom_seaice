@@ -176,6 +176,10 @@ class Algorithm(BaseAlgorithm):
         # Add retracker bias from the diffuse retracker
         elevations[shared_dict["diffuse_index"]] -= self.diffuse_retracker_bias
 
+        if np.isnan(elevations).all():
+            self.log.info("All elevation samples are invalid, skipping file...")
+            return (True, "SKIP_OK")
+
         self.log.info(
             "Elevation - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaNs=%d",
             np.nanmean(elevations),
