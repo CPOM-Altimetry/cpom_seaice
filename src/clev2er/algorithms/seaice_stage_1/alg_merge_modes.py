@@ -44,7 +44,7 @@ from typing import Tuple
 
 import numpy as np
 from codetiming import Timer
-from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from netCDF4 import Dataset, stringtochar  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -184,6 +184,8 @@ class Algorithm(BaseAlgorithm):
         if not os.path.exists(output_file_path):
             output_nc: Dataset = Dataset(output_file_path, mode="w")
             output_nc.createDimension("n_samples", None)
+            output_nc.createDimension("n_files", None)
+            output_nc.createDimension("file_id_len", 17)
 
             output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
@@ -197,6 +199,7 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("gaussexp_sigma", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("gaussexp_err", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("files_used", "S1", ("n_files", "file_id_len"))
         else:
             output_nc = Dataset(output_file_path, mode="a")
 
@@ -222,6 +225,19 @@ class Algorithm(BaseAlgorithm):
         )
         gaussexp_err = np.concatenate((output_nc["gaussexp_err"][:], shared_dict["gaussexp_err"]))
 
+        if "files_used" in output_nc.variables:
+            input_files = ["".join(row).strip() for row in output_nc["files_used"][:].astype(str)]
+        else:
+            input_files = []
+
+        # create file id
+        id_mode = str(l1b.sir_op_mode).strip()
+        if id_mode == "SARIN":
+            id_mode = "SIN"
+        id_time_str = l1b.first_record_time.split("=")[-1]
+        id_date = "".join(id_time_str.rsplit("T")[0].split("-"))
+        id_time = "".join(id_time_str.rsplit("T")[1].split(".")[0].split(":"))
+
         # sort data by measurement time
         sort_order = np.argsort(measurement_time)
 
@@ -238,6 +254,8 @@ class Algorithm(BaseAlgorithm):
         gaussexp_sigma = gaussexp_sigma[sort_order]
         gaussexp_err = gaussexp_err[sort_order]
 
+        input_files.append(f"{id_mode}{id_date}{id_time}")
+
         # add the data to the merge file
         output_nc["packet_count"][:] = packet_count
         output_nc["block_number"][:] = block_number
@@ -251,6 +269,8 @@ class Algorithm(BaseAlgorithm):
         output_nc["seaice_conc"][:] = seaice_conc
         output_nc["gaussexp_sigma"][:] = gaussexp_sigma
         output_nc["gaussexp_err"][:] = gaussexp_err
+        for i, file_id in enumerate(input_files):
+            output_nc["files_used"][i, :] = stringtochar(np.array([file_id.ljust(17)], "S17"))
 
         # close file
         output_nc.close()
