@@ -149,6 +149,9 @@ def test_gridded_data_file():
                 {"lat": np.asarray([40]), "lon": np.asarray([-180])}, {"test": np.asarray([5])}
             )
 
+        assert os.path.exists(test_filename), "Gridded file does not exist!"
+        assert os.path.exists(test_filename + ".lock"), "Lock file does not exist!"
+
         nc = Dataset(test_filename, "r")
         assert "test_attr" in nc.ncattrs(), "Attributes not added successfully"
 
