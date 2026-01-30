@@ -32,6 +32,12 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
 
+# file finder
+stage_1_file_finder:
+  l1b_base_dir:
+  use_sar:
+  use_sin:
+
 alg_ingest:
   allow_lrm: false
   allow_sar: true
