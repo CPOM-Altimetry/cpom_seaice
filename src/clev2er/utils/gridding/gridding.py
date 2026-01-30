@@ -3,7 +3,9 @@ grid_points_sum: function to add points to a 2d grid by adding points together
 GriddedDataFile: Helper class for adding points to a netcdf containing gridded data
 """
 
+import fcntl
 import os
+import signal
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -100,22 +102,72 @@ class GriddedDataFile(AbstractContextManager):
     # Closes here and saves data to file
     """
 
-    def __init__(self, variables: list[VariableSpec], filename: str, nrows: int, ncols: int):
+    # pylint:disable=too-many-instance-attributes
+    # pylint:disable=unspecified-encoding
+    # pylint:disable=consider-using-with
+
+    def __init__(
+        self,
+        variables: list[VariableSpec],
+        filename: str,
+        nrows: int,
+        ncols: int,
+        timeout: int = 30,
+    ):
+        # pylint:disable=too-many-arguments
         self.variables = variables
         self.filename = filename
         self.nrows = nrows
         self.ncols = ncols
+        self.timeout = timeout
+        self.lock_file_path = filename + ".lock"
+        self.lock_file = None
 
         self.attributes: dict = {}
 
-        if os.path.exists(self.filename):
-            self.nc, self.arrays = self._load_existing(self.filename)
-        else:
-            self.nc, self.arrays = self._create_netcdf(self.filename)
+        self._acquire_lock()
+
+        try:
+            if os.path.exists(self.filename):
+                self.nc, self.arrays = self._load_existing(self.filename)
+            else:
+                self.nc, self.arrays = self._create_netcdf(self.filename)
+        except:
+            self._release_lock()
+            raise
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._close_file()
+        self.close()
         return super().__exit__(exc_type, exc_value, traceback)
+
+    def _acquire_lock(self):
+        """Acquire lock file so that other processes don't attempt to write at the same time"""
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Lock acquisition timed out after {self.timeout}s")
+
+        self.lock_file = open(self.lock_file_path, "w")
+
+        # Set alarm for timeout
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(self.timeout)
+
+        try:
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX)  # Blocking
+            signal.alarm(0)  # Cancel alarm
+        except ValueError:
+            signal.alarm(0)  # Ensure alarm is cancelled
+            self.lock_file.close()
+            raise
+
+    def _release_lock(self):
+        """Release the file lock"""
+        if self.lock_file:
+            try:
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                self.lock_file.close()
+            except ValueError:
+                pass
 
     def _create_netcdf(self, filepath: str):
         output_nc: Dataset = Dataset(filepath, mode="w")  # type: ignore
@@ -227,3 +279,10 @@ class GriddedDataFile(AbstractContextManager):
                 mask &= conditions[var_name]
 
             grid_points_sum(ilats, ilons, var_data, self.arrays[var_name], where=mask)
+
+    def close(self):
+        """Closes the file and releases lock"""
+        try:
+            self._close_file()
+        finally:
+            self._release_lock()
