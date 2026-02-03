@@ -97,6 +97,10 @@ class Algorithm(BaseAlgorithm):
         self.nlons = self.config["shared"]["grid_nlons"]
         self.grid_directory = self.config["alg_grid_for_volume"]["grid_directory"]
 
+        if not os.path.isdir(self.grid_directory):
+            self.log.info("Creating grid directory...")
+            os.mkdir(self.grid_directory)
+
         # Define variables for the gridded data file
         self.variable_specs = [
             VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=0),
@@ -152,8 +156,14 @@ class Algorithm(BaseAlgorithm):
 
         # Set up output file
         f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
+
+        # group files by year
+        year_dir = os.path.join(self.grid_directory, f_time[:4])
+        if not os.path.isdir(year_dir):
+            os.mkdir(year_dir)
+
         grid_file_name = f"{f_time}_grids.nc"
-        grid_file_path = os.path.join(self.grid_directory, grid_file_name)
+        grid_file_path = os.path.join(year_dir, grid_file_name)
 
         # open gridded data file
         with GriddedDataFile(
