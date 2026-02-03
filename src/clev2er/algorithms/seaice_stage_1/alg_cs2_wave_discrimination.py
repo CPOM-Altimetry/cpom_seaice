@@ -199,6 +199,10 @@ class Algorithm(BaseAlgorithm):
         for v in set([0, 1, 2, 3]).union(np.unique(shared_dict["lead_floe_class"])):
             self.log.info("\t %d - %5d", v, sum(shared_dict["lead_floe_class"] == v))
 
+        if not np.isin(shared_dict["lead_floe_class"], [2, 3]).any():
+            self.log.info("No lead or floe samples within file. Skipping...")
+            return (False, "SKIP_OK")
+
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)

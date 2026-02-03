@@ -168,15 +168,19 @@ class Algorithm(BaseAlgorithm):
 
             return (False, "VarLengthError")
 
+        if not shared_dict["valid"].any():
+            self.log.info("No valid samples left in file. Skipping...")
+            return (False, "SKIP_OK")
+
         # Create output file locations
         sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
         output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
         output_dir = os.path.join(
             self.merge_file_dir, f"{sensing_start.year:04d}", f"{sensing_start.month:02d}"
         )
-        if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
+        if not os.path.isdir(output_dir):
             self.log.info("Creating directory %s", output_dir)
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
         output_file_path = os.path.join(output_dir, output_file_name)
 
         # If output file does not already exist, create new file

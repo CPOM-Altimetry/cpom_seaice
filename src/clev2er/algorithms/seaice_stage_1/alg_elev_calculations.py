@@ -199,6 +199,10 @@ class Algorithm(BaseAlgorithm):
                 shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
             ] = False
 
+        if np.isnan(shared_dict["elevation"]).all():
+            self.log.info("No valid elevation measurements found. Skipping...")
+            return (False, "SKIP_OK")
+
         # -------------------------------------------------------------------
         # Returns (True,'') if success
         return (success, error_str)
