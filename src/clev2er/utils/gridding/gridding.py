@@ -120,7 +120,7 @@ class GriddedDataFile(AbstractContextManager):
         self.nrows = nrows
         self.ncols = ncols
         self.timeout = timeout
-        self.lock_file_path = filename + ".lock"
+        self.lock_file_path = "." + filename + ".lock"
         self.lock_file = None
 
         self.attributes: dict = {}
