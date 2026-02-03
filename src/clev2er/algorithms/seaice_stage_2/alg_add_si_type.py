@@ -54,6 +54,7 @@ Date: 02 Jul 2024
 
 import glob
 import os
+import warnings
 from typing import Dict, Tuple
 
 import numpy as np
@@ -65,6 +66,8 @@ from pyproj import Transformer
 from scipy.spatial import KDTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+warnings.simplefilter("ignore")
 
 
 class Algorithm(BaseAlgorithm):
