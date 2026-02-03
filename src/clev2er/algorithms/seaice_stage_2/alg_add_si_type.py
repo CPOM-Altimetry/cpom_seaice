@@ -161,6 +161,7 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-statements
 
         # This step is required to support multi-processing. Do not modify
         success, error_str = self.process_setup(l1b)
@@ -270,6 +271,10 @@ class Algorithm(BaseAlgorithm):
                 self.log.info(" %s - %d", "NaN", sum(np.isnan(si_type)))
             else:
                 self.log.info(" %s - %d", str(i_type), sum(si_type == i_type))
+
+        if not np.isin(si_type, [2, 3]).any():
+            self.log.warning("No first-year- or multiyear- ice found in file. Exiting...")
+            return (False, "SKIP_OK")
 
         shared_dict["seaice_type"] = si_type
 
