@@ -145,6 +145,10 @@ class Algorithm(BaseAlgorithm):
             + (shared_dict["freeboard_corr"] * self.rho_sea)
         ) / (self.rho_sea - ice_densities)
 
+        if np.isnan(thickness).all():
+            self.log.info("No valid thickness measurements")
+            return (False, "SKIP_OK")
+
         self.log.info(
             "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
             np.nanmean(thickness),

@@ -165,6 +165,10 @@ class Algorithm(BaseAlgorithm):
         freeboard_corr[invalid_corrected_freeboard] = np.nan
         shared_dict["valid"][invalid_corrected_freeboard] = False
 
+        if np.isnan(freeboard_corr).all():
+            self.log.info("No valid freeboard measurements")
+            return (False, "SKIP_OK")
+
         self.log.info(
             "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
             np.nanmean(freeboard_corr),

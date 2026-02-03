@@ -176,12 +176,6 @@ class Algorithm(BaseAlgorithm):
             self.log.info("Number of valid samples: %d", np.sum(sample_valid))
             self.log.info("Number of FYI samples: %d", np.sum(sample_fyi & sample_valid))
             self.log.info("Number of MYI samples: %d", np.sum(sample_myi & sample_valid))
-            self.log.info(
-                "Mean thickness: %0.4f fyi=%0.4f myi=%0.4f",
-                np.nanmean(shared_dict["thickness"][sample_valid]),
-                np.nanmean(shared_dict["thickness"][sample_fyi & sample_valid]),
-                np.nanmean(shared_dict["thickness"][sample_myi & sample_valid]),
-            )
 
             # lon needs to be converted from 0..360 to -180..180
             # to convert from former to latter, use: (lon + 180) % 360 - 180
