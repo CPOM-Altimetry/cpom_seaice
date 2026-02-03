@@ -232,6 +232,10 @@ class Algorithm(BaseAlgorithm):
             self.most_recent_file["tree"] = file_point_tree
             self.most_recent_file["values"] = file_values
 
+        if not np.isin(file_values, [2, 3]).any():
+            self.log.info("No first-year- or multiyear- ice in concentration file. Skipping...")
+            return (False, "SKIP_OK")
+
         # convert l1b file lat and lons to x y
         wv_x, wv_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
 
@@ -273,7 +277,7 @@ class Algorithm(BaseAlgorithm):
                 self.log.info(" %s - %d", str(i_type), sum(si_type == i_type))
 
         if not np.isin(si_type, [2, 3]).any():
-            self.log.warning("No first-year- or multiyear- ice found in file. Exiting...")
+            self.log.warning("No first-year- or multiyear- ice found in samples. Skipping...")
             return (False, "SKIP_OK")
 
         shared_dict["seaice_type"] = si_type
