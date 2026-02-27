@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_vol_calculations.py
+clev2er.algorithms.seaice_stage_3_volume.alg_add_ice_extent
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_vol_calculations import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_ice_extent import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -74,37 +74,40 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-def test_vol_calculations(
+merge_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", merge_file_test)
+def test_add_ice_extent(
+    file_num,
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_region_mask.py
+    """test alg_add_ice_extent.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that values added by vol_calculation are in shared_dict
-    test that they are arrays
-    test that they are either arrays of ints or arrays of floats depending on the variable
+    test that 'extent_mask' is in shared_dict, it is an array of bools
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ==================================  FILE TESTING ==========================================
-    logger.info("Testing  file:")
+    # ================================== SAR FILE TESTING ==========================================
+    logger.info("Testing SAR file:")
 
-    # load  file
-    grid_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
-    )[0]
+    # load SAR file
+    l1b_merge_file = list(
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
+    )[file_num]
 
     try:
-        l1b = Dataset(grid_file)
-        logger.info("Loaded %s", grid_file)
+        l1b = Dataset(l1b_merge_file)
+        logger.info("Loaded %s", l1b_merge_file)
     except IOError:
-        assert False, f"{grid_file} could not be read"
+        assert False, f"{l1b_merge_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
@@ -118,29 +121,11 @@ def test_vol_calculations(
     assert success, f"Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    for varname in [
-        "volume_grid",
-        "iceconc_grid",
-        "thickness_grid",
-        "frac_fyi_grid",
-        "frac_myi_grid",
-        "area_grid",
-        "gaps",
-        "number_in",
-        "number_in_fyi",
-        "number_in_myi",
-    ]:
-        assert varname in shared_dict, f"'{varname}' not in shared_dict."
+    assert "extent_mask" in shared_dict, "'mss' not in shared_dict."
 
-        assert isinstance(
-            shared_dict[varname], np.ndarray
-        ), f"'{varname}' is {type(shared_dict[varname])}, not ndarray."
+    assert isinstance(
+        shared_dict["extent_mask"], np.ndarray
+    ), f"'extent_mask' is {type(shared_dict['mss'])}, not ndarray."
 
-        mask_dtype = str(shared_dict["region_mask"].dtype)
-
-        if varname in ["gaps", "number_in", "number_in_fyi", "number_in_myi"]:
-            assert "int" in mask_dtype.lower(), f"Dtype of '{varname}' is {mask_dtype}, not int."
-        else:
-            assert (
-                "float" in mask_dtype.lower()
-            ), f"Dtype of '{varname}' is {mask_dtype}, not float."
+    mask_dtype = str(shared_dict["extent_mask"].dtype)
+    assert "bool" in mask_dtype.lower(), f"Dtype of 'bool' is {mask_dtype}, not float."

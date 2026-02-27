@@ -1,19 +1,17 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_output_ascii.py
+clev2er.algorithms.seaice_stage_3_volume.alg_add_region_mask
 """
 
-import fnmatch
 import logging
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Dict
 
+import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_output_ascii import Algorithm
-from clev2er.algorithms.seaice_stage_3.alg_vol_calculations import Algorithm as CalcVol
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_region_mask import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -33,8 +31,6 @@ def config() -> dict:
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
 
-    # Set any testing config here
-
     return chain_config
 
 
@@ -52,7 +48,7 @@ def previous_steps(
     """
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
-        chain_previous_steps: Dict[str, Any] = {"volume_calculations": CalcVol(config, logger)}
+        chain_previous_steps: Dict[str, Any] = {}
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
 
@@ -78,18 +74,22 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-def test_output_ascii(
+merge_file_test = [(0), (1)]
+
+
+@pytest.mark.parametrize("file_num", merge_file_test)
+def test_add_region_mask(
+    file_num,
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_output_ascii.py
+    """test alg_add_region_mask.py
 
     Test plan:
-    Load a test file
+    Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-
-
+    test that 'region_mask' is in shared_dict, it is an array of bools
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -99,21 +99,17 @@ def test_output_ascii(
     logger.info("Testing  file:")
 
     # load  file
-    grid_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
-    )[0]
+    l1b_merge_file = list(
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
+    )[file_num]
 
     try:
-        l1b = Dataset(grid_file)
-        logger.info("Loaded %s", grid_file)
+        l1b = Dataset(l1b_merge_file)
+        logger.info("Loaded %s", l1b_merge_file)
     except IOError:
-        assert False, f"{grid_file} could not be read"
+        assert False, f"{l1b_merge_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
-
-    temp_dir = TemporaryDirectory()  # pylint:disable=consider-using-with
-
-    thisalg.output_directory = Path(temp_dir.name)
 
     for title, step in previous_steps.items():
         success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
@@ -125,12 +121,11 @@ def test_output_ascii(
     assert success, f"Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    output_files = os.listdir(temp_dir.name)
+    assert "region_mask" in shared_dict, "'region_mask' not in shared_dict."
 
-    assert len(fnmatch.filter(output_files, "*.vol")) >= 1, ".vol file wasn't created"
-    assert len(fnmatch.filter(output_files, "*.thk")) >= 1, ".thk file wasn't created"
-    assert len(fnmatch.filter(output_files, "*.gaps")) >= 1, ".gaps file wasn't created"
-    assert len(fnmatch.filter(output_files, "*.area")) >= 1, ".area file wasn't created"
-    assert len(fnmatch.filter(output_files, "*.conc")) >= 1, ".conc file wasn't created"
+    assert isinstance(
+        shared_dict["region_mask"], np.ndarray
+    ), f"'region_mask' is {type(shared_dict['region_mask'])}, not ndarray."
 
-    temp_dir.cleanup()
+    mask_dtype = str(shared_dict["region_mask"].dtype)
+    assert "bool" in mask_dtype.lower(), f"Dtype of 'region_mask' is {mask_dtype}, not bool."

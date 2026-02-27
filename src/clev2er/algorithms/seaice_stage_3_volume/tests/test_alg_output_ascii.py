@@ -1,17 +1,21 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_add_cell_area
+clev2er.algorithms.seaice_stage_3_volume.alg_output_ascii.py
 """
 
+import fnmatch
 import logging
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Dict
 
-import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_add_cell_area import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_output_ascii import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_vol_calculations import (
+    Algorithm as CalcVol,
+)
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -31,6 +35,8 @@ def config() -> dict:
     # Set to Sequential Processing
     chain_config["chain"]["use_multi_processing"] = False
 
+    # Set any testing config here
+
     return chain_config
 
 
@@ -48,7 +54,7 @@ def previous_steps(
     """
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
-        chain_previous_steps: Dict[str, Any] = {}
+        chain_previous_steps: Dict[str, Any] = {"volume_calculations": CalcVol(config, logger)}
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
 
@@ -74,58 +80,59 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     return this_algo
 
 
-merge_file_test = [(0), (1)]
-
-
-@pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_cell_area_sar(
-    file_num,
+def test_output_ascii(
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_cell_area.py
+    """test alg_output_ascii.py
 
     Test plan:
-    Load a merge file
+    Load a test file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'cell_area' is in shared_dict, it is an array of floats
+
+
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ================================== MERGE FILE TESTING ========================================
-    logger.info("Testing merge file:")
+    # ==================================  FILE TESTING ==========================================
+    logger.info("Testing  file:")
 
-    # load merge file
-    l1b_merge_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
-    )[file_num]
+    # load  file
+    grid_file = list(
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
+    )[0]
 
     try:
-        l1b = Dataset(l1b_merge_file)
-        logger.info("Loaded %s", l1b_merge_file)
+        l1b = Dataset(grid_file)
+        logger.info("Loaded %s", grid_file)
     except IOError:
-        assert False, f"{l1b_merge_file} could not be read"
+        assert False, f"{grid_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
+
+    temp_dir = TemporaryDirectory()  # pylint:disable=consider-using-with
+
+    thisalg.output_directory = Path(temp_dir.name)
 
     for title, step in previous_steps.items():
         success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
         if not success:
-            logger.error(" Error with previous step: %s\n%s", title, err_str)
+            logger.error("Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
-    assert success, f" Algorithm failed due to: {err_str}"
+    assert success, f"Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "cell_area" in shared_dict, "'cell_area' not in shared_dict."
+    output_files = os.listdir(temp_dir.name)
 
-    assert isinstance(
-        shared_dict["cell_area"], np.ndarray
-    ), f"'cell_area' is {type(shared_dict['cell_area'])}, not ndarray."
+    assert len(fnmatch.filter(output_files, "*.vol")) >= 1, ".vol file wasn't created"
+    assert len(fnmatch.filter(output_files, "*.thk")) >= 1, ".thk file wasn't created"
+    assert len(fnmatch.filter(output_files, "*.gaps")) >= 1, ".gaps file wasn't created"
+    assert len(fnmatch.filter(output_files, "*.area")) >= 1, ".area file wasn't created"
+    assert len(fnmatch.filter(output_files, "*.conc")) >= 1, ".conc file wasn't created"
 
-    elev_dtype = str(shared_dict["cell_area"].dtype)
-    assert "float" in elev_dtype.lower(), f"Dtype of 'cell_area' is {elev_dtype}, not float."
+    temp_dir.cleanup()
