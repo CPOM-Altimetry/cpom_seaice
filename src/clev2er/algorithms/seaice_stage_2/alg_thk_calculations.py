@@ -149,6 +149,9 @@ class Algorithm(BaseAlgorithm):
             self.log.info("No valid thickness measurements")
             return (False, "SKIP_OK")
 
+        # remove invalid values
+        thickness[~shared_dict["valid"]] = np.nan
+
         self.log.info(
             "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
             np.nanmean(thickness),

@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_vol_totals.py
+clev2er.algorithms.seaice_stage_3_volume.alg_vol_calculations.py
 """
 
 import logging
@@ -7,22 +7,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_add_cell_area import (
-    Algorithm as CellAreaMask,
-)
-from clev2er.algorithms.seaice_stage_3.alg_add_ice_extent import Algorithm as ExtentMask
-from clev2er.algorithms.seaice_stage_3.alg_add_ocean_frac import (
-    Algorithm as OceanFracMask,
-)
-from clev2er.algorithms.seaice_stage_3.alg_add_region_mask import (
-    Algorithm as RegionMask,
-)
-from clev2er.algorithms.seaice_stage_3.alg_vol_calculations import Algorithm as CalcVol
-from clev2er.algorithms.seaice_stage_3.alg_vol_fill_nn import Algorithm as VolFillNN
-from clev2er.algorithms.seaice_stage_3.alg_vol_total import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_vol_calculations import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -59,14 +48,7 @@ def previous_steps(
     """
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
-        chain_previous_steps: Dict[str, Any] = {
-            "vol_calculations": CalcVol(config, logger),
-            "vol_fill_nn": VolFillNN(config, logger),
-            "cell_area_mask": CellAreaMask(config, logger),
-            "ocean_frac": OceanFracMask(config, logger),
-            "extent_mask": ExtentMask(config, logger),
-            "region_mask": RegionMask(config, logger),
-        }
+        chain_previous_steps: Dict[str, Any] = {}
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
 
@@ -85,25 +67,26 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     """
     # Initialise the Algorithm
     try:
-        this_algo = Algorithm(config, logger)
+        this_algo = Algorithm(config, logger)  # no config used for this alg
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize algorithm {exc}") from exc
 
     return this_algo
 
 
-def test_vol_total(
+def test_vol_calculations(
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_vol_total.py
+    """test alg_add_region_mask.py
 
     Test plan:
-    Load a grid file
+    Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that values added by vol_total are in shared_dict
-    test that they are floats
+    test that values added by vol_calculation are in shared_dict
+    test that they are arrays
+    test that they are either arrays of ints or arrays of floats depending on the variable
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
@@ -136,15 +119,28 @@ def test_vol_total(
 
     # Algorithm tests
     for varname in [
-        "total_volume",
-        "total_fyi_volume",
-        "total_myi_volume",
-        "total_area",
-        "total_fyi_area",
-        "total_myi_area",
+        "volume_grid",
+        "iceconc_grid",
+        "thickness_grid",
+        "frac_fyi_grid",
+        "frac_myi_grid",
+        "area_grid",
+        "gaps",
+        "number_in",
+        "number_in_fyi",
+        "number_in_myi",
     ]:
         assert varname in shared_dict, f"'{varname}' not in shared_dict."
 
         assert isinstance(
-            shared_dict[varname], float
-        ), f"'{varname}' is {type(shared_dict[varname])}, not float."
+            shared_dict[varname], np.ndarray
+        ), f"'{varname}' is {type(shared_dict[varname])}, not ndarray."
+
+        mask_dtype = str(shared_dict["region_mask"].dtype)
+
+        if varname in ["gaps", "number_in", "number_in_fyi", "number_in_myi"]:
+            assert "int" in mask_dtype.lower(), f"Dtype of '{varname}' is {mask_dtype}, not int."
+        else:
+            assert (
+                "float" in mask_dtype.lower()
+            ), f"Dtype of '{varname}' is {mask_dtype}, not float."
