@@ -2,7 +2,7 @@
 
 # Set breakpoint file directory
 breakpoint_files:
-  default_dir: $HOME/sea_ice_processor/bp_files/stage_1
+  default_dir: $HOME/sea_ice_processor/bp_files/stage_1/north
   
 # Default locations for log files
 log_files:
@@ -91,6 +91,6 @@ alg_elev_calculations:
   tracking_bin : 64
 
 alg_merge_modes:
-  merge_file_dir: $HOME/sea_ice_processor/elev_merge
+  merge_file_dir: $HOME/sea_ice_processor/elev_merge_north
 # Resource Locators
 
