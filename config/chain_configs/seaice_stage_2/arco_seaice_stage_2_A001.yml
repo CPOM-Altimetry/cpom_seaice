@@ -1,0 +1,74 @@
+# CPOM sea ice chain settings
+
+# Set breakpoint file directory
+breakpoint_files:
+  default_dir: ${HOME}/sea_ice_processor/bp_files/stage_2/north
+  
+# Default locations for log files
+log_files:
+  append_year_month_to_logname: true  # if chain is run for specific month and year, use <logtype>_MMYYYY.log
+                                      # or <logtype>_YYYY.log (if only year specified) 
+  errors: ${SI_LOG_DIR}/stage_2/errors.log    # or errors_MMYYYY.log
+  info:   ${SI_LOG_DIR}/stage_2/info.log
+  debug:  ${SI_LOG_DIR}/stage_2/debug.log
+
+# CS2 instrument parameters
+instrument:
+  num_range_bins_lrm: 128
+  # etc
+
+# Geophysical parameters
+geophysical:
+  earth_semi_major: 6378137.0
+  eccentricity: 0.08181919078479198
+  speed_light_vacuum: 299792458.0
+  speed_light_snow:   240000000.0 #2.4e8
+
+# Algorithm configuration settings
+
+shared: # Shared config parameters for multiple algorithms to use
+  min_latitude: 30.00 # minimum latitude in degs N
+  max_latitude: 90.00 # maximum latitude in deg N
+  min_longitude: 0.00 # minimum longitude in degs E
+  max_longitude: 360.00 # maximum longitude in deg E
+  output_projection: epsg:3413 # projection used within chain
+  aux_file_path: ${HOME}/sea_ice_processor/aux_files/
+  grid_nlons: 720
+  grid_nlats: 500
+  hemisphere: north
+
+alg_add_mss:
+  mss_file: ${CPDATA_DIR}/MODELS/MSS/UCL01/CryosatMSS-arco-2yr-140821.txt
+  input_projection: epsg:4326
+  delta: 0.0625
+  nlons: 5761
+  nlats: 2689
+  mss_lat_min: -80
+  mss_lon_min: 0
+
+alg_add_si_type:
+  type_file_dir: ${HOME}/sea_ice_processor/aux_files/si_type
+  input_projection: epsg:4326
+
+alg_sla_calculations:
+  raw_sla_clip_value: 3.0
+  sla_track_limit: 0.5
+  lead_sample_limit: 20.0
+  window_range: 100 # range limit between floes and leads in either direction in km
+  distance_projection: WGS84 # projection used to calculate distance between lat/lon pairs while interpolating
+
+alg_fbd_calculations:
+  fb_min: -0.3
+  fb_max: 3.0
+
+alg_thk_calculations:
+  rho_fyi: 916.7
+  rho_myi: 882.0
+  rho_sea: 1023.9
+  
+
+alg_merge_months:
+  merge_file_dir: ${HOME}/sea_ice_processor/month_files/north
+  mp_file_timeout: 60
+
+# Resource Locators

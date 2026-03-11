@@ -131,6 +131,8 @@ class Algorithm(BaseAlgorithm):
         crs_output = proj.Proj(output_projection)
         self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
+        self.hemisphere = self.config["shared"]["hemisphere"]
+
         self.radius = 6356.752
 
         # --- End of initialization steps ---
@@ -191,8 +193,16 @@ class Algorithm(BaseAlgorithm):
 
             # Find the correct file for the data
 
+            match self.hemisphere:
+                case "north":
+                    file_hemi = "nh"
+                case "south":
+                    file_hemi = "sh"
+                case _:
+                    raise ValueError("Unrecognised hemisphere setting")
+
             folder_glob_string = os.path.join(
-                self.type_file_dir, file_date[:4], f"ice_type_nh_*_{file_date}*.dat"
+                self.type_file_dir, file_date[:4], f"ice_type_{file_hemi}_*_{file_date}*.dat"
             )
 
             file_paths = glob.glob(folder_glob_string)
