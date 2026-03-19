@@ -45,13 +45,13 @@ alg_grid_average:
 
 
 alg_output_maps:
-  output_directory: ${HOME}/sea_ice_processor/output_map_files
+  output_directory: ${HOME}/sea_ice_processor/output_map_files/north
   variables:
     - thickness
     - seaice_conc
 
 alg_output_ascii:
-  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii
+  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii/north
   variables:
     - thickness
     - seaice_conc
