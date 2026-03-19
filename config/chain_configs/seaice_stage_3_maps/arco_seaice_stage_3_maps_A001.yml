@@ -38,7 +38,7 @@ alg_grid_average:
   input_projection: epsg:4326
   output_projection: epsg:3413
   search_radius: 25000 # 25km in m
-  grid_file: ${HOME}/sea_ice_processor/5km_grid.npz
+  grid_file: ${HOME}/sea_ice_processor/grid_definitions/arco/5km_grid.npz
   variables:
     - thickness
     - seaice_conc
