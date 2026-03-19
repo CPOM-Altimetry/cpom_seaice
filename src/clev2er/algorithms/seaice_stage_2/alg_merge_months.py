@@ -180,7 +180,7 @@ class Algorithm(BaseAlgorithm):
         sat_lon = l1b["sat_lon"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
         thickness = shared_dict["thickness"]
-        freeboard = shared_dict["freeboard"]
+        freeboard = shared_dict["freeboard_corr"]
         seaice_type = shared_dict["seaice_type"]
 
         # Create output file locations
