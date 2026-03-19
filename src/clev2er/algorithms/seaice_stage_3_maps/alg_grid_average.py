@@ -141,7 +141,17 @@ class Algorithm(BaseAlgorithm):
 
         self.query_points = np.transpose([self.grid_x.flatten(), self.grid_y.flatten()])
 
-        self.invalid_points = ((self.grid_lats <= 60.0) | (self.grid_lats >= 88.0)) | (grid_mask)
+        self.hemisphere = self.config["shared"]["hemisphere"]
+
+        match self.hemisphere:
+            case "north":
+                area_mask = (self.grid_lats <= 60.0) | (self.grid_lats >= 88.0)
+            case "south":
+                area_mask = (self.grid_lats <= -90.0) | (self.grid_lats >= 50.0)
+            case _:
+                raise RuntimeError("Invalid hemisphere set in parameters")
+
+        self.invalid_points = area_mask | (grid_mask)
 
         self.variables = self.config["alg_grid_average"]["variables"]
 

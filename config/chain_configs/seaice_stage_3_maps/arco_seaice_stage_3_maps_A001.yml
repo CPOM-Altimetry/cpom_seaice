@@ -33,6 +33,7 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
   aux_file_path: ${HOME}/sea_ice_processor/aux_files
+  hemisphere: north
 
 alg_grid_average:
   input_projection: epsg:4326
