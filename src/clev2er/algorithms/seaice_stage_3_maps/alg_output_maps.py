@@ -177,7 +177,6 @@ class Algorithm(BaseAlgorithm):
         grid_y = shared_dict["grid_y"].flatten()
         grid_lat = shared_dict["grid_lat"].flatten()
         grid_lon = shared_dict["grid_lon"].flatten()
-        grid_mask = shared_dict["grid_mask"].flatten()
 
         for var_name in self.variables:
             output_varname = "".join([x.capitalize() for x in var_name.split("_")])
@@ -210,7 +209,7 @@ class Algorithm(BaseAlgorithm):
                     )
                     # "%5d%5d%12.6f%12.6f%10.4f%10.4f%10d%10.4f\n"
 
-                    if not grid_mask[i]:
+                    if n_points >= 1:
                         map_fp.write(
                             f"{grid_lat[i]: >12.6f}{grid_lon[i]: >12.6f}"
                             f"{var_values[i]: >10.4f}"
