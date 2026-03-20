@@ -209,7 +209,7 @@ class Algorithm(BaseAlgorithm):
                     )
                     # "%5d%5d%12.6f%12.6f%10.4f%10.4f%10d%10.4f\n"
 
-                    if n_points >= 1:
+                    if n_points > 1:
                         map_fp.write(
                             f"{grid_lat[i]: >12.6f}{grid_lon[i]: >12.6f}"
                             f"{var_values[i]: >10.4f}"
