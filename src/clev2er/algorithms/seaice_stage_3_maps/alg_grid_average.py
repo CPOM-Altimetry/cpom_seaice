@@ -153,7 +153,8 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
-        # pylint:disable=pointless-string-statement
+        # pylint: disable=pointless-string-statement
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -233,22 +234,28 @@ class Algorithm(BaseAlgorithm):
                 raise RuntimeError("Not all points within radius")
 
             for var_name in self.variables:
-                if np.isnan(tree_values[var_name][ind]).all():
+                invalid_values = np.isnan(tree_values[var_name][ind])
+                if invalid_values.all() or len(ind) <= 1:
                     gridded_data[var_name]["values"][i] = 0
                     gridded_data[var_name]["std"][i] = 0
                     gridded_data[var_name]["n_points"][i] = 0
                     gridded_data[var_name]["mean_distance"][i] = 0
                     gridded_data[var_name]["distance_from_cog"][i] = 0
                 else:
-                    gridded_data[var_name]["values"][i] = np.nanmean(tree_values[var_name][ind])
-                    gridded_data[var_name]["std"][i] = np.nanstd(tree_values[var_name][ind])
+                    gridded_data[var_name]["values"][i] = np.nanmean(
+                        tree_values[var_name][ind][~invalid_values]
+                    )
+                    gridded_data[var_name]["std"][i] = np.nanstd(
+                        tree_values[var_name][ind][~invalid_values]
+                    )
                     gridded_data[var_name]["n_points"][i] = np.sum(
-                        np.isfinite(tree_values[var_name][ind])
+                        np.isfinite(tree_values[var_name][ind][~invalid_values])
                     )
                     gridded_data[var_name]["mean_distance"][i] = np.nanmean(dist)
+                    mean_x = np.mean(point_x[ind][~invalid_values])
+                    mean_y = np.mean(point_y[ind][~invalid_values])
                     gridded_data[var_name]["distance_from_cog"][i] = np.sqrt(
-                        (self.grid_x[i] - np.mean(point_x[ind])) ** 2
-                        + (self.grid_y[i] - np.mean(point_y[ind])) ** 2
+                        (self.grid_x[i] - mean_x) ** 2 + (self.grid_y[i] - mean_y) ** 2
                     )
 
         invalid_mask = self.invalid_points.flatten()
@@ -264,7 +271,9 @@ class Algorithm(BaseAlgorithm):
             shared_dict[var_name + "_grid"] = gridded_data[var_name]["values"]
             shared_dict[var_name + "_std"] = gridded_data[var_name]["std"]
             shared_dict[var_name + "_n_points"] = gridded_data[var_name]["n_points"]
-            shared_dict[var_name + "_distance_from_cog"] = gridded_data[var_name]["std"]
+            shared_dict[var_name + "_distance_from_cog"] = gridded_data[var_name][
+                "distance_from_cog"
+            ]
 
         shared_dict["grid_lat"] = self.grid_lats
         shared_dict["grid_lon"] = self.grid_lons
