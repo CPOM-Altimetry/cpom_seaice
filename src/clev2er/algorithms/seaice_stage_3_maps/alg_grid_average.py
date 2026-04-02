@@ -224,16 +224,16 @@ class Algorithm(BaseAlgorithm):
 
             # Variable specific filtering
             match var_name:
-                case "Thickness":
+                case "thickness":
                     sample_valid = l1b["valid"][:].data.flatten().astype(bool)
                     tree_values[var_name][sample_valid] = np.nan
-                case "Freeboard":
+                case "freeboard":
                     outside_range = (tree_values[var_name] < -0.3) | (tree_values[var_name] > 3)
                     tree_values[var_name][outside_range] = np.nan
-                case "SeaiceConc":
+                case "seaice_conc":
                     outside_range = tree_values[var_name] < 15.0
                     tree_values[var_name][outside_range] = np.nan
-                case "WarrenSnowDepth":
+                case "snow_depth":
                     freeboard = l1b["freeboard"][:].data.flatten()
                     outside_range = (freeboard < -0.3) | (freeboard > 3)
                     tree_values[var_name][outside_range] = np.nan
