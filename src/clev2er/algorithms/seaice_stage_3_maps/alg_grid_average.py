@@ -208,7 +208,7 @@ class Algorithm(BaseAlgorithm):
 
         for var_name in self.variables:
             if var_name not in l1b.variables.keys():
-                raise RuntimeError("Variable %s not found in input file.")
+                raise RuntimeError(f"Variable {var_name} not found in input file.")
 
             variable_data = {
                 "values": np.zeros(len(indices)),
@@ -221,6 +221,24 @@ class Algorithm(BaseAlgorithm):
             gridded_data[var_name] = variable_data
 
             tree_values[var_name] = l1b[var_name][:].data.flatten()
+
+            # Variable specific filtering
+            match var_name:
+                case "Thickness":
+                    sample_valid = l1b["valid"][:].data.flatten().astype(bool)
+                    tree_values[var_name][sample_valid] = np.nan
+                case "Freeboard":
+                    outside_range = (tree_values[var_name] < -0.3) | (tree_values[var_name] > 3)
+                    tree_values[var_name][outside_range] = np.nan
+                case "SeaiceConc":
+                    outside_range = tree_values[var_name] < 15.0
+                    tree_values[var_name][outside_range] = np.nan
+                case "WarrenSnowDepth":
+                    freeboard = l1b["freeboard"][:].data.flatten()
+                    outside_range = (freeboard < -0.3) | (freeboard > 3)
+                    tree_values[var_name][outside_range] = np.nan
+                case _:
+                    self.log.info("Variable %s does not have a unique filtering step.")
 
         for i in range(len(indices)):  # pylint:disable=consider-using-enumerate
             print(f"{i}/{len(indices)} ({i*100//len(indices)}%)", end="\r")
