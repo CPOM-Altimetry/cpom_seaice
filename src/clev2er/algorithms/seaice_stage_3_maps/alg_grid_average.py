@@ -226,7 +226,7 @@ class Algorithm(BaseAlgorithm):
             match var_name:
                 case "thickness":
                     sample_valid = l1b["valid"][:].data.flatten().astype(bool)
-                    tree_values[var_name][sample_valid] = np.nan
+                    tree_values[var_name][~sample_valid] = np.nan
                 case "freeboard":
                     outside_range = (tree_values[var_name] < -0.3) | (tree_values[var_name] > 3)
                     tree_values[var_name][outside_range] = np.nan
