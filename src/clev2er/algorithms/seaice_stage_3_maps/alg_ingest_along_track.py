@@ -35,6 +35,7 @@ Date: 23 Feb 2026
 
 from typing import Tuple
 
+import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -91,6 +92,7 @@ class Algorithm(BaseAlgorithm):
         """
 
         self.variables = self.config["alg_ingest_along_track"]["variables"]
+        self.filtering_on = bool(self.config["alg_ingest_along_track"]["filtering_on"])
 
         # --- End of initialization steps ---
 
@@ -148,6 +150,33 @@ class Algorithm(BaseAlgorithm):
                 raise RuntimeError(f"Cannot find variable {var_name} in input file.")
 
             data = l1b[var_name][:].data
+
+            # Variable specific filtering
+            if self.filtering_on:
+                match var_name:
+                    case "thickness":
+                        if "valid" not in l1b.variables:
+                            raise RuntimeError(
+                                "Input file must contain valid variable if filtering thickness"
+                            )
+                        sample_valid = l1b["valid"][:].data.flatten().astype(bool)
+                        data[~sample_valid] = np.nan
+                    case "freeboard":
+                        outside_range = (data < -0.3) | (data > 3)
+                        data[outside_range] = np.nan
+                    case "seaice_conc":
+                        outside_range = data < 15.0
+                        data[outside_range] = np.nan
+                    case "snow_depth":
+                        if "freeboard" not in l1b.variables:
+                            raise RuntimeError(
+                                "Input file must contain freeboard variable if filtering snow_depth"
+                            )
+                        freeboard = l1b["freeboard"][:].data.flatten()
+                        outside_range = (freeboard < -0.3) | (freeboard > 3)
+                        data[outside_range] = np.nan
+                    case _:
+                        self.log.info("Variable %s does not have a unique filtering step.")
 
             shared_dict[var_name] = data
 
