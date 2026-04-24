@@ -172,7 +172,12 @@ class Algorithm(BaseAlgorithm):
 
             out_file = os.path.join(year_folder, filename_date + "." + output_varname)
 
-            out_values = l1b[var_name][:].data.flatten()
+            out_values = shared_dict[var_name].flatten()
+
+            if np.shape(out_values) != np.shape(lats) or np.shape(out_values) != np.shape(lons):
+                raise RuntimeError(
+                    f"Variable {var_name} is not the same shape as latitude or longitude values."
+                )
 
             valid_samples = np.isfinite(out_values)
 
