@@ -1,4 +1,4 @@
-"""clev2er.algorithms.seaice.alg_surface_type_fraction.py
+"""clev2er.algorithms.seaice.floe_chord_length.py
 
 
 Algorithm class module, used to implement a single chain algorithm
@@ -15,14 +15,22 @@ Get config parameters
 
 #Main process() function steps
 
-make an array of unique packet ids
-make empty arrays of lead, floe, ocean and unknown counts
-for each unique packet id:
-    get indices of samples with that packet id
-    get number of floe, lead, ocean and unknown samples
-    divide each by 20 (number of blocks in a packet)
-    save where block 9 is
-save data to shared dict
+make floe chord length array
+for each index in alongtrack data:
+    skip if not valid
+    if first valid thickness sample:
+        save index
+
+    if found first valid thickness:
+        check distance vs first index lat/lon
+        if under max distance:
+            keep running total of thicknesses
+            keep running number of thicknesses
+        if larger than max distance:
+            calculate mean thickness from running totals
+            set first index to distance
+            reset running totals, including current values
+
 
 
 #Main finalize() function steps
@@ -31,10 +39,7 @@ None
 
 #Contribution to shared_dict
 
-floe_fraction
-lead_fraction
-ocean_fraction
-unknown_fraction
+floe_chord_length
 
 #Requires from shared_dict
 
@@ -49,6 +54,7 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from sklearn.metrics.pairwise import haversine_distances
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -100,8 +106,10 @@ class Algorithm(BaseAlgorithm):
 
         """ 
         Get config parameters
-        Check that output directory exists
         """
+
+        self.max_distance = self.config["alg_floe_chord_length"]["max_distance"]
+        self.earth_radius = self.config["geophysical"]["earth_radius"]
 
         # --- End of initialization steps ---
 
@@ -145,63 +153,58 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         """ 
-        make an array of unique packet ids
-        make empty arrays of lead, floe, ocean and unknown counts
-        for each unique packet id:
-            get indices of samples with that packet id
-            get number of floe, lead, ocean and unknown samples
-            divide each by 20 (number of blocks in a packet)
-            save where block 9 is 
-        save data to shared dict
+        make floe chord length array
+        for each index in alongtrack data:
+            skip if not valid
+            if first valid thickness sample:
+                save index
+            
+            if found first valid thickness:
+                check distance vs first index lat/lon
+                if under max distance:
+                    keep running total of thicknesses
+                    keep running number of thicknesses
+                if larger than max distance:
+                    calculate mean thickness from running totals
+                    set first index to distance
+                    reset running totals, including current values
         """
 
-        packet_count = l1b["packet_count"][:].data.flatten()
-        block_number = l1b["block_number"][:].data.flatten()
-        surface_type = l1b["surface_type"][:].data.flatten()
-        concentration = l1b["seaice_conc"][:].data.flatten()
-        valid = l1b["valid"][:].data.flatten().astype(np.bool_) & (concentration > 15.0)
+        sat_lat = l1b["sat_lat"][:].data
+        sat_lon = l1b["sat_lon"][:].data
+        r_lats = (sat_lat * np.pi) / 180
+        r_lons = (sat_lon * np.pi) / 180
+        r_points = np.transpose([r_lats, r_lons])
+        valid = l1b["valid"][:].data.flatten().astype(np.bool_)
 
-        unique_packet_id = np.full_like(packet_count, np.nan)
+        floe_chord_length = np.full_like(sat_lat, np.nan)
 
-        last_packet_id = None
-        id_count = -1  # set to 0 for hte first sample
-        for i, packet_c in enumerate(packet_count):
-            if last_packet_id != packet_c:
-                id_count += 1
-                last_packet_id = packet_c
+        first_floe_index = None
+        last_floe_index = None
 
-            unique_packet_id[i] = id_count
+        for index in range(len(sat_lat)):
+            if not valid[index]:
+                continue
 
-        block_nine = block_number == 9
-        floe_samples = (surface_type == 2) & valid
-        lead_samples = (surface_type == 3) & valid
-        ocean_samples = (surface_type == 1) & valid
-        unknown_samples = (surface_type == 0) & ~valid
+            if valid[index] and first_floe_index is None:
+                first_floe_index = index
+                continue
 
-        n_floe = np.full_like(packet_count, np.nan)
-        n_lead = np.full_like(packet_count, np.nan)
-        n_ocean = np.full_like(packet_count, np.nan)
-        n_unknown = np.full_like(packet_count, np.nan)
+            distance = (
+                haversine_distances(r_points[first_floe_index], r_points[index]) * self.earth_radius
+            )
 
-        for uniq_id in np.unique(unique_packet_id):
-            packet_samples = unique_packet_id == uniq_id
-            packet_block_nine = np.where(packet_samples & block_nine)
+            if distance > self.max_distance:
+                floe_length = (
+                    haversine_distances(r_points[first_floe_index], r_points[last_floe_index])
+                    * self.earth_radius
+                )
+                floe_chord_length[first_floe_index] = floe_length
+                first_floe_index = index
 
-            n_floe[packet_block_nine] = floe_samples & packet_samples
-            n_lead[packet_block_nine] = lead_samples & packet_samples
-            n_ocean[packet_block_nine] = ocean_samples & packet_samples
-            n_unknown[packet_block_nine] = unknown_samples & packet_samples
+            last_floe_index = index
 
-        # work out fractions and save to shared_dict
-        floe_frac = n_floe / 20
-        lead_frac = n_lead / 20
-        ocean_frac = n_ocean / 20
-        unknown_frac = n_unknown / 20
-
-        shared_dict["floe_fraction"] = floe_frac
-        shared_dict["lead_fraction"] = lead_frac
-        shared_dict["ocean_fraction"] = ocean_frac
-        shared_dict["unknown_fraction"] = unknown_frac
+        shared_dict["floe_chord_length"] = floe_chord_length
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
