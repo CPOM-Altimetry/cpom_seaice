@@ -8,6 +8,8 @@ l1b_file_selectors:
 
 # List of algorithms to call in order
 algorithms:
+  - alg_ingest_along_track
+  - alg_surface_type_fraction
   - alg_grid_average
   - alg_output_maps
   - alg_output_ascii
