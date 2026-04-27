@@ -23,6 +23,7 @@ geophysical:
   eccentricity: 0.08181919078479198
   speed_light_vacuum: 299792458.0
   speed_light_snow:   240000000.0 #2.4e8
+  earth_radius: 6356.752
 
 # Algorithm configuration settings
 
@@ -39,6 +40,9 @@ alg_ingest_along_track:
     - thickness
     - seaice_conc
   filtering_on: True
+
+alg_floe_chord_length:
+  max_distance: 0.8 # max distance in km
 
 alg_grid_average:
   input_projection: epsg:4326
