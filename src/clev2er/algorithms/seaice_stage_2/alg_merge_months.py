@@ -150,6 +150,7 @@ class Algorithm(BaseAlgorithm):
             l1b["block_number"].size
             == l1b["packet_count"].size
             == l1b["measurement_time"].size
+            == l1b["lead_floe_class"].size
             == l1b["sat_lat"].size
             == l1b["sat_lon"].size
             == shared_dict["thickness"].size
@@ -178,6 +179,7 @@ class Algorithm(BaseAlgorithm):
         sample_valid = shared_dict["valid"].astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
+        surface_type = l1b["lead_floe_class"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
         thickness = shared_dict["thickness"]
         freeboard = shared_dict["freeboard_corr"]
@@ -225,6 +227,9 @@ class Algorithm(BaseAlgorithm):
 
                     output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable(
+                        "surface_type", "i4", ("n_samples",), compression="zlib"
+                    )
                     output_nc.createVariable("thickness", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable("freeboard", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable(
@@ -245,6 +250,7 @@ class Algorithm(BaseAlgorithm):
                 sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
                 sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
                 sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
+                surface_type = np.concatenate((output_nc["lead_floe_class"][:], surface_type))
                 thickness = np.concatenate((output_nc["thickness"][:], thickness))
                 freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
                 seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
@@ -257,6 +263,7 @@ class Algorithm(BaseAlgorithm):
                 output_nc["valid"][:] = sample_valid
                 output_nc["sat_lat"][:] = sat_lat
                 output_nc["sat_lon"][:] = sat_lon
+                output_nc["surface_type"][:] = surface_type
                 output_nc["thickness"][:] = thickness
                 output_nc["freeboard"][:] = freeboard
                 output_nc["seaice_conc"][:] = seaice_conc
