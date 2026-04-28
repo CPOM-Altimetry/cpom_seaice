@@ -175,7 +175,7 @@ class Algorithm(BaseAlgorithm):
         r_lats = (sat_lat * np.pi) / 180
         r_lons = (sat_lon * np.pi) / 180
         r_points = np.transpose([r_lats, r_lons])
-        valid = l1b["valid"][:].data.flatten().astype(np.bool_)
+        valid = shared_dict["valid"]
 
         floe_chord_length = np.full_like(sat_lat, np.nan)
 

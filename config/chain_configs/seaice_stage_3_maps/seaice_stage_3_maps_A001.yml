@@ -23,7 +23,6 @@ geophysical:
   eccentricity: 0.08181919078479198
   speed_light_vacuum: 299792458.0
   speed_light_snow:   240000000.0 #2.4e8
-  earth_radius: 6356.752
 
 # Algorithm configuration settings
 
@@ -39,10 +38,8 @@ alg_ingest_along_track:
   variables:
     - thickness
     - seaice_conc
+    - floe_chord_length
   filtering_on: True
-
-alg_floe_chord_length:
-  max_distance: 0.8 # max distance in km
 
 alg_grid_average:
   input_projection: epsg:4326
@@ -55,6 +52,7 @@ alg_grid_average:
     - floe_fraction
     - lead_fraction
     - unknown_fraction
+    - floe_chord_length
 
 alg_output_maps:
   output_directory: ${HOME}/sea_ice_processor/output_map_files
