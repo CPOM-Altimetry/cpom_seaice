@@ -154,6 +154,7 @@ class Algorithm(BaseAlgorithm):
             == l1b["sat_lat"].size
             == l1b["sat_lon"].size
             == shared_dict["thickness"].size
+            == shared_dict["floe_chord_length"].size
             == shared_dict["freeboard"].size
             == shared_dict["seaice_type"].size
         ):
@@ -163,12 +164,13 @@ class Algorithm(BaseAlgorithm):
                 "block_number",
                 "packet_count",
                 "measurement_time",
+                "lead_floe_class",
                 "sat_lat",
                 "sat_lon",
             ]:
                 self.log.error("   %s - size=%d", var_name, l1b[var_name].size)
 
-            for var_name in ["thickness", "freeboard", "seaice_type"]:
+            for var_name in ["thickness", "freeboard", "seaice_type", "floe_chord_length"]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
             return (False, "VarLengthError")
@@ -179,6 +181,7 @@ class Algorithm(BaseAlgorithm):
         sample_valid = shared_dict["valid"].astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
+        floe_chord_length = l1b["floe_chord_length"].data
         surface_type = l1b["lead_floe_class"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
         thickness = shared_dict["thickness"]
@@ -238,6 +241,9 @@ class Algorithm(BaseAlgorithm):
                     output_nc.createVariable(
                         "seaice_type", "i4", ("n_samples",), compression="zlib"
                     )
+                    output_nc.createVariable(
+                        "floe_chord_length", "f4", ("n_samples",), compression="zlib"
+                    )
                 else:
                     output_nc = Dataset(output_file_path, mode="a")
 
@@ -255,6 +261,7 @@ class Algorithm(BaseAlgorithm):
                 freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
                 seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
                 seaice_type = np.concatenate((output_nc["seaice_type"][:], seaice_type))
+                floe_chord_length = np.concatenate((output_nc["floe_chord_length"][:], seaice_type))
 
                 # add the data to the merge file
                 output_nc["packet_count"][:] = packet_count
@@ -268,6 +275,7 @@ class Algorithm(BaseAlgorithm):
                 output_nc["freeboard"][:] = freeboard
                 output_nc["seaice_conc"][:] = seaice_conc
                 output_nc["seaice_type"][:] = seaice_type
+                output_nc["floe_chord_length"][:] = floe_chord_length
 
                 # close file
                 output_nc.close()

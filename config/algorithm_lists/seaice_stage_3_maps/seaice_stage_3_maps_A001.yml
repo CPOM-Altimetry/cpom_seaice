@@ -10,7 +10,6 @@ l1b_file_selectors:
 algorithms:
   - alg_ingest_along_track
   - alg_surface_type_fraction
-  - alg_floe_chord_length
   - alg_grid_average
   - alg_output_maps
   - alg_output_ascii
