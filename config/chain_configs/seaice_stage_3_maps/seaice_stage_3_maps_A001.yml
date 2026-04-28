@@ -39,6 +39,9 @@ alg_ingest_along_track:
     - thickness
     - seaice_conc
     - floe_chord_length
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
   filtering_on: True
 
 alg_grid_average:
@@ -53,6 +56,9 @@ alg_grid_average:
     - lead_fraction
     - unknown_fraction
     - floe_chord_length
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
 
 alg_output_maps:
   output_directory: ${HOME}/sea_ice_processor/output_map_files
@@ -62,6 +68,9 @@ alg_output_maps:
     - floe_fraction
     - lead_fraction
     - unknown_fraction
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
 
 alg_output_ascii:
   output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii
@@ -71,3 +80,6 @@ alg_output_ascii:
     - floe_fraction
     - lead_fraction
     - unknown_fraction
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly

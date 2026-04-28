@@ -175,6 +175,13 @@ class Algorithm(BaseAlgorithm):
                         freeboard = l1b["freeboard"][:].data.flatten()
                         outside_range = (freeboard < -0.3) | (freeboard > 3)
                         data[outside_range] = np.nan
+                    case "seaice_type":
+                        sample_valid = (data == 2) | (data == 3)
+                        data[~sample_valid] = np.nan
+                        data -= 2  # we subtract 2 so that 0=fyi and 1=myi
+                    case "sea_level_anomaly":
+                        outside_range = (data < -3) | (data > 3)
+                        data[outside_range] = np.nan
                     case _:
                         self.log.info("Variable %s does not have a unique filtering step.")
 
