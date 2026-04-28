@@ -68,6 +68,7 @@ alg_thk_calculations:
 
 alg_floe_chord_length:
   max_distance: 0.8 # max distance in km
+  include_bad: True
 
 alg_merge_months:
   merge_file_dir: ${HOME}/sea_ice_processor/month_files/

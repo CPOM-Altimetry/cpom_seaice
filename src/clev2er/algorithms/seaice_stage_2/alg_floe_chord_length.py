@@ -110,6 +110,7 @@ class Algorithm(BaseAlgorithm):
 
         self.max_distance = self.config["alg_floe_chord_length"]["max_distance"]
         self.earth_radius = self.config["geophysical"]["earth_radius"]
+        self.include_bad = self.config["alg_floe_chord_length"]["include_bad"]
 
         # --- End of initialization steps ---
 
@@ -183,7 +184,9 @@ class Algorithm(BaseAlgorithm):
         last_floe_index = None
 
         for index in range(len(sat_lat)):
-            if not valid[index]:
+            if not (
+                valid[index] or (self.include_bad and not np.isnan(shared_dict["freeboard_corr"]))
+            ):
                 continue
 
             if valid[index] and first_floe_index is None:
