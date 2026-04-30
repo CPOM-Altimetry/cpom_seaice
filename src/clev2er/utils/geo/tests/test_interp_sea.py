@@ -86,8 +86,8 @@ def test_regress() -> None:
     res = regress(x, y)
     m, c = res
 
-    assert isinstance(m, np.float_) and isinstance(
-        c, np.float_
+    assert isinstance(m, np.double) and isinstance(
+        c, np.double
     ), f"Output values are not floats, got type {(type(m), type(c))}"
 
     assert res == (1, 1), f"Output values are not as expected. Expecting (1,1), got {res}."
@@ -111,7 +111,7 @@ def test_earth_dist() -> None:
     predicted_dist = earth_dist(lat1, lon1, lat2, lon2)
 
     assert isinstance(
-        predicted_dist, np.float_
+        predicted_dist, np.double
     ), f"Output value is not a float, got type {type(predicted_dist)}"
 
     assert (
