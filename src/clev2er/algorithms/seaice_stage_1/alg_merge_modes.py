@@ -44,7 +44,7 @@ from typing import Tuple
 
 import numpy as np
 from codetiming import Timer
-from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from netCDF4 import Dataset, stringtochar  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -147,6 +147,8 @@ class Algorithm(BaseAlgorithm):
             == shared_dict["elevation"].size
             == shared_dict["lead_floe_class"].size
             == shared_dict["valid"].size
+            == shared_dict["gaussexp_sigma"].size
+            == shared_dict["gaussexp_err"].size
         ):
             self.log.error("Variables that will be added to merge file are not of equal length")
 
@@ -159,20 +161,26 @@ class Algorithm(BaseAlgorithm):
                 "elevation",
                 "lead_floe_class",
                 "valid",
+                "gaussexp_sigma",
+                "gaussexp_err",
             ]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
             return (False, "VarLengthError")
 
+        if not shared_dict["valid"].any():
+            self.log.info("No valid samples left in file. Skipping...")
+            return (False, "SKIP_OK")
+
         # Create output file locations
         sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
         output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
         output_dir = os.path.join(
-            self.merge_file_dir, str(sensing_start.year), str(sensing_start.month)
+            self.merge_file_dir, f"{sensing_start.year:04d}", f"{sensing_start.month:02d}"
         )
-        if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
+        if not os.path.isdir(output_dir):
             self.log.info("Creating directory %s", output_dir)
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
         output_file_path = os.path.join(output_dir, output_file_name)
 
         # If output file does not already exist, create new file
@@ -180,6 +188,8 @@ class Algorithm(BaseAlgorithm):
         if not os.path.exists(output_file_path):
             output_nc: Dataset = Dataset(output_file_path, mode="w")
             output_nc.createDimension("n_samples", None)
+            output_nc.createDimension("n_files", None)
+            output_nc.createDimension("file_id_len", 17)
 
             output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
             output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
@@ -191,6 +201,9 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("lead_floe_class", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
             output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("gaussexp_sigma", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("gaussexp_err", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("files_used", "S1", ("n_files", "file_id_len"))
         else:
             output_nc = Dataset(output_file_path, mode="a")
 
@@ -211,6 +224,23 @@ class Algorithm(BaseAlgorithm):
         seaice_conc = np.concatenate(
             (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
         )
+        gaussexp_sigma = np.concatenate(
+            (output_nc["gaussexp_sigma"][:], shared_dict["gaussexp_sigma"])
+        )
+        gaussexp_err = np.concatenate((output_nc["gaussexp_err"][:], shared_dict["gaussexp_err"]))
+
+        if "files_used" in output_nc.variables:
+            input_files = ["".join(row).strip() for row in output_nc["files_used"][:].astype(str)]
+        else:
+            input_files = []
+
+        # create file id
+        id_mode = str(l1b.sir_op_mode).strip()
+        if id_mode == "SARIN":
+            id_mode = "SIN"
+        id_time_str = l1b.first_record_time.split("=")[-1]
+        id_date = "".join(id_time_str.rsplit("T")[0].split("-"))
+        id_time = "".join(id_time_str.rsplit("T")[1].split(".")[0].split(":"))
 
         # sort data by measurement time
         sort_order = np.argsort(measurement_time)
@@ -225,6 +255,10 @@ class Algorithm(BaseAlgorithm):
         lead_floe_class = lead_floe_class[sort_order]
         valid = valid[sort_order]
         seaice_conc = seaice_conc[sort_order]
+        gaussexp_sigma = gaussexp_sigma[sort_order]
+        gaussexp_err = gaussexp_err[sort_order]
+
+        input_files.append(f"{id_mode}{id_date}{id_time}")
 
         # add the data to the merge file
         output_nc["packet_count"][:] = packet_count
@@ -237,6 +271,10 @@ class Algorithm(BaseAlgorithm):
         output_nc["lead_floe_class"][:] = lead_floe_class
         output_nc["valid"][:] = valid
         output_nc["seaice_conc"][:] = seaice_conc
+        output_nc["gaussexp_sigma"][:] = gaussexp_sigma
+        output_nc["gaussexp_err"][:] = gaussexp_err
+        for i, file_id in enumerate(input_files):
+            output_nc["files_used"][i, :] = stringtochar(np.array([file_id.ljust(17)], "S17"))
 
         # close file
         output_nc.close()

@@ -14,6 +14,7 @@ If max_iterations has been set, use that value, else use the default value
 
 Get specular waves from waveform using specular_index
 Get retracking points using retracker function
+Remove any points that are considered bad fits
 Save specular retracking points as lead_retracking_points
 
 #Contribution to shared_dict
@@ -42,6 +43,7 @@ from clev2er.utils.cs2.retrackers.gaussian_exponential_retracker import (
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint: disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -87,6 +89,11 @@ class Algorithm(BaseAlgorithm):
         self.max_iterations = self.config["alg_giles_retrack"]["max_iterations"]
         self.max_fit_err = self.config["alg_giles_retrack"]["max_fit_err"]
         self.max_fit_sigma = self.config["alg_giles_retrack"]["max_fit_sigma"]
+        self.min_sigma = self.config["alg_giles_retrack"]["min_sigma"]
+
+        self.ftol = self.config["alg_giles_retrack"]["ftol"]
+        self.xtol = self.config["alg_giles_retrack"]["xtol"]
+        self.gtol = self.config["alg_giles_retrack"]["gtol"]
 
         # --- End of initialization steps ---
 
@@ -125,6 +132,9 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        shared_dict["gaussexp_err"] = np.full_like(shared_dict["valid"], np.nan)
+        shared_dict["gaussexp_sigma"] = np.full_like(shared_dict["valid"], np.nan)
+
         if shared_dict["specular_index"].size == 0:
             self.log.info("No specular waves in file - skipping retracking...")
             shared_dict["lead_retracking_points"] = np.asarray([])
@@ -133,11 +143,20 @@ class Algorithm(BaseAlgorithm):
         specular_waves = shared_dict["waveform"][shared_dict["specular_index"]]
 
         retracker_output = np.apply_along_axis(
-            gauss_plus_exp_tracker, 1, specular_waves, max_iterations=self.max_iterations
+            gauss_plus_exp_tracker,
+            1,
+            specular_waves,
+            max_iterations=self.max_iterations,
+            min_sigma=self.min_sigma,
+            ftol=self.ftol,
+            xtol=self.xtol,
+            gtol=self.gtol,
         )
         lead_retracking_points = retracker_output[:, 0]
         fit_qualities = retracker_output[:, 1]
         fit_sigmas = retracker_output[:, 2]
+
+        self.log.info("Number of times failed: %d", np.sum(np.isnan(lead_retracking_points)))
 
         bad_fits = (
             (0 > fit_qualities)
@@ -156,9 +175,12 @@ class Algorithm(BaseAlgorithm):
 
         # If all retracking points are bad fits, skip file
         if num_bad_fits == lead_retracking_points.size:
-            return (False, "SKIP_OK")
+            self.log.warning("All samples failed to retrack.")
+            return (success, error_str)
 
         shared_dict["lead_retracking_points"] = lead_retracking_points
+        shared_dict["gaussexp_sigma"][shared_dict["specular_index"]] = fit_sigmas
+        shared_dict["gaussexp_err"][shared_dict["specular_index"]] = fit_qualities
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

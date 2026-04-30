@@ -19,6 +19,7 @@ Calculate the retracking correction.
 Calculate the elevation subtracting the satellite range, geophysical corrections, and
     retracking correction from the satellite altitude.
 Subtract the retracker bias from the elevations from diffuse waveforms.
+Remove any that diffuse waves that exceed the leading edge width.
 Save elevations to dict.
 
 #Contribution to shared_dict
@@ -44,6 +45,8 @@ Save elevations to dict.
 'lead_retracking_points'
 'floe_retracking_points'
 'bin_shift'
+'sat_lat'
+'valid'
 
 Author: Ben Palmer
 Date: 05 Mar 2024
@@ -157,7 +160,7 @@ class Algorithm(BaseAlgorithm):
 
         sat_range = self.c / 2 * shared_dict["window_delay"]
 
-        retracking_points = np.zeros(shared_dict["sat_lat"].size) * np.nan
+        retracking_points = np.full(shared_dict["sat_lat"].size, np.nan)
         retracking_points[shared_dict["specular_index"]] = shared_dict["lead_retracking_points"]
         retracking_points[shared_dict["diffuse_index"]] = shared_dict["floe_retracking_points"]
 
@@ -173,6 +176,10 @@ class Algorithm(BaseAlgorithm):
         # Add retracker bias from the diffuse retracker
         elevations[shared_dict["diffuse_index"]] -= self.diffuse_retracker_bias
 
+        if np.isnan(elevations).all():
+            self.log.info("All elevation samples are invalid, skipping file...")
+            return (True, "SKIP_OK")
+
         self.log.info(
             "Elevation - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaNs=%d",
             np.nanmean(elevations),
@@ -185,12 +192,16 @@ class Algorithm(BaseAlgorithm):
         shared_dict["elevation"] = elevations
 
         if shared_dict["diffuse_index"].size > 0 and shared_dict["idx_lew_gt_max"].size > 0:
+            shared_dict["elevation"][
+                shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
+            ] = np.nan
             shared_dict["valid"][
                 shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
             ] = False
-            shared_dict["valid"][
-                shared_dict["diffuse_index"][shared_dict["idx_lew_gt_max"]]
-            ] = False
+
+        if np.isnan(shared_dict["elevation"]).all():
+            self.log.info("No valid elevation measurements found. Skipping...")
+            return (False, "SKIP_OK")
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
