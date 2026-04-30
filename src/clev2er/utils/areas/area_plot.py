@@ -491,9 +491,9 @@ class Polarplot:
 
                 # Test for masked arrays
                 if ma.is_masked(lats):
-                    lats[lats.mask.nonzero()] = np.nan
+                    lats[lats.mask.nonzero()] = np.nan  # type: ignore
                 if ma.is_masked(lons):
-                    lons[lons.mask.nonzero()] = np.nan
+                    lons[lons.mask.nonzero()] = np.nan  # type: ignore
 
                 # Step 1: Filter for valid values
                 # Assuming latitude values must be between -90 and 90, and longitude
