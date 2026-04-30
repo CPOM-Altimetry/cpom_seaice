@@ -155,11 +155,11 @@ class Algorithm(BaseAlgorithm):
         """
 
         # check if year folder exists
-        year_folder = self.output_directory / l1b.year
+        year_folder = self.output_directory / l1b.f_time[:4]
         if not year_folder.exists():
             os.makedirs(year_folder)
 
-        filename = f"{l1b.year:04d}_{l1b.month:02d}"
+        filename = f"{l1b.f_time[:4]}_{l1b.f_time[4:]}"
 
         vol_file = year_folder / (filename + ".vol")
         thickness_file = year_folder / (filename + ".thk")
@@ -186,26 +186,36 @@ class Algorithm(BaseAlgorithm):
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
                         "\n"
                     )
+
                     gaps_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
-                        f"{shared_dict['gaps'][ilat, ilon]: 4d}"
+                        f"{int(shared_dict['gaps'][ilat, ilon]): 4d}"
                         "\n"
                     )
+
                     area_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['area_grid'][ilat, ilon]: 10.2f}"
                         f"{shared_dict['frac_fyi_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['frac_myi_grid'][ilat, ilon]: 10.4f}"
+                        "\n"
                     )
+
                     thick_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['thickness_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
+                        f"{shared_dict['fill_thick'][ilat, ilon]: 10.4f}"
+                        f"{int(shared_dict['fill_nin'][ilat, ilon]): 6d}"
+                        f"{int(shared_dict['fill_flag'][ilat, ilon]): 1d}"
+                        "\n"
                     )
+
                     conc_fp.write(
                         f"{ilat: 4d}{ilon: 4d}{lat: 10.4f}{lon: 10.4f}"
                         f"{shared_dict['iceconc_grid'][ilat, ilon]: 10.4f}"
                         f"{shared_dict['number_in'][ilat, ilon]: 6d}"
+                        "\n"
                     )
 
         self.log.info("Saved volume to %s", vol_file)

@@ -42,7 +42,6 @@ Date: 05 Sep 2024
 
 import glob
 import os
-from datetime import datetime
 from typing import Dict, Tuple
 
 import numpy as np
@@ -105,8 +104,8 @@ class Algorithm(BaseAlgorithm):
         """
 
         # grid data parameters
-        self.nlats = self.config["shared"]["grid_nlats"]
-        self.nlons = self.config["shared"]["grid_nlons"]
+        self.nlats = self.config["shared"]["nlats"]
+        self.nlons = self.config["shared"]["nlons"]
 
         # ice conc parameters
         self.conc_threshold = self.config["alg_add_ice_extent"]["conc_threshold"]
@@ -181,10 +180,8 @@ class Algorithm(BaseAlgorithm):
         # Get the middle time stamp and get the corresponding external file
         # This probably isn't what andy does, but because he might have a different way of merging
         # files, it is probably good enough
-        time = l1b["measurement_time"][:]
-        mid_timestamp = np.sort(time)[(len(time) // 2)]
 
-        file_date = datetime.fromtimestamp(int(mid_timestamp)).strftime("%Y%m%d")
+        file_date = l1b.f_time + "15"
 
         if self.most_recent_file["date"] == file_date:
             # If date is the same as the most recent file date, get values from dict
@@ -221,8 +218,9 @@ class Algorithm(BaseAlgorithm):
 
             sea_ice_extent = np.transpose(np.genfromtxt(file_path))
             file_lat_index = sea_ice_extent[0].astype(int)
+            file_lats = sea_ice_extent[2]
             file_lon_index = sea_ice_extent[1].astype(int)
-            file_values = sea_ice_extent[4] >= self.conc_threshold
+            file_values = (sea_ice_extent[4] >= self.conc_threshold) | (file_lats > 86.6)
 
             inside_grid = (
                 (file_lat_index >= 0)
@@ -264,6 +262,9 @@ class Algorithm(BaseAlgorithm):
         shared_dict["volume_grid"] *= shared_dict["extent_mask"]
         shared_dict["iceconc_grid"] *= shared_dict["extent_mask"]
         shared_dict["area_grid"] *= shared_dict["extent_mask"]
+        shared_dict["number_in"] *= shared_dict["extent_mask"]
+        shared_dict["fill_nin"] *= shared_dict["extent_mask"]
+        shared_dict["fill_flag"] *= shared_dict["extent_mask"]
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

@@ -86,11 +86,12 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-locals
+        # pylint:disable=unpacking-non-sequence
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
-        # pylint:disable=unpacking-non-sequence
         """ Read params from config
         Check cell area file exists
         Read data from file
@@ -98,10 +99,10 @@ class Algorithm(BaseAlgorithm):
 
         # Load params from config
         cell_area_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "cell_area_file.dat"
+            self.config["shared"]["aux_file_path"], "cell_area", "cell_area_file.dat"
         )
-        nlats = self.config["shared"]["grid_nlats"]
-        nlons = self.config["shared"]["grid_nlons"]
+        nlats = self.config["shared"]["nlats"]
+        nlons = self.config["shared"]["nlons"]
 
         # Create projection transform
         crs_input = proj.Proj(self.config["alg_add_cell_area"]["input_projection"])
@@ -126,8 +127,8 @@ class Algorithm(BaseAlgorithm):
         cell_area_lon = cell_area_file[1]
         cell_area_values = cell_area_file[2]
 
-        cell_area_lat_index = ((cell_area_lat - 40) / 0.1).astype(int)
-        cell_area_lon_index = ((cell_area_lon + 180) / 0.5).astype(int)
+        cell_area_lat_index = np.around((cell_area_lat - 40) / 0.1, 0).astype(int)
+        cell_area_lon_index = np.around((cell_area_lon + 180) / 0.5, 0).astype(int)
 
         # Filter to just the points in the area we want
         inside_area = (
@@ -143,7 +144,8 @@ class Algorithm(BaseAlgorithm):
 
         # construct the grid
         self.cell_area_grid = np.zeros((nlats, nlons), dtype=np.float64)
-        self.cell_area_grid[cell_area_lat_index, cell_area_lon_index] = cell_area_values
+        for ilat, ilon, val in zip(cell_area_lat_index, cell_area_lon_index, cell_area_values):
+            self.cell_area_grid[ilat, ilon] = val
 
         # Log details
         self.log.info(

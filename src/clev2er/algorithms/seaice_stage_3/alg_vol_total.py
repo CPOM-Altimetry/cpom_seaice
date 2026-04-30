@@ -130,19 +130,19 @@ class Algorithm(BaseAlgorithm):
         Log totals to access them later """
 
         # total up values
-        shared_dict["total_volume"] = np.sum(shared_dict["volume_grid"])
-        shared_dict["total_fyi_volume"] = np.sum(
+        shared_dict["total_volume"] = np.nansum(shared_dict["volume_grid"])
+        shared_dict["total_fyi_volume"] = np.nansum(
             shared_dict["volume_grid"] * shared_dict["frac_fyi_grid"]
         )
-        shared_dict["total_myi_volume"] = np.sum(
+        shared_dict["total_myi_volume"] = np.nansum(
             shared_dict["volume_grid"] * shared_dict["frac_myi_grid"]
         )
 
-        shared_dict["total_area"] = np.sum(shared_dict["area_grid"])
-        shared_dict["total_fyi_area"] = np.sum(
+        shared_dict["total_area"] = np.nansum(shared_dict["area_grid"])
+        shared_dict["total_fyi_area"] = np.nansum(
             shared_dict["area_grid"] * shared_dict["frac_fyi_grid"]
         )
-        shared_dict["total_myi_area"] = np.sum(
+        shared_dict["total_myi_area"] = np.nansum(
             shared_dict["area_grid"] * shared_dict["frac_myi_grid"]
         )
 

@@ -31,12 +31,58 @@ def grid_points_sum(
         where (np.ndarray, optional): Option to index array using boolean or index array.
             Defaults to None.
     """
+    # if where is None:
+    #     # Can't add to NaNs, make them equal 0 if the grid is NaN
+    #     grid_isnan = np.isnan(grid_array)
+    #     if np.any(grid_isnan[ilats, ilons]):
+    #         grid_points_equals(ilats, ilons, 0, grid_array, grid_isnan[ilats, ilons])
+
+    #     grid_array[ilats, ilons] += z
+    # else:
+    #     grid_isnan = np.isnan(grid_array)
+    #     if np.any(grid_isnan[ilats[where], ilons[where]]):
+    #         grid_points_equals(
+    #             ilats[where], ilons[where], 0, grid_array, grid_isnan[ilats[where], ilons[where]]
+    #         )
+    #     if not isinstance(z, np.ndarray):
+    #         z = np.full_like(ilats, z)
+    #     grid_array[ilats[where], ilons[where]] += z[where]
     if where is None:
-        grid_array[ilats, ilons] += z
+        where = np.full_like(ilats, True).astype(bool)
+    if not isinstance(z, np.ndarray):
+        z = np.full_like(ilats, z)
+    for t_ilat, t_ilon, t_z, t_w in zip(ilats, ilons, z, where):
+        if t_w:
+            if np.isnan(t_z):
+                continue
+            if np.isnan(grid_array[t_ilat, t_ilon]):
+                grid_array[t_ilat, t_ilon] = 0
+            grid_array[t_ilat, t_ilon] += t_z
+
+
+def grid_points_equals(
+    ilats: np.ndarray,
+    ilons: np.ndarray,
+    z: np.ndarray | float | int,
+    grid_array: np.ndarray,
+    where: Optional[np.ndarray] = None,
+):
+    """Function to set values to a 2d gridded array from lat lon values.
+
+    Args:
+        lats (np.ndarray): Latitude values of points
+        lons (np.ndarray): Longitude values of points
+        z (np.ndarray | float | int): Values to be added (accepts singular values)
+        grid_array (np.ndarray): Grid to be added
+        where (np.ndarray, optional): Option to index array using boolean or index array.
+            Defaults to None.
+    """
+    if where is None:
+        grid_array[ilats, ilons] = z
     else:
         if not isinstance(z, np.ndarray):
             z = np.full_like(ilats, z)
-        grid_array[ilats[where], ilons[where]] += z[where]
+        grid_array[ilats[where], ilons[where]] = z[where]
 
 
 @dataclass
@@ -48,6 +94,7 @@ class VariableSpec:
     name: str
     dtype: str
     dimensions: tuple[str, ...]
+    init_value: Any
     compression: Optional[str] = "zlib"
 
 
@@ -98,7 +145,9 @@ class GriddedDataFile(AbstractContextManager):
             )
 
         arrays = {
-            var.name: np.zeros((self.nrows, self.ncols), np.dtype(var.dtype))
+            var.name: np.full(
+                (self.nrows, self.ncols), dtype=np.dtype(var.dtype), fill_value=var.init_value
+            )
             for var in self.variables
         }
         return output_nc, arrays
@@ -133,7 +182,8 @@ class GriddedDataFile(AbstractContextManager):
         Args:
             attributes (Dict[str, Any]): Dictionary of attributes as key-value pairs
         """
-        self.attributes.update(attributes)
+        for key, value in attributes.items():
+            setattr(self.nc, key, value)
 
     def grid_points(
         self,
@@ -177,8 +227,21 @@ class GriddedDataFile(AbstractContextManager):
         ilats, ilons = get_cell_indexes_from_lat_lon(coordinates["lat"], coordinates["lon"])
 
         for var_name, var_data in data.items():
-            mask = None
+            if not isinstance(var_data, np.ndarray):
+                var_data = np.full(
+                    (len(coordinates["lat"])),
+                    fill_value=var_data,
+                    dtype=self.arrays[var_name].dtype,
+                )
+            mask = np.ones_like(var_data, dtype=np.bool_)
+
+            # Don't grid any nans
+            var_is_nan = np.isnan(var_data)
+            if np.any(var_is_nan):
+                mask &= ~var_is_nan
+
+            # If there are any conditions given, mask for them
             if conditions and var_name in conditions:
-                mask = conditions[var_name]
+                mask &= conditions[var_name]
 
             grid_points_sum(ilats, ilons, var_data, self.arrays[var_name], where=mask)

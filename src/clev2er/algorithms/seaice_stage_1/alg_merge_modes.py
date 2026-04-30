@@ -105,6 +105,7 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -210,6 +211,20 @@ class Algorithm(BaseAlgorithm):
         seaice_conc = np.concatenate(
             (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
         )
+
+        # sort data by measurement time
+        sort_order = np.argsort(measurement_time)
+
+        packet_count = packet_count[sort_order]
+        block_number = block_number[sort_order]
+        measurement_time = measurement_time[sort_order]
+        andy_time = andy_time[sort_order]
+        sat_lat = sat_lat[sort_order]
+        sat_lon = sat_lon[sort_order]
+        elevation = elevation[sort_order]
+        lead_floe_class = lead_floe_class[sort_order]
+        valid = valid[sort_order]
+        seaice_conc = seaice_conc[sort_order]
 
         # add the data to the merge file
         output_nc["packet_count"][:] = packet_count

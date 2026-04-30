@@ -113,6 +113,7 @@ class Algorithm(BaseAlgorithm):
         self.most_recent_file: Dict = {"date": ""}
 
         self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
+        self.fill_lat_threshold = self.config["alg_add_si_conc"]["fill_lat_threshold"]
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
         output_projection = self.config["shared"]["output_projection"]
@@ -209,7 +210,18 @@ class Algorithm(BaseAlgorithm):
                 # convert to 0..360 to match shared_dict values
                 file_lons = sea_ice_conc[3] % 360.0
                 file_values = sea_ice_conc[4]
-                file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+                # file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+
+                # Fill NaN values above lat threshold to mean of all lats above threshold
+                lats_above_threshold = (
+                    file_lats > self.fill_lat_threshold
+                )  # get points above threshold
+                values_to_fill = file_values == -999.0  # get unknowns
+                fill_value = np.max(
+                    (np.mean(file_values[lats_above_threshold & ~values_to_fill]), 0)
+                )  # get mean of known above threshold
+                self.log.info("Filling concentrations using mean value - %0.3f", fill_value)
+                file_values[lats_above_threshold & values_to_fill] = fill_value
 
                 # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
                 file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)

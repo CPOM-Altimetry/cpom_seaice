@@ -103,13 +103,18 @@ class Algorithm(BaseAlgorithm):
 
         # Define variables for the gridded data file
         self.variable_specs = [
-            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib"),
-            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib"),
+            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec(
+                "thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
+            ),
+            VariableSpec(
+                "thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
+            ),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
         ]
 
         # --- End of initialization steps ---
@@ -175,17 +180,25 @@ class Algorithm(BaseAlgorithm):
         with GriddedDataFile(
             variables=self.variable_specs,
             filename=grid_file_path,
-            nrows=self.nlons,
-            ncols=self.nlats,
+            nrows=self.nlats,
+            ncols=self.nlons,
         ) as gdf:
             if "f_time" not in gdf.get_attributes():
-                gdf.add_attributes({"f_time", f_time})
+                gdf.add_attributes({"f_time": f_time})
 
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
 
+            sample_not_nan = np.isfinite(shared_dict["thickness"])
+
+            # lon needs to be converted from 0..360 to -180..180
+            # to convert from former to latter, use: (lon + 180) % 360 - 180
+
             gdf.grid_points(
-                coordinates={"lat": l1b["sat_lat"][:].data, "lon": l1b["sat_lon"][:].data},
+                coordinates={
+                    "lat": l1b["sat_lat"][:].data,
+                    "lon": (l1b["sat_lon"][:].data + 180) % 360 - 180,
+                },
                 data={
                     "thickness": shared_dict["thickness"],
                     "iceconc": l1b["seaice_conc"][:].data,
@@ -194,12 +207,15 @@ class Algorithm(BaseAlgorithm):
                     "number_in_fyi": 1,
                     "thickness_myi": shared_dict["thickness"],
                     "number_in_myi": 1,
+                    "freeboard": shared_dict["freeboard"],
                 },
                 conditions={
-                    "thickness_fyi": sample_fyi,
-                    "number_in_fyi": sample_fyi,
-                    "thickness_myi": sample_myi,
-                    "number_in_myi": sample_myi,
+                    "thickness": sample_not_nan,
+                    "number_in": sample_not_nan,
+                    "thickness_fyi": sample_fyi & sample_not_nan,
+                    "number_in_fyi": sample_fyi & sample_not_nan,
+                    "thickness_myi": sample_myi & sample_not_nan,
+                    "number_in_myi": sample_myi & sample_not_nan,
                 },
             )
 

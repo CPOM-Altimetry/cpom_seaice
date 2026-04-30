@@ -1,24 +1,20 @@
-""" Module for interpolating sea levels between sea ice leads.
+"""Module for interpolating sea levels between sea ice leads.
 
-    interp_sea_regression(): Interpolates sea levels between leads using linear regression.
-    
-    Author: Ben Palmer
-    Date: 18 Mar 2024
+interp_sea_regression(): Interpolates sea levels between leads using linear regression.
+
+Author: Ben Palmer
+Date: 18 Mar 2024
 """
 
 import numpy as np
 import numpy.typing as npt
-import pyproj as proj
-from sklearn.linear_model import LinearRegression
 
 
 def interp_sea_regression(
     lats_data: npt.NDArray,
     lons_data: npt.NDArray,
     sea_level_data: npt.NDArray,
-    lead_index: npt.NDArray,
     window_size: float,
-    distance_projection: str = "WGS84",
 ) -> npt.NDArray:
     """Returns an array of interpolated sea levels using linear regression.
 
@@ -44,17 +40,8 @@ def interp_sea_regression(
     """
     # pylint: disable=too-many-arguments
     # pylint: disable=too-many-locals
-    if (
-        lats_data.shape[0] != lons_data.shape[0]
-        and lats_data.shape[0] != sea_level_data.shape[0]
-        and lats_data.shape[0] != lead_index.shape[0]
-    ):
+    if lats_data.shape[0] != lons_data.shape[0] and lats_data.shape[0] != sea_level_data.shape[0]:
         raise ValueError("Input arrays arrays do not have homogenous shape on axis 0.")
-
-    if "bool" not in str(lead_index.dtype).lower():
-        raise ValueError("Lead_index array must contain bool values")
-
-    geod: proj.Geod = proj.Geod(ellps=distance_projection)
 
     out: npt.NDArray = np.zeros(lats_data.shape[0], dtype=int) * np.nan
 
@@ -101,33 +88,83 @@ def interp_sea_regression(
     for idx in range(lats_data.shape[0]):
         nlower = 0
         nupper = 0
-        dist = 0
+        dist = 0.0
 
         x_arr = []
         y_arr = []
 
         for jdx in range(idx, lats_data.shape[0]):
-            if lead_index[jdx]:
+            if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(dist)
                 y_arr.append(sea_level_data[jdx])
                 nupper += 1 if jdx > idx else 0
-            _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            # _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            dist = earth_dist(lats_data[idx], lons_data[idx], lats_data[jdx], lons_data[jdx])
             if dist > window_size:
                 break
 
         for jdx in range(idx, -1, -1):
-            if lead_index[jdx]:
+            if not np.isnan(sea_level_data[jdx]):
                 x_arr.append(-dist)
                 y_arr.append(sea_level_data[jdx])
                 nlower += 1
-            _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            # _, _, dist = geod.inv(lons_data[idx], lats_data[idx], lons_data[jdx], lats_data[jdx])
+            dist = earth_dist(lats_data[idx], lons_data[idx], lats_data[jdx], lons_data[jdx])
             if dist > window_size:
                 break
 
         if nlower > 0 and nupper > 0:
-            lr = LinearRegression().fit(X=np.asarray(x_arr).reshape(-1, 1), y=np.asarray(y_arr))
-            out[idx] = lr.predict([[0]])[0]
+            # lr = LinearRegression().fit(X=np.asarray(x_arr).reshape(-1, 1), y=np.asarray(y_arr))
+            # out[idx] = lr.predict([[0]])[0]
+            _, out[idx] = regress(np.asarray(x_arr), np.asarray(y_arr))
         else:
             out[idx] = np.nan
 
     return out
+
+
+def earth_dist(dlat1, dlon1, dlat2, dlon2) -> float:
+    """Finds the distance in meters between two points
+
+    Author : Andy Ridout 13-OCT-2004
+    Translate to Python: Ben Palmer 20-MAY-2025
+
+    Args:
+        dlat1 (float): Latitude in degrees
+        dlon1 (float): Longitude in degrees
+        dlat2 (float): Latitude in degrees
+        dlon2 (float): Longitude in degrees
+
+    Returns:
+        float: distance in meters
+    """
+    lat1, lon1, lat2, lon2 = np.asarray([dlat1, dlon1, dlat2, dlon2]) * np.pi / 180.0
+
+    tmp1 = np.sin(lat1) * np.sin(lat2)
+    tmp2 = np.cos(lat1) * np.cos(lat2)
+    tmp3 = np.cos(lon1 - lon2)
+    return 6356.752 * np.arccos(tmp1 + (tmp2 * tmp3)) * 1000
+
+
+def regress(x_arr: np.ndarray, y_arr: np.ndarray) -> tuple:
+    """Fits a straight line through data by linear regression
+
+    Author: Andy Ridout 11-MAR-2005
+    Translate to Python: Ben Palmer 20-MAY-2025
+
+    Args:
+        x_arr (np.ndarray): Array of X values
+        y_arr (np.ndarray): Array of Y values
+
+    Returns:
+        m: gradient of fitted line
+        c: y-intercept of fitted line
+    """
+    xy = np.sum(x_arr * y_arr)
+    x2 = np.sum(x_arr**2)
+    x = np.sum(x_arr)
+    y = np.sum(y_arr)
+
+    c = ((xy * x) - (x2 * y)) / ((x * x) - (x_arr.size * x2))
+    m = (xy - (x * c)) / x2
+    return m, c

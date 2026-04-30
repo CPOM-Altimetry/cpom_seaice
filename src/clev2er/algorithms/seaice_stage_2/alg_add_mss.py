@@ -34,7 +34,6 @@ import os
 from typing import Tuple
 
 import numpy as np
-import pyproj as proj
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -90,22 +89,12 @@ class Algorithm(BaseAlgorithm):
 
         # Load MSS config
         mss_file_path = self.config["alg_add_mss"]["mss_file"]
-        buffer = self.config["alg_add_mss"]["mss_buffer"]
-        max_lat = self.config["shared"]["max_latitude"]
-        max_lon = self.config["shared"]["max_longitude"]
-        min_lat = self.config["shared"]["min_latitude"]
-        min_lon = self.config["shared"]["min_longitude"]
 
         self.delta = self.config["alg_add_mss"]["delta"]
-        self.lonmin = self.config["alg_add_mss"]["lonmin"]
-        self.latmin = self.config["alg_add_mss"]["latmin"]
+        self.lonmin = self.config["alg_add_mss"]["mss_lon_min"]
+        self.latmin = self.config["alg_add_mss"]["mss_lat_min"]
         self.nlats = self.config["alg_add_mss"]["nlats"]
         self.nlons = self.config["alg_add_mss"]["nlons"]
-
-        # Create projection transform
-        crs_input = proj.Proj(self.config["alg_add_mss"]["input_projection"])
-        crs_output = proj.Proj(self.config["shared"]["output_projection"])
-        self.lonlat_to_xy = proj.Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
         # Load MSS file
         self.log.info("\tLoading MSS from %s", mss_file_path)
@@ -117,34 +106,20 @@ class Algorithm(BaseAlgorithm):
 
         mss_values = mss_file[2]
         mss_lat = mss_file[1]
-        mss_lon = mss_file[0]
-        mss_lon_adjusted = mss_lon % 360
+        mss_lon = mss_file[0] % 360
 
-        # Filter MSS to correct area
-        inside_area = (
-            (mss_lat > min_lat - buffer)
-            & (mss_lat < max_lat + buffer)
-            & (mss_lon_adjusted > min_lon - buffer)
-            & (mss_lon_adjusted < max_lon + buffer)
-        )
+        self.mss_grid = np.full((self.nlats, self.nlons), fill_value=np.nan)
 
-        # Assemble KDTree
-        mss_lat = mss_lat[inside_area]
-        mss_lon = mss_lon[inside_area]
-        mss_vals = mss_values[inside_area]
-
-        fdxlat = (((mss_lat - self.latmin) / self.delta) + 0.5).astype(int)
-        fdxlon = (((mss_lon - self.lonmin) / self.delta) + 0.5).astype(int)
-
-        if np.any((0 > fdxlat) & (fdxlat >= self.nlats)):
-            self.log.error("fdxlat contains out of bounds values")
-            raise RuntimeError("fdxlat out of bounds")
-        if np.any((0 > fdxlon) & (fdxlon >= self.nlons)):
-            self.log.error("fdxlon contains out of bounds values")
-            raise RuntimeError("fdxlon out of bounds")
-
-        self.mss_grid = np.zeros((self.nlats, self.nlons), dtype=np.float64)
-        self.mss_grid[fdxlat, fdxlon] = mss_vals
+        for lat, lon, val in zip(mss_lat, mss_lon, mss_values):
+            fdxlat = (lat - self.latmin) / self.delta
+            fdxlon = (lon - self.lonmin) / self.delta
+            if 0 > fdxlat >= self.nlats:
+                self.log.error("fdxlat contains out of bounds values")
+                raise RuntimeError("fdxlat out of bounds")
+            if 0 > fdxlon >= self.nlons:
+                self.log.error("fdxlon contains out of bounds values")
+                raise RuntimeError("fdxlon out of bounds")
+            self.mss_grid[int(fdxlat + 0.5)][int(fdxlon + 0.5)] = val
 
         # --- End of initialization steps ---
 
