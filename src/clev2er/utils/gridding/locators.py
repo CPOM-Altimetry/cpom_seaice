@@ -34,7 +34,7 @@ def get_lat_lon_from_cell_indexes(ilat: int, ilon: int) -> tuple[float, float]:
     Returns:
         tuple[float, float]: tuple of (lats, lons)
     """
-    lat = 40 + (ilat * 0.1)
-    lon = -180 + (ilon * 0.5)
+    lat = 40 + ilat * 0.1
+    lon = -180 + ilon * 0.5
 
     return lat, lon

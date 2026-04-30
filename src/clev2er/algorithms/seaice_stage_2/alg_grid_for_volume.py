@@ -9,18 +9,13 @@ Combines files into grids for each month
 #Main initialization (init() function) steps/resources required
 
 Read params from config
+Create variable specifications
 
 #Main process() function steps
 
-Check if grid file for month exists
-If not, create empty nc file and empty numpy arrays for thickness, conc, volume, thick_fyi,
-thick_myi, fraction of fyi and myi, counts, and fill values
-If it does, load existing values from grid file
-Get grid index from location data
-Add thickness and ice concentration values to relevant grid cells
-Increment number of samples inside by 1 each time
-Do the same with fyi and myi thickness
-Save variables to output grid file
+Set output file name and path
+Open GriddedFile with file path and variable specs
+Grid the valid data points
 
 #Main finalize() function steps
 
@@ -28,21 +23,22 @@ None
 
 #Contribution to shared_dict
 
-grid_file_name
-
 #Requires from shared_dict
 
-requirements
+shared_dict["freeboard"]
+shared_dict["seaice_type"]
+shared_dict["thickness"]
+shared_dict["valid"]
 
 Author: Ben Palmer
 Date: 19 Sep 2024
 """
 
 import os
-from datetime import datetime
 from typing import Tuple
 
 import numpy as np
+from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -101,20 +97,20 @@ class Algorithm(BaseAlgorithm):
         self.nlons = self.config["shared"]["grid_nlons"]
         self.grid_directory = self.config["alg_grid_for_volume"]["grid_directory"]
 
+        if not os.path.isdir(self.grid_directory):
+            self.log.info("Creating grid directory...")
+            os.mkdir(self.grid_directory)
+
         # Define variables for the gridded data file
         self.variable_specs = [
-            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("freeboard", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("thickness", "f8", ("lat", "lon"), compression="zlib", init_value=0),
-            VariableSpec(
-                "thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
-            ),
-            VariableSpec(
-                "thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan
-            ),
-            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=np.nan),
+            VariableSpec("thickness_fyi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("thickness_myi", "f8", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_fyi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
             VariableSpec("number_in_myi", "i4", ("lat", "lon"), compression="zlib", init_value=0),
+            VariableSpec("iceconc", "f8", ("lat", "lon"), compression="zlib", init_value=0),
         ]
 
         # --- End of initialization steps ---
@@ -158,25 +154,18 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ 
-            Check if grid file for month exists
-            If not, create empty nc file and empty numpy arrays for thickness, conc, volume, 
-            thick_fyi, thick_myi, fraction of fyi and myi, counts, and fill values
-            If it does, load existing values from grid file
-            Get grid index from location data
-            Add thickness and ice concentration values to relevant grid cells
-            Increment number of samples inside by 1 each time
-            Do the same with fyi and myi thickness
-            Save variables to output grid file
-        """
-
         # Set up output file
-        f_time = datetime.fromtimestamp(np.min(l1b["measurement_time"]).astype(int)).strftime(
-            "%Y%m"
-        )
-        grid_file_name = f"{f_time}_grids.nc"
-        grid_file_path = os.path.join(self.grid_directory, grid_file_name)
+        f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
 
+        # group files by year
+        year_dir = os.path.join(self.grid_directory, f_time[:4])
+        if not os.path.isdir(year_dir):
+            os.mkdir(year_dir)
+
+        grid_file_name = f"{f_time}_grids.nc"
+        grid_file_path = os.path.join(year_dir, grid_file_name)
+
+        # open gridded data file
         with GriddedDataFile(
             variables=self.variable_specs,
             filename=grid_file_path,
@@ -189,7 +178,14 @@ class Algorithm(BaseAlgorithm):
             sample_fyi = shared_dict["seaice_type"] == 2
             sample_myi = shared_dict["seaice_type"] == 3
 
-            sample_not_nan = np.isfinite(shared_dict["thickness"])
+            # valid samples are where the thickness value is finite and where valid == True
+            sample_valid = np.isfinite(shared_dict["thickness"]) & shared_dict["valid"].astype(
+                np.bool_
+            )
+
+            self.log.info("Number of valid samples: %d", np.sum(sample_valid))
+            self.log.info("Number of FYI samples: %d", np.sum(sample_fyi & sample_valid))
+            self.log.info("Number of MYI samples: %d", np.sum(sample_myi & sample_valid))
 
             # lon needs to be converted from 0..360 to -180..180
             # to convert from former to latter, use: (lon + 180) % 360 - 180
@@ -210,12 +206,14 @@ class Algorithm(BaseAlgorithm):
                     "freeboard": shared_dict["freeboard"],
                 },
                 conditions={
-                    "thickness": sample_not_nan,
-                    "number_in": sample_not_nan,
-                    "thickness_fyi": sample_fyi & sample_not_nan,
-                    "number_in_fyi": sample_fyi & sample_not_nan,
-                    "thickness_myi": sample_myi & sample_not_nan,
-                    "number_in_myi": sample_myi & sample_not_nan,
+                    "thickness": sample_valid,
+                    "iceconc": sample_valid,
+                    "number_in": sample_valid,
+                    "thickness_fyi": sample_fyi & sample_valid,
+                    "number_in_fyi": sample_fyi & sample_valid,
+                    "thickness_myi": sample_myi & sample_valid,
+                    "number_in_myi": sample_myi & sample_valid,
+                    "freeboard": sample_valid,
                 },
             )
 

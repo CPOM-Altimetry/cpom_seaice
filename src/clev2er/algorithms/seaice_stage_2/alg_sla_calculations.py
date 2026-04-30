@@ -161,7 +161,7 @@ class Algorithm(BaseAlgorithm):
 
         interp_sla = interp_sea_regression(
             l1b["sat_lat"][:].data,
-            ((l1b["sat_lon"][:].data - 180) % 360) - 180,
+            ((l1b["sat_lon"][:].data + 180) % 360) - 180,
             lead_sla,
             self.window_range * 1000,  # convert window_range from km to m
         )

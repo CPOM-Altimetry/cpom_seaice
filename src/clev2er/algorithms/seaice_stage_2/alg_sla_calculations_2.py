@@ -1,58 +1,52 @@
-"""clev2er.algorithms.seaice.alg_warren_snow_means.py
+"""clev2er.algorithms.seaice_stage_1.alg_sla_calculations.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Adds snow depth and density values for each record to shared_mem. These values are precomputed
-and loaded from an auxilliary file 'warren_means.dat'.
-
+Calculates sea level anomaly (SLA) using elevation and MSS. Removes SLA values greater than 20m
+or less than -20m. This version uses a sklearn.BallTree to find the points used in the 
+SLA interpolation, and has a 
 
 #Main initialization (init() function) steps/resources required
 
-Check warren_means.dat exists and is readable
-Open file
-read file data to memory
-Close file
+Get parameters from config file
 
 #Main process() function steps
 
-Determine which records have an ice type of 2 (First year ice)
-and which have a type of 3 (Multi-year ice)
-Create snow_depth array of np.nans (all records with ice types other than 2 or 3 will remain np.nan)
-Create snow_density array of np.nans
-Determine the month of each measurement from the time
-Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-If ice_type is 2, divide snow_depth by 2
-Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-Save snow_depth and snow_density to shared_mem
-
-#Main finalize() function steps
-
-None
+Find the raw SLA by subtracting elevation and mss
+Remove any values outside of clipping range
+Interpolate SLA between lead values using interp_sla
+Filter out leads where the SLA is outside of the acceptable range
+If leads in track have a mean SLA outside of limit, skip it
 
 #Contribution to shared_dict
 
-snow_depth : np.ndarray[float] = Precomputed mean snow depth
-snow_density : np.ndarray[float] = Precomputed mean snow density
+'raw_sea_level_anomaly'
+'smoothed_sea_level_anomaly'
+'lead_indx'
+'indx_lead_sla_inside_range'
 
 #Requires from shared_dict
 
-seaice_type
+'elevation'
+'mss'
+'lead_floe_class'
+'sat_lat'
+'sat_lon'
 
 Author: Ben Palmer
-Date: 04 Sep 2024
+Date: 12 Mar 2024
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
-from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.geo.interp_sea import interp_sea_regression_tree
 
 
 class Algorithm(BaseAlgorithm):
@@ -98,24 +92,11 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        # Check warren_means.dat exists and is readable
-        # Open file
-        # read file data to memory
-        # Close file
-
-        warren_means_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
-        )
-
-        self.log.info("\tLoading warren_means.dat...")
-        if not os.path.exists(warren_means_file_path):
-            raise FileNotFoundError(
-                f"Cannot find warren_means.dat in {self.config['shared']['aux_file_path']}"
-            )
-
-        _, self.wm_depth, self.wm_density = np.transpose(np.genfromtxt(warren_means_file_path))
-
-        self.log.info("\tLoaded data successfully!")
+        # SLA related values
+        self.raw_sla_clip_value = self.config["alg_sla_calculations"]["raw_sla_clip_value"]
+        self.sla_track_limit = self.config["alg_sla_calculations"]["sla_track_limit"]
+        self.lead_sample_limit = self.config["alg_sla_calculations"]["lead_sample_limit"]
+        self.window_range = self.config["alg_sla_calculations"]["window_range"]
 
         # --- End of initialization steps ---
 
@@ -123,8 +104,6 @@ class Algorithm(BaseAlgorithm):
 
     @Timer(name=__name__, text="", logger=None)
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
-        # pylint: disable=too-many-locals
-        # pylint: disable=unpacking-non-sequence
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -145,6 +124,7 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=too-many-locals
 
         # This step is required to support multi-processing. Do not modify
         success, error_str = self.process_setup(l1b)
@@ -153,41 +133,85 @@ class Algorithm(BaseAlgorithm):
 
         # -------------------------------------------------------------------
         # Perform the algorithm processing, store results that need to be passed
-        # /    down the chain in the 'shared_dict' dict     /
+        # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        # Determine which records have an ice type of 2 (First year ice)
-        # and which have a type of 3 (Multi-year ice)
-        # Create snow_depth array of np.nans (all records with ice types other than 2
-        # or 3 will remain np.nan)
-        # Create snow_density array of np.nans
-        # Determine the month of each measurement from the time
-        # Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-        # If ice_type is 2, divide snow_depth by 2
-        # Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-        # Save snow_depth and snow_density to shared_mem
+        lead_indx = l1b["lead_floe_class"][:].data == 2
+        original_flag = lead_indx
+        if np.sum(lead_indx) == 0:
+            self.log.info("No leads in file, unable to interpolate sea elevation")
+            return (False, "SKIP_OK")
 
-        has_fyi = shared_dict["seaice_type"] == 2
-        has_mfi = shared_dict["seaice_type"] == 3
+        raw_sla = l1b["elevation"][:].data - shared_dict["mss"]
 
-        # set all values to nans, anything that isnt fyi or mfi will remain unset
-        snow_depth = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
-        snow_density = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
-
-        measurement_months = (
-            Time(l1b["measurement_time"][:].data, format="unix_tai").strftime("%m").astype(int) - 1
+        # Remove values -clip<x<clip
+        # From Andy:
+        # Rejected anything more than 3m from MSS. A histogram
+        # of SLA from specular echoes for cycle 013 shows almost
+        # no data above +2m and below -1m.
+        sla_outside_range = (raw_sla > self.raw_sla_clip_value) | (
+            raw_sla < -self.raw_sla_clip_value
         )
-        # Subtract 1 from the month so they match the indexes for the depth and density
+        raw_sla[sla_outside_range] = np.nan
+        # original_flag[sla_outside_range] = False
 
-        # get the depth values for fyi and myi
-        snow_depth[(has_fyi | has_mfi)] = self.wm_depth[measurement_months][(has_fyi | has_mfi)]
-        snow_depth[has_fyi] /= 2  # if fyi, divide depth by 2
-        # get the density values for fyi and myi
-        snow_density[(has_fyi | has_mfi)] = self.wm_density[measurement_months][(has_fyi | has_mfi)]
+        lead_sla = np.full_like(raw_sla, fill_value=np.nan)
+        lead_sla[lead_indx] = raw_sla[lead_indx]
 
-        # save to shared_dict
-        shared_dict["snow_depth"] = snow_depth
-        shared_dict["snow_density"] = snow_density
+        self.log.info("Number of NaNs in Raw SLA - %d", sum(np.isnan(lead_sla)))
+
+        interp_sla = interp_sea_regression_tree(
+            l1b["sat_lat"][:].data,
+            ((l1b["sat_lon"][:].data + 180) % 360) - 180,
+            lead_sla,
+            self.window_range,  # convert window_range from km to m
+            earth_radius=6356.752,
+        )
+
+        if interp_sla.size == 0 or np.isnan(interp_sla).all():
+            self.log.info("No SLA values found, skipping file")
+            return (False, "SKIP_OK")
+
+        self.log.info(
+            "Interpolated sea elevation - Mean=%.3f Count=%d NaN=%d",
+            np.nanmean(interp_sla),
+            interp_sla.shape[0],
+            sum(np.isnan(interp_sla)),
+        )
+
+        # find lead samples where sla is inside acceptable range
+        indx_lead_sla_outside_range = (
+            (interp_sla > self.lead_sample_limit) | (interp_sla < -self.lead_sample_limit)
+        ) & lead_indx
+
+        self.log.info("Leads with SLA outside of range - %d", np.sum((indx_lead_sla_outside_range)))
+
+        # remove leads with SLAs outside of acceptable values
+        interp_sla[indx_lead_sla_outside_range] = np.nan
+
+        # skip track if mean SLA of leads is outside of limit
+        mean_sla = np.nanmean(interp_sla)
+        if mean_sla > self.sla_track_limit or mean_sla < -self.sla_track_limit:
+            self.log.info("Mean SLA is outside of acceptable range - %f", mean_sla)
+            self.log.info("Skipping file...")
+            return (False, "SKIP_OK")
+
+        smoothed_sla = interp_sla
+
+        self.log.info(
+            "SLA - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
+            np.nanmean(smoothed_sla),
+            np.nanstd(smoothed_sla),
+            np.nanmin(smoothed_sla),
+            np.nanmax(smoothed_sla),
+            smoothed_sla.shape[0],
+            sum(np.isnan(lead_sla)),
+        )
+
+        shared_dict["raw_sea_level_anomaly_tree"] = lead_sla
+        shared_dict["smoothed_sea_level_anomaly"] = smoothed_sla
+        shared_dict["lead_indx_tree"] = lead_indx
+        shared_dict["original_flag_r"] = original_flag
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -210,7 +234,7 @@ class Algorithm(BaseAlgorithm):
             self.filenum,
         )
         # ---------------------------------------------------------------------
-        # Add finalization steps here /
+        # Add finalization steps here \/
         # ---------------------------------------------------------------------
 
         # None

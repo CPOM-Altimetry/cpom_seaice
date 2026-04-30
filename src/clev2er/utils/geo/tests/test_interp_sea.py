@@ -6,7 +6,12 @@ Date: 18 Mar 2024
 
 import numpy as np
 
-from clev2er.utils.geo.interp_sea import earth_dist, interp_sea_regression, regress
+from clev2er.utils.geo.interp_sea import (
+    earth_dist,
+    interp_sea_regression,
+    interp_sea_regression_tree,
+    regress,
+)
 
 
 def test_interp_sea_regression() -> None:
@@ -23,6 +28,35 @@ def test_interp_sea_regression() -> None:
     sea_level = np.arange(1000, 1200)
 
     interp_sla = interp_sea_regression(lats, lons, sea_level, window_size=100000)
+
+    assert isinstance(
+        interp_sla, np.ndarray
+    ), f"Output is not a numpy ndarray - found {type(interp_sla)}"
+    assert (
+        "float" in str(interp_sla.dtype).lower()
+    ), f"Output array does not contain float values - found {interp_sla.dtype}"
+    assert lats.shape[0] == interp_sla.shape[0], "Output is not the same length as input"
+    assert np.nanmax(interp_sla) < np.nanmax(sea_level) and np.nanmin(interp_sla) > np.nanmin(
+        sea_level
+    ), "Output array contains values outside of given range"
+
+
+def test_interp_sea_regression_tree() -> None:
+    """Test for interp_sea_regression
+
+    Test plan:
+    Generate fake lat, lon, sea_level and lead arrays.
+    Check that output is an array of floats,
+    Check that output is the same size as inputs.
+    Check that output contains values within the accepted ranges.
+    """
+    lats = np.arange(60, 80, 0.1)
+    lons = np.arange(200, 220, 0.1)
+    sea_level = np.arange(1000, 1200)
+
+    interp_sla = interp_sea_regression_tree(
+        lats, lons, sea_level, window_size=100, earth_radius=6356.752
+    )
 
     assert isinstance(
         interp_sla, np.ndarray

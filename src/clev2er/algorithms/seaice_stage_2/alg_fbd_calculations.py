@@ -8,22 +8,27 @@ Calculates the freeboard height for each sample.
 
 #Main initialization (init() function) steps/resources required
 
-Get window_size config option
+Get config options
 
 #Main process() function steps
 
-Interpolate ocean surface elevation between leads.
-Subtract interpolated ocean surface from elevation.
-Save to shared_dict
+Create valid dictionary
+Calculate freeboard
+Set non-floe measurements to nan/invalid
+Correct freeboard with snow depth
+Set out of range freeboard values to nan/invalid
 
 #Contribution to shared_dict
 
 'freeboard' (np.ndarray[float]) : array of freeboard values
+'freeboard_corr' (np.ndarray[float]) : array of corrected freeboard values
+'valid' (np.ndarray[bool]) : array of bools where True is a valid sample
 
 #Requires from shared_dict
 
-'sea_level_anomaly'
-'smoothed_sea_level_anomaly'
+shared_dict["mss"]
+shared_dict["smoothed_sea_level_anomaly"]
+shared_dict["snow_depth"]
 
 Author: Ben Palmer
 Date: 21 Mar 2024
@@ -123,14 +128,20 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
+        # create a valid index, starting with the one in the l1b file
+        shared_dict["valid"] = l1b["valid"][:].data.astype(np.bool_)
+
+        # calculate freeboard
         freeboard = (
             l1b["elevation"][:].data
             - shared_dict["mss"]
             - shared_dict["smoothed_sea_level_anomaly"]
         )
 
+        # Set any measurements that arent floes to invalid and nan
         floe_indx = l1b["lead_floe_class"][:].data == 3
         freeboard[~floe_indx] = np.nan
+        shared_dict["valid"][~floe_indx] = False
 
         self.log.info(
             "Freeboard - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
@@ -148,7 +159,15 @@ class Algorithm(BaseAlgorithm):
         )
 
         # discard any samples outside of sensible range
-        freeboard_corr[(freeboard_corr < self.fb_min) | (freeboard_corr > self.fb_max)] = np.nan
+        invalid_corrected_freeboard = (freeboard_corr < self.fb_min) | (
+            freeboard_corr > self.fb_max
+        )
+        freeboard_corr[invalid_corrected_freeboard] = np.nan
+        shared_dict["valid"][invalid_corrected_freeboard] = False
+
+        if np.isnan(freeboard_corr).all():
+            self.log.info("No valid freeboard measurements")
+            return (False, "SKIP_OK")
 
         self.log.info(
             "Freeboard(Corrected) - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",

@@ -12,8 +12,8 @@ Load in parameters from config
 
 #Main process() function steps
 
-Compute thickness with snow depth
-
+Create ice density depending on sea ice type
+Calculate thickness
 
 #Main finalize() function steps
 
@@ -25,7 +25,7 @@ thickness: np.ndarray[np.float32] = ice thickness of each sample
 
 #Requires from shared_dict
 
-freeboard
+freeboard_corr
 seaice_type
 snow_depth
 snow_density
@@ -134,14 +134,20 @@ class Algorithm(BaseAlgorithm):
 
         """ Compute thickness with snow depth """
 
-        ice_densities = np.zeros(l1b["measurement_time"][:].size) * np.nan
+        # set ice density based on ice type
+        ice_densities = np.full(l1b["measurement_time"][:].size, np.nan)
         ice_densities[shared_dict["seaice_type"] == 2] = self.rho_fyi
         ice_densities[shared_dict["seaice_type"] == 3] = self.rho_myi
 
+        # calculate thickness
         thickness = (
             (shared_dict["snow_depth"] * shared_dict["snow_density"])
             + (shared_dict["freeboard_corr"] * self.rho_sea)
         ) / (self.rho_sea - ice_densities)
+
+        if np.isnan(thickness).all():
+            self.log.info("No valid thickness measurements")
+            return (False, "SKIP_OK")
 
         self.log.info(
             "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",

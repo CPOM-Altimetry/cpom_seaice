@@ -8,21 +8,19 @@ Adds the MSS values for each sample to the shared dict.
 
 #Main initialization (init() function) steps/resources required
 
-Read the MSS file location from config and load into a KDTree
+Read the MSS file location from config and load into a grid
 
 #Main process() function steps
 
 Match each sample to the correct MSS value
-Subtract the MSS and retracker bias from the elevation for each sample
+Add MSS to shared dictionary
 
 #Contribution to shared_dict
 
-elevation_corrected (np.ndarray) : array of elevations after mss and retracker bias
-    have been removed
+mss (np.ndarray) : array of mean sea surface values for each sample
 
 #Requires from shared_dict
 
-elevation
 sat_lat
 sat_lon
 
