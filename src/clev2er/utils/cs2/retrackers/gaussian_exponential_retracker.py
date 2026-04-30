@@ -225,8 +225,8 @@ def _jacgexp(x, a, x0, sigma, k):
 def _get_fit_qual(
     a: float,
     x0: int,
-    waveform: npt.NDArray[np.float_],
-    best_fit_waveform: npt.NDArray[np.float_],
+    waveform: npt.NDArray[np.double],
+    best_fit_waveform: npt.NDArray[np.double],
     n_bins: int = 5,
 ):
     """Generates score of fit quality
