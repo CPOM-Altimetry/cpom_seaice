@@ -6,6 +6,10 @@ Algorithm class module, used to implement a single chain algorithm
 
 Uses a nearest neighbour search to fill in missing volume measurements
 
+NOTE: This version is experimental, and uses nearest neighbour trees to find the nearest
+grid cells to fill from. This version doesn't work exactly how we want it yet, and needs
+further work to improve it.
+
 #Main initialization (init() function) steps/resources required
 
 Read config options
@@ -22,20 +26,11 @@ None
 
 #Contribution to shared_dict
 
-fill_thk : np.ndarray[float] - Grid of fill values for empty thickness cells  
-fill_nin : np.ndarray[float] - Grid of fill values for the number of samples in each cell
-fill_flag : np.ndarray[float] - Grid of flags to show which grid cells have been filled
+contributions
 
 #Requires from shared_dict
 
-shared_dict["area_grid"]
-shared_dict["frac_fyi_grid"]
-shared_dict["frac_myi_grid"]
-shared_dict["gaps"]
-shared_dict["iceconc_grid"]
-shared_dict["number_in"]
-shared_dict["thickness_grid"]
-shared_dict["volume_grid"]
+requirements
 
 Author: Ben Palmer
 Date: 06 Jan 2025
@@ -48,10 +43,9 @@ import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import CRS
+from sklearn.neighbors import BallTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-from clev2er.utils.geo.interp_sea import earth_dist
-from clev2er.utils.gridding.locators import get_lat_lon_from_cell_indexes
 
 warnings.filterwarnings("error")
 
@@ -109,6 +103,8 @@ class Algorithm(BaseAlgorithm):
         self.nn_radius = self.config["alg_vol_fill_nn"]["nn_radius"]
         self.projection = self.config["alg_vol_fill_nn"]["working_projection"]
 
+        self.earth_radius = 6356.752
+
         self.geod = CRS(self.projection).get_geod()
 
         # --- End of initialization steps ---
@@ -123,6 +119,7 @@ class Algorithm(BaseAlgorithm):
         # pylint: disable=too-many-nested-blocks
         # pylint: disable=unpacking-non-sequence
         # pylint: disable=pointless-string-statement
+        # pylint: disable=unbalanced-tuple-unpacking
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -169,129 +166,78 @@ class Algorithm(BaseAlgorithm):
 
         # fill statistics
         fill_flag = np.zeros((self.nlats, self.nlons), dtype=np.int32)
-        n_cells_processed = 0
         n_cells_filled = 0
 
         # ==========================================================================================
         # Compute nearest neighbour interpolation for empty cells
         # ==========================================================================================
-        print_next_percent = False
         self.log.info("Computing nearest neighbour interpolation...")
 
-        ilat = 0
-        ilon = 0
+        lats = np.arange(0, self.nlats)
+        lons = np.arange(0, self.nlons)
 
-        lat0, lon0 = get_lat_lon_from_cell_indexes(ilat, ilon)
-        # find the number of lats to search around the target cell
-        for ilat in range(1, self.nlats + 1):
-            lat, lon = get_lat_lon_from_cell_indexes(ilat, ilon)
-            dist = earth_dist(lat, lon, lat0, lon0)
-            if dist > self.nn_radius:
-                break
-            if ilat == self.nlats:
-                return (False, "ERROR_NN_SEARCH_RADIUS")
+        lon_mesh, lat_mesh = np.meshgrid(lons, lats)
 
-        search_lat_range = ilat + 1
+        lon_mesh = -180 + lon_mesh * 0.5
+        lat_mesh = 40 + lat_mesh * 0.1
 
-        # this part is O(n^4), there must be a better way to do this?
-        for ilat in range(self.nlats):
-            # define latitude search area
-            search_lat_min = np.max((ilat - search_lat_range, 0))
-            search_lat_max = np.min((ilat + search_lat_range, self.nlats))
+        all_points = np.transpose([lat_mesh.flatten(), lon_mesh.flatten()]) * np.pi / 180
 
-            # skip if there are no useful values in search area
-            if (shared_dict["number_in"][search_lat_min:search_lat_max, :] == 0).all():
-                n_cells_processed += self.nlons
+        valid_fill_values = shared_dict["number_in"].flatten() > 0
+        tree_where = np.where(valid_fill_values)[0]
+        tree_points = all_points[valid_fill_values]
+
+        file_point_tree = BallTree(tree_points, metric="haversine")
+        neighbour_distances, file_neighbouring_indices = file_point_tree.query_radius(
+            all_points,
+            self.nn_radius / self.earth_radius,
+            return_distance=True,
+        )
+        neighbour_distances = neighbour_distances * self.earth_radius  # convert to km
+
+        for index, (distances, neighbours) in enumerate(
+            zip(neighbour_distances, file_neighbouring_indices)
+        ):
+            if len(distances) == 0:
                 continue
 
-            lat0, lon0 = get_lat_lon_from_cell_indexes(ilat, ilon)
+            ilat, ilon = np.unravel_index(index, (self.nlats, self.nlons))
+            if shared_dict["number_in"][ilat, ilon] > 0:
+                continue
 
-            # finding the number of lons to seach for around the target cell
-            for ilon in range(1, self.nlons):
-                lat, lon = get_lat_lon_from_cell_indexes(ilat, ilon)
-                dist = earth_dist(lat, lon, lat0, lon0)
-                if dist > self.nn_radius:
-                    break
-                if ilon == self.nlons:
-                    return (False, "ERROR_NN_SEARCH_RADIUS")
+            closest_neighbour = np.argmin(distances)
 
-            search_lon_range = ilon + 1
+            if distances[closest_neighbour] <= self.nn_radius:
+                closest_point_index = tree_where[neighbours[closest_neighbour]]
 
-            for ilon in range(self.nlons):
-                # This part is to make sure it runs properly
-                # Prints progress once it reaches a percentage of competion that a
-                # multiple of 5, then waits until it reaches the next multiple of five
-                # to log the progress again
-                n_cells_processed += 1
-                percent_processed = (n_cells_processed / self.ncells) * 100
-                if (percent_processed // 1) % 5 == 0 and print_next_percent:
-                    self.log.info(
-                        "%d cells processed (%0.1f)", n_cells_processed, percent_processed
+                iilat, iilon = np.unravel_index(closest_point_index, (self.nlats, self.nlons))
+
+                if ilat == 289 and ilat == 448:
+                    print(index, closest_point_index)
+                    print(
+                        distances[closest_neighbour],
+                        (ilat, ilon),
+                        (iilat, iilon),
+                        shared_dict["number_in"][iilat, iilon],
                     )
-                    print_next_percent = False
-                if (percent_processed // 1) % 5 != 0 and not print_next_percent:
-                    print_next_percent = True
 
-                # skips if the cell already has values in it
-                if shared_dict["number_in"][ilat, ilon] > 0:
-                    continue
-
-                # specifying longitude search area
-                search_lon_min = np.max((ilon - search_lon_range, 0))
-                search_lon_max = np.min((ilon + search_lon_range, self.nlons))
-
-                # skips if all cells in the search area don't contain anything useful
-                if (
-                    shared_dict["number_in"][
-                        search_lat_min:search_lat_max, search_lon_min:search_lon_max
-                    ]
-                    == 0
-                ).all():
-                    continue
-
-                lat_1, lon_1 = get_lat_lon_from_cell_indexes(ilat, ilon)
-
-                # set the distance maximum for the NN search
-                distmin = self.nn_radius
-
-                # finds the closest cell and copies the values over
-                for iilat in range(search_lat_min, search_lat_max):
-                    # skip if there are no useful values in row
-                    if (shared_dict["number_in"][iilat, :] == 0).all():
-                        continue
-
-                    for iilon in range(search_lon_min, search_lon_max):
-                        # don't fill with an empty cell
-                        if shared_dict["number_in"][iilat, iilon] == 0:
-                            continue
-
-                        if ilat == iilat and ilon == iilon:
-                            continue
-
-                        # need to convert indexes to lon lats here
-                        lat_2, lon_2 = get_lat_lon_from_cell_indexes(iilat, iilon)
-
-                        dist = earth_dist(lat_1, lon_1, lat_2, lon_2)
-
-                        if dist < distmin:
-                            distmin = dist
-                            fill_thk[ilat, ilon] = shared_dict["thickness_grid"][iilat, iilon]
-                            fill_conc[ilat, ilon] = shared_dict["iceconc_grid"][iilat, iilon]
-                            fill_vol[ilat, ilon] = shared_dict["volume_grid"][iilat, iilon]
-                            fill_fyi[ilat, ilon] = shared_dict["frac_fyi_grid"][iilat, iilon]
-                            fill_myi[ilat, ilon] = shared_dict["frac_myi_grid"][iilat, iilon]
-                            fill_nin[ilat, ilon] = shared_dict["number_in"][iilat, iilon]
+                fill_thk[ilat, ilon] = shared_dict["thickness_grid"][iilat, iilon]
+                fill_conc[ilat, ilon] = shared_dict["iceconc_grid"][iilat, iilon]
+                fill_vol[ilat, ilon] = shared_dict["volume_grid"][iilat, iilon]
+                fill_fyi[ilat, ilon] = shared_dict["frac_fyi_grid"][iilat, iilon]
+                fill_myi[ilat, ilon] = shared_dict["frac_myi_grid"][iilat, iilon]
+                fill_nin[ilat, ilon] = shared_dict["number_in"][iilat, iilon]
 
         # ==============================================================================
         # fill in empty cells with nearest neighbour where possible
         # ==============================================================================
         self.log.info("Filling in empty cells...")
-        for ilat in range(self.nlats):
+        for ilat in np.arange(self.nlats):
             # skip row if no useful values exist
             if (fill_nin[ilat, :] == 0).all():
                 continue
 
-            for ilon in range(self.nlons):
+            for ilon in np.arange(self.nlons):
                 if fill_nin[ilat, ilon] > 0:
                     # check we're not trying to fill in a cell which isnt empty
                     if shared_dict["number_in"][ilat, ilon] > 0:

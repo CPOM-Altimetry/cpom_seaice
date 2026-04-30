@@ -21,11 +21,20 @@ None
 
 #Contribution to shared_dict
 
-contributions
+None
 
 #Requires from shared_dict
 
-requirements
+shared_dict["area_grid"]
+shared_dict["frac_fyi_grid"]
+shared_dict["frac_myi_grid"]
+shared_dict["total_area"]
+shared_dict["total_fyi_area"]
+shared_dict["total_fyi_volume"]
+shared_dict["total_myi_area"]
+shared_dict["total_myi_volume"]
+shared_dict["total_volume"]
+shared_dict["volume_grid"]
 
 Author: Ben Palmer
 Date: 06 Jan 2025
