@@ -12,6 +12,7 @@ from datetime import datetime, timedelta  # date and time functions
 from typing import Tuple
 
 import numpy as np
+import numpy.typing as npt
 import pyproj
 from netCDF4 import Dataset  # pylint: disable=no-name-in-module
 from pyproj import Transformer
@@ -37,7 +38,7 @@ def calculate_distances3d(
     y2_array: np.ndarray | list,
     z2_array: np.ndarray | list,
     squared_only=False,
-) -> list[float]:
+) -> npt.NDArray[np.double]:
     """calculates the distances between a  refernce cartesian point (x1,y1,z1) in 3d space
     and a list of other points : x2[],y2[],z2[]
 
@@ -503,7 +504,7 @@ def geolocate_roemer(
                 squared_only=False,
             )
 
-            all_distances = np.array(all_distances_flat).reshape(xdem.shape)
+            all_distances: npt.NDArray = np.array(all_distances_flat).reshape(xdem.shape)
 
             # Step 2: Slide the window over the pre-calculated distance grid
             min_distance = np.inf

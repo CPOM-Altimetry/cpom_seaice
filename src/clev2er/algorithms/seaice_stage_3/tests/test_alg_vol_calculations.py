@@ -98,7 +98,7 @@ def test_vol_calculations(
     # load  file
     grid_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
-    )
+    )[0]
 
     try:
         l1b = Dataset(grid_file)

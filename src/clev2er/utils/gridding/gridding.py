@@ -124,7 +124,7 @@ class GriddedDataFile(AbstractContextManager):
 
         for var in self.variables:
             output_nc.createVariable(
-                var.name, var.dtype, var.dimensions, compression=var.compression
+                var.name, var.dtype, var.dimensions, compression=var.compression  # type: ignore
             )
 
         arrays = {
