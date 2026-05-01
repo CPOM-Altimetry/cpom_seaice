@@ -159,18 +159,11 @@ class Algorithm(BaseAlgorithm):
         block_number = l1b["block_number"][:].data.flatten()
         surface_type = l1b["surface_type"][:].data.flatten()
         concentration = l1b["seaice_conc"][:].data.flatten()
-        valid = l1b["valid"][:].data.flatten().astype(np.bool_) & (concentration > 15.0)
+        valid = l1b["elev_valid"][:].data.flatten().astype(np.bool_) & (concentration > 15.0)
 
-        unique_packet_id = np.full_like(packet_count, np.nan)
-
-        last_packet_id = None
-        id_count = -1  # set to 0 for hte first sample
-        for i, packet_c in enumerate(packet_count):
-            if last_packet_id != packet_c:
-                id_count += 1
-                last_packet_id = packet_c
-
-            unique_packet_id[i] = id_count
+        changes = np.concatenate(([True], packet_count[1:] != packet_count[:-1]))
+        unique_packet_id = np.cumsum(changes) - 1
+        self.log.info("Found %d packets", np.max(unique_packet_id))
 
         block_nine = block_number == 9
         floe_samples = (surface_type == 2) & valid
@@ -178,25 +171,34 @@ class Algorithm(BaseAlgorithm):
         ocean_samples = (surface_type == 1) & valid
         unknown_samples = (surface_type == 0) & ~valid
 
-        n_floe = np.full_like(packet_count, np.nan)
-        n_lead = np.full_like(packet_count, np.nan)
-        n_ocean = np.full_like(packet_count, np.nan)
-        n_unknown = np.full_like(packet_count, np.nan)
+        n_floe = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_lead = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_ocean = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_unknown = np.full_like(packet_count, np.nan, dtype=np.float64)
 
-        for uniq_id in np.unique(unique_packet_id):
-            packet_samples = unique_packet_id == uniq_id
-            packet_block_nine = np.where(packet_samples & block_nine)
+        # Sum per-packet counts for each surface type
+        n_floe_counts = np.bincount(unique_packet_id, weights=floe_samples.astype(float))
+        n_lead_counts = np.bincount(unique_packet_id, weights=lead_samples.astype(float))
+        n_ocean_counts = np.bincount(unique_packet_id, weights=ocean_samples.astype(float))
+        n_unknown_counts = np.bincount(unique_packet_id, weights=unknown_samples.astype(float))
 
-            n_floe[packet_block_nine] = floe_samples & packet_samples
-            n_lead[packet_block_nine] = lead_samples & packet_samples
-            n_ocean[packet_block_nine] = ocean_samples & packet_samples
-            n_unknown[packet_block_nine] = unknown_samples & packet_samples
+        # Assign back only to block_nine positions
+        block_nine_mask = block_nine  # boolean array
+        n_floe[block_nine_mask] = n_floe_counts[unique_packet_id[block_nine_mask]]
+        n_lead[block_nine_mask] = n_lead_counts[unique_packet_id[block_nine_mask]]
+        n_ocean[block_nine_mask] = n_ocean_counts[unique_packet_id[block_nine_mask]]
+        n_unknown[block_nine_mask] = n_unknown_counts[unique_packet_id[block_nine_mask]]
 
         # work out fractions and save to shared_dict
         floe_frac = n_floe / 20
         lead_frac = n_lead / 20
         ocean_frac = n_ocean / 20
         unknown_frac = n_unknown / 20
+
+        self.log.info("Mean floe frac - %0.2f", np.nanmean(floe_frac))
+        self.log.info("Mean leads frac - %0.2f", np.nanmean(lead_frac))
+        self.log.info("Mean ocean frac - %0.2f", np.nanmean(ocean_frac))
+        self.log.info("Mean unknown frac - %0.2f", np.nanmean(unknown_frac))
 
         shared_dict["floe_fraction"] = floe_frac
         shared_dict["lead_fraction"] = lead_frac

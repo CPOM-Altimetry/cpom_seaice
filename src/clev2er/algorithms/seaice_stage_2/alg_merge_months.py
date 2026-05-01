@@ -153,6 +153,7 @@ class Algorithm(BaseAlgorithm):
             == l1b["lead_floe_class"].size
             == l1b["sat_lat"].size
             == l1b["sat_lon"].size
+            == l1b["valid"].size
             == shared_dict["thickness"].size
             == shared_dict["floe_chord_length"].size
             == shared_dict["snow_depth"].size
@@ -169,6 +170,7 @@ class Algorithm(BaseAlgorithm):
                 "lead_floe_class",
                 "sat_lat",
                 "sat_lon",
+                "valid",
             ]:
                 self.log.error("   %s - size=%d", var_name, l1b[var_name].size)
 
@@ -179,6 +181,7 @@ class Algorithm(BaseAlgorithm):
                 "floe_chord_length",
                 "snow_depth",
                 "smoothed_sea_level_anomaly",
+                "valid",
             ]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
@@ -187,7 +190,8 @@ class Algorithm(BaseAlgorithm):
         packet_count = l1b["packet_count"][:].data
         block_number = l1b["block_number"][:].data
         measurement_time = l1b["measurement_time"][:].data
-        sample_valid = shared_dict["valid"].astype(np.bool_)
+        thk_valid = shared_dict["valid"].astype(np.bool_)
+        elev_valid = l1b["valid"][:].data.astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
         floe_chord_length = shared_dict["floe_chord_length"]
@@ -237,7 +241,8 @@ class Algorithm(BaseAlgorithm):
                     output_nc.createVariable(
                         "measurement_time", "f8", ("n_samples",), compression="zlib"
                     )
-                    output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("thk_valid", "b", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("elev_valid", "b", ("n_samples",), compression="zlib")
 
                     output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
@@ -268,7 +273,8 @@ class Algorithm(BaseAlgorithm):
                 measurement_time = np.concatenate(
                     (output_nc["measurement_time"][:], measurement_time)
                 )
-                sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
+                thk_valid = np.concatenate((output_nc["thk_valid"][:], thk_valid))
+                elev_valid = np.concatenate((output_nc["elev_valid"][:], elev_valid))
                 sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
                 sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
                 surface_type = np.concatenate((output_nc["surface_type"][:], surface_type))
@@ -288,7 +294,8 @@ class Algorithm(BaseAlgorithm):
                 output_nc["packet_count"][:] = packet_count
                 output_nc["block_number"][:] = block_number
                 output_nc["measurement_time"][:] = measurement_time
-                output_nc["valid"][:] = sample_valid
+                output_nc["thk_valid"][:] = thk_valid
+                output_nc["elev_valid"][:] = elev_valid
                 output_nc["sat_lat"][:] = sat_lat
                 output_nc["sat_lon"][:] = sat_lon
                 output_nc["surface_type"][:] = surface_type
