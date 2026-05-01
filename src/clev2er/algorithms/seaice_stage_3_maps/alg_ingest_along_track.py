@@ -153,37 +153,44 @@ class Algorithm(BaseAlgorithm):
 
             # Variable specific filtering
             if self.filtering_on:
-                match var_name:
-                    case "thickness":
-                        if "thk_alid" not in l1b.variables:
-                            raise RuntimeError(
-                                "Input file must contain valid variable if filtering thickness"
+                try:
+                    match var_name:
+                        case "thickness":
+                            if "thk_valid" not in l1b.variables:
+                                raise RuntimeError(
+                                    "Input file must contain valid variable if filtering thickness"
+                                )
+                            sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
+                            data[~sample_valid] = np.nan
+                        case "freeboard":
+                            outside_range = (data < -0.3) | (data > 3)
+                            data[outside_range] = np.nan
+                        case "seaice_conc":
+                            outside_range = data < 15.0
+                            data[outside_range] = np.nan
+                        case "snow_depth":
+                            if "freeboard" not in l1b.variables:
+                                raise RuntimeError(
+                                    "Input file must contain freeboard if filtering snow_depth"
+                                )
+                            freeboard = l1b["freeboard"][:].data.flatten()
+                            outside_range = (freeboard < -0.3) | (freeboard > 3)
+                            data[outside_range] = np.nan
+                        case "seaice_type":
+                            sample_valid = (data == 2) | (data == 3)
+                            data = data.astype(np.float32)
+                            data[~sample_valid] = np.nan
+                            data -= 2  # we subtract 2 so that 0=fyi and 1=myi
+                        case "sea_level_anomaly":
+                            outside_range = (data < -3) | (data > 3)
+                            data[outside_range] = np.nan
+                        case _:
+                            self.log.info(
+                                "Variable %s does not have a unique filtering step.", var_name
                             )
-                        sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
-                        data[~sample_valid] = np.nan
-                    case "freeboard":
-                        outside_range = (data < -0.3) | (data > 3)
-                        data[outside_range] = np.nan
-                    case "seaice_conc":
-                        outside_range = data < 15.0
-                        data[outside_range] = np.nan
-                    case "snow_depth":
-                        if "freeboard" not in l1b.variables:
-                            raise RuntimeError(
-                                "Input file must contain freeboard variable if filtering snow_depth"
-                            )
-                        freeboard = l1b["freeboard"][:].data.flatten()
-                        outside_range = (freeboard < -0.3) | (freeboard > 3)
-                        data[outside_range] = np.nan
-                    case "seaice_type":
-                        sample_valid = (data == 2) | (data == 3)
-                        data[~sample_valid] = np.nan
-                        data -= 2  # we subtract 2 so that 0=fyi and 1=myi
-                    case "sea_level_anomaly":
-                        outside_range = (data < -3) | (data > 3)
-                        data[outside_range] = np.nan
-                    case _:
-                        self.log.info("Variable %s does not have a unique filtering step.")
+                except Exception as e:
+                    self.log.error("Issue found while processing variable %s", var_name)
+                    raise e
 
             shared_dict[var_name] = data
 

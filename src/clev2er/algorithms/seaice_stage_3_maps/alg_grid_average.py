@@ -208,7 +208,7 @@ class Algorithm(BaseAlgorithm):
 
         for var_name in self.variables:
             if var_name not in shared_dict.keys():
-                raise RuntimeError(f"Variable {var_name} not found in input file.")
+                raise RuntimeError(f"Variable {var_name} not found in shared_dict.")
 
             variable_data = {
                 "values": np.zeros(len(indices)),
@@ -222,10 +222,8 @@ class Algorithm(BaseAlgorithm):
 
             tree_values[var_name] = shared_dict[var_name].flatten()
 
-        for i in range(len(indices)):  # pylint:disable=consider-using-enumerate
+        for i, (ind, dist) in enumerate(zip(indices, distances)):
             print(f"{i}/{len(indices)} ({i*100//len(indices)}%)", end="\r")
-            ind = indices[i]
-            dist = distances[i]
 
             if len(ind) <= 1:
                 continue
@@ -234,24 +232,28 @@ class Algorithm(BaseAlgorithm):
                 raise RuntimeError("Not all points within radius")
 
             for var_name in self.variables:
-                invalid_values = np.isnan(tree_values[var_name][ind])
+                vals = tree_values[var_name][ind]
+                invalid_values = np.isnan(vals)
                 if invalid_values.all() or len(ind) <= 1:
-                    gridded_data[var_name]["values"][i] = 0
-                    gridded_data[var_name]["std"][i] = 0
-                    gridded_data[var_name]["n_points"][i] = 0
-                    gridded_data[var_name]["mean_distance"][i] = 0
-                    gridded_data[var_name]["distance_from_cog"][i] = 0
+                    gridded_data[var_name]["values"][i] = gridded_data[var_name]["std"][
+                        i
+                    ] = gridded_data[var_name]["n_points"][i] = gridded_data[var_name][
+                        "mean_distance"
+                    ][
+                        i
+                    ] = gridded_data[
+                        var_name
+                    ][
+                        "distance_from_cog"
+                    ][
+                        i
+                    ] = 0
                 else:
-                    gridded_data[var_name]["values"][i] = np.nanmean(
-                        tree_values[var_name][ind][~invalid_values]
-                    )
-                    gridded_data[var_name]["std"][i] = np.nanstd(
-                        tree_values[var_name][ind][~invalid_values]
-                    )
-                    gridded_data[var_name]["n_points"][i] = np.sum(
-                        np.isfinite(tree_values[var_name][ind][~invalid_values])
-                    )
-                    gridded_data[var_name]["mean_distance"][i] = np.nanmean(dist)
+                    valid_vals = vals[~invalid_values]
+                    gridded_data[var_name]["values"][i] = np.mean(valid_vals)
+                    gridded_data[var_name]["std"][i] = np.std(valid_vals)
+                    gridded_data[var_name]["n_points"][i] = len(valid_vals)
+                    gridded_data[var_name]["mean_distance"][i] = np.mean(dist)
                     mean_x = np.mean(point_x[ind][~invalid_values])
                     mean_y = np.mean(point_y[ind][~invalid_values])
                     gridded_data[var_name]["distance_from_cog"][i] = np.sqrt(
