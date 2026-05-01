@@ -155,11 +155,11 @@ class Algorithm(BaseAlgorithm):
             if self.filtering_on:
                 match var_name:
                     case "thickness":
-                        if "valid" not in l1b.variables:
+                        if "thk_alid" not in l1b.variables:
                             raise RuntimeError(
                                 "Input file must contain valid variable if filtering thickness"
                             )
-                        sample_valid = l1b["valid"][:].data.flatten().astype(bool)
+                        sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
                         data[~sample_valid] = np.nan
                     case "freeboard":
                         outside_range = (data < -0.3) | (data > 3)
