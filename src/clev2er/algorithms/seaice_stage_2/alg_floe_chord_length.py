@@ -172,7 +172,7 @@ class Algorithm(BaseAlgorithm):
         """
 
         sat_lat = l1b["sat_lat"][:].data
-        sat_lon = l1b["sat_lon"][:].data
+        sat_lon = ((l1b["sat_lon"][:].data + 180) % 360) - 180
         r_lats = (sat_lat * np.pi) / 180
         r_lons = (sat_lon * np.pi) / 180
         r_points = np.transpose([r_lats, r_lons])
@@ -185,21 +185,26 @@ class Algorithm(BaseAlgorithm):
 
         for index in range(len(sat_lat)):
             if not (
-                valid[index] or (self.include_bad and not np.isnan(shared_dict["freeboard_corr"]))
+                valid[index]
+                or (self.include_bad and not np.isnan(shared_dict["freeboard_corr"][index]))
             ):
                 continue
 
             if valid[index] and first_floe_index is None:
                 first_floe_index = index
+                last_floe_index = index
                 continue
 
             distance = (
-                haversine_distances(r_points[first_floe_index], r_points[index]) * self.earth_radius
+                haversine_distances([r_points[first_floe_index, :]], [r_points[index, :]])[0][0]
+                * self.earth_radius
             )
 
             if distance > self.max_distance:
                 floe_length = (
-                    haversine_distances(r_points[first_floe_index], r_points[last_floe_index])
+                    haversine_distances(
+                        [r_points[first_floe_index, :]], [r_points[last_floe_index, :]]
+                    )[0][0]
                     * self.earth_radius
                 )
                 floe_chord_length[first_floe_index] = floe_length

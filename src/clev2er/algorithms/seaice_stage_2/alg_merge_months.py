@@ -190,7 +190,7 @@ class Algorithm(BaseAlgorithm):
         sample_valid = shared_dict["valid"].astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
-        floe_chord_length = l1b["floe_chord_length"].data
+        floe_chord_length = shared_dict["floe_chord_length"]
         surface_type = l1b["lead_floe_class"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
         thickness = shared_dict["thickness"]
@@ -271,7 +271,7 @@ class Algorithm(BaseAlgorithm):
                 sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
                 sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
                 sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
-                surface_type = np.concatenate((output_nc["lead_floe_class"][:], surface_type))
+                surface_type = np.concatenate((output_nc["surface_type"][:], surface_type))
                 thickness = np.concatenate((output_nc["thickness"][:], thickness))
                 freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
                 seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
@@ -298,7 +298,7 @@ class Algorithm(BaseAlgorithm):
                 output_nc["seaice_type"][:] = seaice_type
                 output_nc["floe_chord_length"][:] = floe_chord_length
                 output_nc["snow_depth"][:] = snow_depth
-                output_nc["sea_level_anomaly"] = sea_level_anomaly
+                output_nc["sea_level_anomaly"][:] = sea_level_anomaly
 
                 # close file
                 output_nc.close()
