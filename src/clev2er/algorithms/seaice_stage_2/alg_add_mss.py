@@ -160,13 +160,14 @@ class Algorithm(BaseAlgorithm):
 
         sample_mss = np.zeros(l1b["sat_lat"][:].data.size) * np.nan
 
-        for sample_i, (sample_lat, sample_lon) in enumerate(
-            zip(l1b["sat_lat"][:].data, l1b["sat_lon"][:].data)
-        ):
-            # Get the fdx of lats and lons
-            sample_fdxlat = (sample_lat - self.latmin) / self.delta
-            sample_fdxlon = (sample_lon - self.lonmin) / self.delta
+        # Get the fdx of lats and lons
+        fdxlat = (l1b["sat_lat"][:].data - self.latmin) / self.delta
+        fdxlon = (l1b["sat_lon"][:].data - self.lonmin) / self.delta
 
+        self.log.info("Lat extent - %d -> %d", np.min(fdxlat), np.max(fdxlat))
+        self.log.info("Lon extent - %d -> %d", np.min(fdxlon), np.max(fdxlon))
+
+        for sample_i, (sample_fdxlat, sample_fdxlon) in enumerate(zip(fdxlat, fdxlon)):
             # skip if we can't interpolate
             if (
                 (sample_fdxlat < 0)
