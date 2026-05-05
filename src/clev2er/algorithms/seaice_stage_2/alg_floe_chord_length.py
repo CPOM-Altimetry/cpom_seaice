@@ -190,25 +190,24 @@ class Algorithm(BaseAlgorithm):
             ):
                 continue
 
-            if valid[index] and first_floe_index is None:
+            if first_floe_index is None:
                 first_floe_index = index
                 last_floe_index = index
-                continue
-
-            distance = (
-                haversine_distances([r_points[first_floe_index, :]], [r_points[index, :]])[0][0]
-                * self.earth_radius
-            )
-
-            if distance > self.max_distance:
-                floe_length = (
-                    haversine_distances(
-                        [r_points[first_floe_index, :]], [r_points[last_floe_index, :]]
-                    )[0][0]
+            else:
+                distance = (
+                    haversine_distances([r_points[last_floe_index, :]], [r_points[index, :]])[0][0]
                     * self.earth_radius
                 )
-                floe_chord_length[first_floe_index] = floe_length
-                first_floe_index = index
+
+                if distance > self.max_distance:
+                    floe_length = (
+                        haversine_distances(
+                            [r_points[first_floe_index, :]], [r_points[last_floe_index, :]]
+                        )[0][0]
+                        * self.earth_radius
+                    )
+                    floe_chord_length[first_floe_index] = floe_length
+                    first_floe_index = index
 
             last_floe_index = index
 

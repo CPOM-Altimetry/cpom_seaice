@@ -166,8 +166,8 @@ class Algorithm(BaseAlgorithm):
         self.log.info("Found %d packets", np.max(unique_packet_id))
 
         block_nine = block_number == 9
-        floe_samples = (surface_type == 2) & valid
-        lead_samples = (surface_type == 3) & valid
+        floe_samples = (surface_type == 3) & valid
+        lead_samples = (surface_type == 2) & valid
         ocean_samples = (surface_type == 1) & valid
         unknown_samples = (surface_type == 0) & ~valid
 
