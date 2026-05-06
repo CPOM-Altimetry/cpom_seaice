@@ -223,8 +223,6 @@ class Algorithm(BaseAlgorithm):
             tree_values[var_name] = shared_dict[var_name].flatten()
 
         for i, (ind, dist) in enumerate(zip(indices, distances)):
-            print(f"{i}/{len(indices)} ({i*100//len(indices)}%)", end="\r")
-
             if len(ind) <= 1:
                 continue
 

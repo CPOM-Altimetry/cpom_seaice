@@ -158,7 +158,7 @@ class Algorithm(BaseAlgorithm):
                         case "thickness":
                             if "thk_valid" not in l1b.variables:
                                 raise RuntimeError(
-                                    "Input file must contain valid variable if filtering thickness"
+                                    "Input file must contain thk_valid if filtering thickness"
                                 )
                             sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
                             data[~sample_valid] = np.nan
