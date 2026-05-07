@@ -166,46 +166,42 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        sample_mss = np.zeros(l1b["sat_lat"][:].data.size) * np.nan
+        sample_mss = np.full(l1b["sat_lat"][:].data.size, np.nan, dtype=np.float64)
 
         # Get the fdx of lats and lons
         fdxlat = (l1b["sat_lat"][:].data - self.latmin) / self.delta
         fdxlon = (l1b["sat_lon"][:].data - self.lonmin) / self.delta
 
+        # remove out of bounds values
+        in_bounds = ~(
+            (fdxlat < 0) & (fdxlat >= self.nlats - 1) & (fdxlon < 0) & (fdxlon >= self.nlons - 1)
+        )
+
+        fdxlat = fdxlat[in_bounds]
+        fdxlon = fdxlon[in_bounds]
+
         self.log.info("Lat extent - %d -> %d", np.min(fdxlat), np.max(fdxlat))
         self.log.info("Lon extent - %d -> %d", np.min(fdxlon), np.max(fdxlon))
 
-        for sample_i, (sample_fdxlat, sample_fdxlon) in enumerate(zip(fdxlat, fdxlon)):
-            # skip if we can't interpolate
-            if (
-                (sample_fdxlat < 0)
-                or (sample_fdxlat >= self.nlats - 1)
-                or (sample_fdxlon < 0)
-                or (sample_fdxlon >= self.nlons - 1)
-            ):
-                continue
+        frac_lats, _ = np.modf(fdxlat)
+        frac_lons, _ = np.modf(fdxlon)
 
-            # Do interpolation of mss in the area (lat is x, lon is y)
-            # Get fraction of lats and lons
-            frac_lats, _ = np.modf(sample_fdxlat)
-            frac_lons, _ = np.modf(sample_fdxlon)
+        # Convert to integers so we can use as indices
+        int_fdxlat = fdxlat.astype(int)
+        int_fdxlon = fdxlon.astype(int)
 
-            # Convert to integers so we can use as indices
-            sample_fdxlat = sample_fdxlat.astype(int)
-            sample_fdxlon = sample_fdxlon.astype(int)
+        # get mss values around indices
+        mss_1 = self.mss_grid[int_fdxlat, int_fdxlon]
+        mss_2 = self.mss_grid[int_fdxlat + 1, int_fdxlon]
+        mss_3 = self.mss_grid[int_fdxlat, int_fdxlon + 1]
+        mss_4 = self.mss_grid[int_fdxlat + 1, int_fdxlon + 1]
 
-            # get mss values around indices
-            mss_1 = self.mss_grid[sample_fdxlat, sample_fdxlon]
-            mss_2 = self.mss_grid[sample_fdxlat + 1, sample_fdxlon]
-            mss_3 = self.mss_grid[sample_fdxlat, sample_fdxlon + 1]
-            mss_4 = self.mss_grid[sample_fdxlat + 1, sample_fdxlon + 1]
-
-            sample_mss[sample_i] = (
-                ((1 - frac_lats) * (1 - frac_lons) * mss_1)
-                + (frac_lats * (1 - frac_lons) * mss_2)
-                + ((1 - frac_lats) * frac_lons * mss_3)
-                + (frac_lats * frac_lons * mss_4)
-            )
+        sample_mss[in_bounds] = (
+            ((1 - frac_lats) * (1 - frac_lons) * mss_1)
+            + (frac_lats * (1 - frac_lons) * mss_2)
+            + ((1 - frac_lats) * frac_lons * mss_3)
+            + (frac_lats * frac_lons * mss_4)
+        )
 
         self.log.info(
             "MSS - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
