@@ -192,7 +192,6 @@ class Algorithm(BaseAlgorithm):
 
             if first_floe_index is None:
                 first_floe_index = index
-                last_floe_index = index
             else:
                 distance = (
                     haversine_distances([r_points[last_floe_index, :]], [r_points[index, :]])[0][0]
