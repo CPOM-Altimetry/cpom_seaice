@@ -34,6 +34,7 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from zarr import open_array
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -102,6 +103,8 @@ class Algorithm(BaseAlgorithm):
 
         _, ext = os.path.splitext(mss_file_path)
         match ext:
+            case ".zarr":
+                self.mss_grid = open_array(mss_file_path)
             case ".txt":  # in case we're using an older mss file
                 mss_file = np.transpose(np.genfromtxt(mss_file_path))
 
