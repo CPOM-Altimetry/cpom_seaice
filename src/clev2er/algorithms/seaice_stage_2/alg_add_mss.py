@@ -104,7 +104,7 @@ class Algorithm(BaseAlgorithm):
         _, ext = os.path.splitext(mss_file_path)
         match ext:
             case ".zarr":
-                self.mss_grid = open_array(mss_file_path)
+                self.mss_grid = open_array(mss_file_path, mode="r")
             case ".txt":  # in case we're using an older mss file
                 mss_file = np.transpose(np.genfromtxt(mss_file_path))
 
