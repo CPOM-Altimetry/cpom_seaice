@@ -86,7 +86,7 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         # Load MSS config
-        mss_file_path = self.config["alg_add_mss"]["mss_file"]
+        mss_file_path: str = self.config["alg_add_mss"]["mss_file"]
 
         self.delta = self.config["alg_add_mss"]["delta"]
         self.lonmin = self.config["alg_add_mss"]["mss_lon_min"]
@@ -100,24 +100,29 @@ class Algorithm(BaseAlgorithm):
             self.log.error("Cannot find MSS file - %s", mss_file_path)
             raise RuntimeError(f"Cannot find the MSS file at {mss_file_path}")
 
-        mss_file = np.transpose(np.genfromtxt(mss_file_path))
+        _, ext = os.path.splitext(mss_file_path)
+        match ext:
+            case ".txt":  # in case we're using an older mss file
+                mss_file = np.transpose(np.genfromtxt(mss_file_path))
 
-        mss_values = mss_file[2]
-        mss_lat = mss_file[1]
-        mss_lon = mss_file[0] % 360
+                mss_values = mss_file[2]
+                mss_lat = mss_file[1]
+                mss_lon = mss_file[0] % 360
 
-        self.mss_grid = np.full((self.nlats, self.nlons), fill_value=np.nan)
+                self.mss_grid = np.full((self.nlats, self.nlons), fill_value=np.nan)
 
-        for lat, lon, val in zip(mss_lat, mss_lon, mss_values):
-            fdxlat = (lat - self.latmin) / self.delta
-            fdxlon = (lon - self.lonmin) / self.delta
-            if 0 > fdxlat >= self.nlats:
-                self.log.error("fdxlat contains out of bounds values")
-                raise RuntimeError("fdxlat out of bounds")
-            if 0 > fdxlon >= self.nlons:
-                self.log.error("fdxlon contains out of bounds values")
-                raise RuntimeError("fdxlon out of bounds")
-            self.mss_grid[int(fdxlat + 0.5)][int(fdxlon + 0.5)] = val
+                for lat, lon, val in zip(mss_lat, mss_lon, mss_values):
+                    fdxlat = (lat - self.latmin) / self.delta
+                    fdxlon = (lon - self.lonmin) / self.delta
+                    if 0 > fdxlat >= self.nlats:
+                        self.log.error("fdxlat contains out of bounds values")
+                        raise RuntimeError("fdxlat out of bounds")
+                    if 0 > fdxlon >= self.nlons:
+                        self.log.error("fdxlon contains out of bounds values")
+                        raise RuntimeError("fdxlon out of bounds")
+                    self.mss_grid[int(fdxlat + 0.5)][int(fdxlon + 0.5)] = val
+            case _:
+                raise RuntimeError(f"Unknown file type for MSS file: {ext}")
 
         # --- End of initialization steps ---
 
