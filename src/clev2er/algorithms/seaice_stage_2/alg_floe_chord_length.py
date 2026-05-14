@@ -111,6 +111,14 @@ class Algorithm(BaseAlgorithm):
         self.max_distance = self.config["alg_floe_chord_length"]["max_distance"]
         self.earth_radius = self.config["geophysical"]["earth_radius"]
         self.include_bad = self.config["alg_floe_chord_length"]["include_bad"]
+        self.include_all = self.config["alg_floe_chord_length"]["include_all"]
+
+        if self.include_all:
+            self.log.warning(
+                "Using include all is left as experimental"
+                " for looking at landfast ice floes. Don't use this"
+                " unless you're absolutely sure."
+            )
 
         # --- End of initialization steps ---
 
@@ -184,9 +192,10 @@ class Algorithm(BaseAlgorithm):
         last_floe_index = None
 
         for index in range(len(sat_lat)):
-            if not (
-                valid[index]
-                or (self.include_bad and not np.isnan(shared_dict["freeboard_corr"][index]))
+            if (
+                not valid[index]
+                or (self.include_bad and np.isnan(shared_dict["freeboard_corr"][index]))
+                or not self.include_all
             ):
                 continue
 
