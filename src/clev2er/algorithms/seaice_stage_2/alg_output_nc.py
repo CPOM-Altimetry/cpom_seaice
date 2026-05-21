@@ -1,0 +1,315 @@
+"""clev2er.algorithms.seaice_stage_2.alg_output_nc.py
+
+Algorithm class module, used to implement a single chain algorithm
+
+#Description of this Algorithm's purpose
+
+This algorithm will write the data from the current file to an nc with all useful processed data.
+The merge file will contain all relevant data for each crossing of the Arctic.
+
+#Main initialization (init() function) steps/resources required
+
+Check that output location exists
+
+#Main process() function steps
+
+Get the date and times of the first and last measurements
+Sort the data by time
+Open the file containing the name datetimes of the measurements in the name
+Add data to file
+Close merge file
+
+#Main finalize() function steps
+
+None
+
+#Contribution to shared_dict
+
+None (Chain ends)
+
+#Requires from shared_dict
+
+"thickness"
+"floe_chord_length"
+"snow_depth"
+"smoothed_sea_level_anomaly"
+"freeboard"
+"seaice_type"
+
+Author: Ben Palmer
+Date: 22 Jul 2024
+"""
+
+import os
+from typing import Tuple
+
+import numpy as np
+from astropy.time import Time
+from codetiming import Timer
+from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+
+from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+
+def timeout_handler(signum, frame):
+    """Handler function to raise an Error when we timeout"""
+    raise TimeoutError("Lock acquisition failed after waiting for timeout duration")
+
+
+class Algorithm(BaseAlgorithm):
+    """CLEV2ER Algorithm class
+
+    contains:
+            .log (Logger) : log instance that must be used for all logging, set by BaseAlgorithm
+            .config (dict) : configuration dictionary, set by BaseAlgorithm
+
+        functions that need completing:
+            .init() : Algorithm initialization function (run once at start of chain)
+            .process(l1b,shared_dict) : Algorithm processing function (run on every L1b file)
+            .finalize() :   Algorithm finalization/closure function (run after all chain
+                            processing completed)
+
+        Inherits from BaseAlgorithm which handles interaction with the chain controller run_chain.py
+
+    """
+
+    def init(self) -> Tuple[bool, str]:
+        """Algorithm initialization function
+
+        Add steps in this function that are run once at the beginning of the chain
+        (for example loading a DEM or Mask)
+
+        Returns:
+            (bool,str) : success or failure, error string
+
+        Test for KeyError or OSError exceptions and raise them if found
+        rather than just returning (False,"error description")
+
+        Raises:
+            KeyError : for keys not found in self.config
+            OSError : for any file related errors
+
+        Note:
+        - retrieve required config data from self.config dict
+        - log using self.log.info(), or self.log.error() or self.log.debug()
+
+        """
+        self.alg_name = __name__
+        self.log.info("Algorithm %s initializing", self.alg_name)
+
+        # --- Add your initialization steps below here ---
+
+        self.output_dir = self.config["alg_output_nc"]["output_dir"]
+
+        if not (os.path.exists(self.output_dir) and os.path.isdir(self.output_dir)):
+            raise FileNotFoundError("Specified merge file directory does not exist")
+
+        # --- End of initialization steps ---
+
+        return (True, "")
+
+    @Timer(name=__name__, text="", logger=None)
+    def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+        # pylint: disable=too-many-locals
+        # pylint: disable=unpacking-non-sequence
+        # pylint: disable=too-many-statements
+        """Main algorithm processing function, called for every L1b file
+
+        Args:
+            l1b (Dataset): input l1b file dataset (constant)
+            shared_dict (dict): shared_dict data passed between algorithms. Use this dict
+                                to pass algorithm results down the chain or read variables
+                                set by other algorithms.
+
+        Returns:
+            Tuple : (success (bool), failure_reason (str))
+            ie
+            (False,'error string'), or (True,'')
+
+        Note:
+        - retrieve required config data from self.config dict (read-only)
+        - retrieve data from other algorithms from shared_dict
+        - add results,variables from this algorithm to shared_dict
+        - log using self.log.info(), or self.log.error() or self.log.debug()
+
+        """
+
+        # This step is required to support multi-processing. Do not modify
+        success, error_str = self.process_setup(l1b)
+        if not success:
+            return (False, error_str)
+
+        # -------------------------------------------------------------------
+        # Perform the algorithm processing, store results that need to be passed
+        # /    down the chain in the 'shared_dict' dict     /
+        # -------------------------------------------------------------------
+
+        if not (
+            l1b["block_number"].size
+            == l1b["packet_count"].size
+            == l1b["measurement_time"].size
+            == l1b["lead_floe_class"].size
+            == l1b["sat_lat"].size
+            == l1b["sat_lon"].size
+            == l1b["valid"].size
+            == shared_dict["thickness"].size
+            == shared_dict["floe_chord_length"].size
+            == shared_dict["snow_depth"].size
+            == shared_dict["smoothed_sea_level_anomaly"].size
+            == shared_dict["freeboard"].size
+            == shared_dict["seaice_type"].size
+        ):
+            self.log.error("Variables that will be added to merge file are not of equal length")
+
+            for var_name in [
+                "block_number",
+                "packet_count",
+                "measurement_time",
+                "lead_floe_class",
+                "sat_lat",
+                "sat_lon",
+                "valid",
+            ]:
+                self.log.error("   %s - size=%d", var_name, l1b[var_name].size)
+
+            for var_name in [
+                "thickness",
+                "freeboard",
+                "seaice_type",
+                "floe_chord_length",
+                "snow_depth",
+                "smoothed_sea_level_anomaly",
+                "valid",
+            ]:
+                self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
+
+            return (False, "VarLengthError")
+
+        packet_count = l1b["packet_count"][:].data
+        block_number = l1b["block_number"][:].data
+        measurement_time = l1b["measurement_time"][:].data
+        thk_valid = shared_dict["valid"].astype(np.bool_)
+        elev_valid = l1b["valid"][:].data.astype(np.bool_)
+        sat_lat = l1b["sat_lat"][:].data
+        sat_lon = l1b["sat_lon"][:].data
+        floe_chord_length = shared_dict["floe_chord_length"]
+        surface_type = l1b["lead_floe_class"][:].data
+        seaice_conc = l1b["seaice_conc"][:].data
+        thickness = shared_dict["thickness"]
+        freeboard = shared_dict["freeboard_corr"]
+        seaice_type = shared_dict["seaice_type"]
+        snow_depth = shared_dict["snow_depth"]
+        sea_level_anomaly = shared_dict["smoothed_sea_level_anomaly"]
+
+        sort_order = np.argsort(measurement_time)
+        packet_count = packet_count[sort_order]
+        block_number = block_number[sort_order]
+        measurement_time = measurement_time[sort_order]
+        thk_valid = thk_valid[sort_order]
+        elev_valid = elev_valid[sort_order]
+        sat_lat = sat_lat[sort_order]
+        sat_lon = sat_lon[sort_order]
+        floe_chord_length = floe_chord_length[sort_order]
+        surface_type = surface_type[sort_order]
+        seaice_conc = seaice_conc[sort_order]
+        thickness = thickness[sort_order]
+        freeboard = freeboard[sort_order]
+        seaice_type = seaice_type[sort_order]
+        snow_depth = snow_depth[sort_order]
+        sea_level_anomaly = sea_level_anomaly[sort_order]
+
+        # Create output file locations
+        # Set up output file
+        f_time_min = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime(
+            "%Y%m%d%H%M%S"
+        )
+        f_time_max = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime(
+            "%Y%m%d%H%M%S"
+        )
+
+        # plan is to include orbit number as an attribute in the arc files
+        # current version doesn't have it, so try to read from the filename if its not there
+        if "orbit_number" in l1b.ncattrs():
+            orbit_number = l1b.orbit_number
+        else:
+            orbit_number = int(
+                os.path.splitext(os.path.split(l1b.filepath())[-1])[0].split("_")[-1]
+            )
+
+        # group files by year and month
+        month_output_dir = os.path.join(self.output_dir, f_time_min[:4], f_time_min[4:6])
+        if not os.path.isdir(s=month_output_dir):
+            os.makedirs(month_output_dir)
+
+        arc_file_name = f"cs2_arc_{orbit_number:06d}_{f_time_min}_{f_time_max}.nc"
+        output_file_path = os.path.join(month_output_dir, arc_file_name)
+
+        with Dataset(output_file_path, mode="w") as output_nc:
+            output_nc.createDimension("n_samples", len(measurement_time))
+
+            output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("measurement_time", "f8", ("n_samples",), compression="zlib")
+            output_nc.createVariable("thk_valid", "b", ("n_samples",), compression="zlib")
+            output_nc.createVariable("elev_valid", "b", ("n_samples",), compression="zlib")
+
+            output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("surface_type", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("thickness", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("freeboard", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("seaice_type", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("floe_chord_length", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("snow_depth", "f4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("sea_level_anomaly", "f4", ("n_samples",), compression="zlib")
+
+            # add the data to the merge file
+            output_nc["packet_count"][:] = packet_count
+            output_nc["block_number"][:] = block_number
+            output_nc["measurement_time"][:] = measurement_time
+            output_nc["thk_valid"][:] = thk_valid
+            output_nc["elev_valid"][:] = elev_valid
+            output_nc["sat_lat"][:] = sat_lat
+            output_nc["sat_lon"][:] = sat_lon
+            output_nc["surface_type"][:] = surface_type
+            output_nc["thickness"][:] = thickness
+            output_nc["freeboard"][:] = freeboard
+            output_nc["seaice_conc"][:] = seaice_conc
+            output_nc["seaice_type"][:] = seaice_type
+            output_nc["floe_chord_length"][:] = floe_chord_length
+            output_nc["snow_depth"][:] = snow_depth
+            output_nc["sea_level_anomaly"][:] = sea_level_anomaly
+
+            output_nc.orbit_number = orbit_number
+            output_nc.min_time = f_time_min
+            output_nc.max_time = f_time_max
+
+        self.log.info("Appended data to %s", output_file_path)
+        # -------------------------------------------------------------------
+        # Returns (True,'') if successful
+        return (success, error_str)
+
+    def finalize(self, stage: int = 0) -> None:
+        """Algorithm finalization function - called after all processing completed
+
+        Can be used to clean up/free resources initialized in the init() function
+
+        Args:
+            stage (int, optional):  this sets the stage when this function is called
+                                    by the chain controller. Useful during multi-processing.
+                                    Defaults to 0. Not normally used by Algorithms.
+        """
+        self.log.info(
+            "Finalize algorithm %s called at stage %d filenum %d",
+            self.alg_name,
+            stage,
+            self.filenum,
+        )
+        # ---------------------------------------------------------------------
+        # Add finalization steps here /
+        # ---------------------------------------------------------------------
+
+        # None
+
+        # ---------------------------------------------------------------------
