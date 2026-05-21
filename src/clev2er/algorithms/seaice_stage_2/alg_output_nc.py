@@ -156,7 +156,7 @@ class Algorithm(BaseAlgorithm):
             == shared_dict["floe_chord_length"].size
             == shared_dict["snow_depth"].size
             == shared_dict["smoothed_sea_level_anomaly"].size
-            == shared_dict["freeboard"].size
+            == shared_dict["freeboard_corr"].size
             == shared_dict["seaice_type"].size
         ):
             self.log.error("Variables that will be added to merge file are not of equal length")
@@ -174,7 +174,7 @@ class Algorithm(BaseAlgorithm):
 
             for var_name in [
                 "thickness",
-                "freeboard",
+                "freeboard_corr",
                 "seaice_type",
                 "floe_chord_length",
                 "snow_depth",
@@ -223,7 +223,7 @@ class Algorithm(BaseAlgorithm):
         f_time_min = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime(
             "%Y%m%d%H%M%S"
         )
-        f_time_max = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime(
+        f_time_max = Time(np.max(l1b["measurement_time"]), format="unix_tai").strftime(
             "%Y%m%d%H%M%S"
         )
 

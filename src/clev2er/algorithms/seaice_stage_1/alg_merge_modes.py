@@ -236,6 +236,8 @@ class Algorithm(BaseAlgorithm):
                         "gaussexp_err", "f4", ("n_samples",), compression="zlib"
                     )
                     output_nc.createVariable("files_used", "S1", ("n_files", "file_id_len"))
+
+                    output_nc.orbit_number = l1b.abs_orbit_number
                 else:
                     output_nc = Dataset(output_file_path, mode="a")
 
