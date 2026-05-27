@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_add_ice_extent
+clev2er.algorithms.seaice_stage_3_volume.alg_vol_totals.py
 """
 
 import logging
@@ -7,11 +7,28 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_add_ice_extent import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_cell_area import (
+    Algorithm as CellAreaMask,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_ice_extent import (
+    Algorithm as ExtentMask,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_ocean_frac import (
+    Algorithm as OceanFracMask,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_region_mask import (
+    Algorithm as RegionMask,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_vol_calculations import (
+    Algorithm as CalcVol,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_vol_fill_nn import (
+    Algorithm as VolFillNN,
+)
+from clev2er.algorithms.seaice_stage_3_volume.alg_vol_total import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -48,7 +65,14 @@ def previous_steps(
     """
     ## Initialise the previous chain steps (needed to test current step properly)
     try:
-        chain_previous_steps: Dict[str, Any] = {}
+        chain_previous_steps: Dict[str, Any] = {
+            "vol_calculations": CalcVol(config, logger),
+            "vol_fill_nn": VolFillNN(config, logger),
+            "cell_area_mask": CellAreaMask(config, logger),
+            "ocean_frac": OceanFracMask(config, logger),
+            "extent_mask": ExtentMask(config, logger),
+            "region_mask": RegionMask(config, logger),
+        }
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize previous steps in chain {exc}") from exc
 
@@ -67,47 +91,43 @@ def thisalg(config: Dict) -> Algorithm:  # pylint: disable=redefined-outer-name
     """
     # Initialise the Algorithm
     try:
-        this_algo = Algorithm(config, logger)  # no config used for this alg
+        this_algo = Algorithm(config, logger)
     except KeyError as exc:
         raise RuntimeError(f"Could not initialize algorithm {exc}") from exc
 
     return this_algo
 
 
-merge_file_test = [(0), (1)]
-
-
-@pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_ice_extent(
-    file_num,
+def test_vol_total(
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_ice_extent.py
+    """test alg_vol_total.py
 
     Test plan:
-    Load a merge file
+    Load a grid file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'extent_mask' is in shared_dict, it is an array of bools
+    test that values added by vol_total are in shared_dict
+    test that they are floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ================================== SAR FILE TESTING ==========================================
-    logger.info("Testing SAR file:")
+    # ==================================  FILE TESTING ==========================================
+    logger.info("Testing  file:")
 
-    # load SAR file
-    l1b_merge_file = list(
-        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
-    )[file_num]
+    # load  file
+    grid_file = list(
+        (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "grid_files").glob("*.nc")
+    )[0]
 
     try:
-        l1b = Dataset(l1b_merge_file)
-        logger.info("Loaded %s", l1b_merge_file)
+        l1b = Dataset(grid_file)
+        logger.info("Loaded %s", grid_file)
     except IOError:
-        assert False, f"{l1b_merge_file} could not be read"
+        assert False, f"{grid_file} could not be read"
 
     shared_dict: Dict[str, Any] = {}
 
@@ -121,11 +141,16 @@ def test_add_ice_extent(
     assert success, f"Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "extent_mask" in shared_dict, "'mss' not in shared_dict."
+    for varname in [
+        "total_volume",
+        "total_fyi_volume",
+        "total_myi_volume",
+        "total_area",
+        "total_fyi_area",
+        "total_myi_area",
+    ]:
+        assert varname in shared_dict, f"'{varname}' not in shared_dict."
 
-    assert isinstance(
-        shared_dict["extent_mask"], np.ndarray
-    ), f"'extent_mask' is {type(shared_dict['mss'])}, not ndarray."
-
-    mask_dtype = str(shared_dict["extent_mask"].dtype)
-    assert "bool" in mask_dtype.lower(), f"Dtype of 'bool' is {mask_dtype}, not float."
+        assert isinstance(
+            shared_dict[varname], float
+        ), f"'{varname}' is {type(shared_dict[varname])}, not float."

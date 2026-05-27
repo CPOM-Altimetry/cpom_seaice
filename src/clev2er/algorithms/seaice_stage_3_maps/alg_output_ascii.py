@@ -1,19 +1,25 @@
-"""clev2er.algorithms.seaice.alg_thk_calculations.py
+"""clev2er.algorithms.seaice.alg_output_ascii.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Calculates the thickness of each ice sample from the freeboard
+Outputs the gridded results of the processing chain in ASCII file formats, the same format as the
+original chain.
+This algorithm will dynamically save variables to ASCII files depending on what is 
+specified in the config files.
 
 #Main initialization (init() function) steps/resources required
 
-Load in parameters from config
+Get config parameters
+Check that output directory exists
 
 #Main process() function steps
 
-Create ice density depending on sea ice type
-Calculate thickness
+Get year and month of input file
+If it does not exist, create folder for year and for outputs
+For each variable
+    Save lat, lon and values as a txt file
 
 #Main finalize() function steps
 
@@ -21,28 +27,25 @@ None
 
 #Contribution to shared_dict
 
-thickness: np.ndarray[np.float32] = ice thickness of each sample
+None
 
 #Requires from shared_dict
 
-freeboard_corr
-seaice_type
-snow_depth
-snow_density
+None
 
 Author: Ben Palmer
-Date: 05 Sep 2024
+Date: 23 Feb 2026
 """
-
+import os
+from pathlib import Path
 from typing import Tuple
 
 import numpy as np
+from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-
-# pylint: disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -83,24 +86,35 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=pointless-string-statement
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
 
-        """ Load in parameters from config """
-        self.rho_fyi = self.config["alg_thk_calculations"]["rho_fyi"]
-        self.rho_myi = self.config["alg_thk_calculations"]["rho_myi"]
-        self.rho_sea = self.config["alg_thk_calculations"]["rho_sea"]
+        """ 
+        Get config parameters
+        Check that output directory exists
+        """
+
+        self.output_directory = Path(self.config["alg_output_ascii"]["output_directory"])
+
+        self.variables = self.config["alg_output_ascii"]["variables"]
+
+        if not self.output_directory.exists():
+            os.makedirs(self.output_directory)
 
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
-    def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+    def process(
+        self, l1b: Dataset, shared_dict: dict  # pylint:disable=unused-argument
+    ) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint:disable=pointless-string-statement
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -132,37 +146,53 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ Compute thickness with snow depth """
+        """ 
+        Get year and month of input file
+        If it does not exist, create folder for year and for outputs
+        Open output file as text files
+        Loop through lats and lons
+        Write line containing relevant information
+        """
 
-        # set ice density based on ice type
-        ice_densities = np.full(l1b["measurement_time"][:].size, np.nan)
-        ice_densities[shared_dict["seaice_type"] == 2] = self.rho_fyi
-        ice_densities[shared_dict["seaice_type"] == 3] = self.rho_myi
+        f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
 
-        # calculate thickness
-        thickness = (
-            (shared_dict["snow_depth"] * shared_dict["snow_density"])
-            + (shared_dict["freeboard_corr"] * self.rho_sea)
-        ) / (self.rho_sea - ice_densities)
+        # check if year folder exists
+        year_folder = self.output_directory / f_time[:4]
+        if not year_folder.exists():
+            os.makedirs(year_folder)
 
-        if np.isnan(thickness).all():
-            self.log.info("No valid thickness measurements")
-            return (False, "SKIP_OK")
+        filename_date = f"{f_time[:4]}_{f_time[4:]}"
 
-        # remove invalid values
-        thickness[~shared_dict["valid"]] = np.nan
+        lats = l1b["sat_lat"][:].data.flatten()
+        lons = l1b["sat_lon"][:].data.flatten()
 
-        self.log.info(
-            "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(thickness),
-            np.nanstd(thickness),
-            np.nanmin(thickness),
-            np.nanmax(thickness),
-            thickness.shape[0],
-            sum(np.isnan(thickness)),
-        )
+        for var_name in self.variables:
+            output_varname = "".join([x.capitalize() for x in var_name.split("_")])
+            self.log.info("Writing output for %s", var_name)
 
-        shared_dict["thickness"] = thickness
+            out_file = os.path.join(year_folder, filename_date + "." + output_varname)
+
+            out_values = shared_dict[var_name].flatten()
+
+            if np.shape(out_values) != np.shape(lats) or np.shape(out_values) != np.shape(lons):
+                raise RuntimeError(
+                    f"Variable {var_name} is not the same shape as latitude or longitude values."
+                )
+
+            valid_samples = np.isfinite(out_values)
+
+            out_values = out_values[valid_samples]
+            out_lats = lats[valid_samples]
+            out_lons = lons[valid_samples]
+
+            np.savetxt(
+                out_file,
+                np.transpose([out_lats, out_lons, out_values]),
+                ["%12.6f", "%12.6f", "%10.4f"],
+                encoding="ascii",
+            )
+
+            self.log.info("Saved ASCII data to %s", out_file)
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -184,6 +214,8 @@ class Algorithm(BaseAlgorithm):
             stage,
             self.filenum,
         )
+        # pylint:disable=pointless-string-statement
+
         # ---------------------------------------------------------------------
         # Add finalization steps here /
         # ---------------------------------------------------------------------

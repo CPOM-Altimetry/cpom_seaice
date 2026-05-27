@@ -1,19 +1,21 @@
-"""clev2er.algorithms.seaice.alg_thk_calculations.py
+"""clev2er.algorithms.seaice.alg_ingest_along_track.py
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Calculates the thickness of each ice sample from the freeboard
+Ingest data from along track input file and add it to shared dictionary
 
 #Main initialization (init() function) steps/resources required
 
-Load in parameters from config
+Get variables to be ingested from config
 
 #Main process() function steps
 
-Create ice density depending on sea ice type
-Calculate thickness
+For each variable in config:
+    Read variable data
+    Apply filtering
+    Add to shared dict
 
 #Main finalize() function steps
 
@@ -21,17 +23,14 @@ None
 
 #Contribution to shared_dict
 
-thickness: np.ndarray[np.float32] = ice thickness of each sample
+Variable as named in config
 
 #Requires from shared_dict
 
-freeboard_corr
-seaice_type
-snow_depth
-snow_density
+None
 
 Author: Ben Palmer
-Date: 05 Sep 2024
+Date: 23 Feb 2026
 """
 
 from typing import Tuple
@@ -41,8 +40,6 @@ from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
-
-# pylint: disable=pointless-string-statement
 
 
 class Algorithm(BaseAlgorithm):
@@ -83,24 +80,33 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=pointless-string-statement
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
 
-        """ Load in parameters from config """
-        self.rho_fyi = self.config["alg_thk_calculations"]["rho_fyi"]
-        self.rho_myi = self.config["alg_thk_calculations"]["rho_myi"]
-        self.rho_sea = self.config["alg_thk_calculations"]["rho_sea"]
+        """ 
+        Get config parameters
+        Check that output directory exists
+        """
+
+        self.variables = self.config["alg_ingest_along_track"]["variables"]
+        self.filtering_on = bool(self.config["alg_ingest_along_track"]["filtering_on"])
 
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
-    def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
+    def process(
+        self,
+        l1b: Dataset,
+        shared_dict: dict,  # pylint:disable=unused-argument
+    ) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint:disable=pointless-string-statement
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -132,37 +138,47 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        """ Compute thickness with snow depth """
+        """ 
+        For each variable in config:
+            Read variable data
+            Apply filtering if necessary
+            Add to shared dict
+        """
 
-        # set ice density based on ice type
-        ice_densities = np.full(l1b["measurement_time"][:].size, np.nan)
-        ice_densities[shared_dict["seaice_type"] == 2] = self.rho_fyi
-        ice_densities[shared_dict["seaice_type"] == 3] = self.rho_myi
+        for var_name in self.variables:
+            if var_name not in l1b.variables:
+                raise RuntimeError(f"Cannot find variable {var_name} in input file.")
 
-        # calculate thickness
-        thickness = (
-            (shared_dict["snow_depth"] * shared_dict["snow_density"])
-            + (shared_dict["freeboard_corr"] * self.rho_sea)
-        ) / (self.rho_sea - ice_densities)
+            data = l1b[var_name][:].data
 
-        if np.isnan(thickness).all():
-            self.log.info("No valid thickness measurements")
-            return (False, "SKIP_OK")
+            # Variable specific filtering
+            if self.filtering_on:
+                match var_name:
+                    case "thickness":
+                        if "valid" not in l1b.variables:
+                            raise RuntimeError(
+                                "Input file must contain valid variable if filtering thickness"
+                            )
+                        sample_valid = l1b["valid"][:].data.flatten().astype(bool)
+                        data[~sample_valid] = np.nan
+                    case "freeboard":
+                        outside_range = (data < -0.3) | (data > 3)
+                        data[outside_range] = np.nan
+                    case "seaice_conc":
+                        outside_range = data < 15.0
+                        data[outside_range] = np.nan
+                    case "snow_depth":
+                        if "freeboard" not in l1b.variables:
+                            raise RuntimeError(
+                                "Input file must contain freeboard variable if filtering snow_depth"
+                            )
+                        freeboard = l1b["freeboard"][:].data.flatten()
+                        outside_range = (freeboard < -0.3) | (freeboard > 3)
+                        data[outside_range] = np.nan
+                    case _:
+                        self.log.info("Variable %s does not have a unique filtering step.")
 
-        # remove invalid values
-        thickness[~shared_dict["valid"]] = np.nan
-
-        self.log.info(
-            "Thickness - Mean=%.3f Std=%.3f Min=%.3f Max=%.3f Count=%d NaN=%d",
-            np.nanmean(thickness),
-            np.nanstd(thickness),
-            np.nanmin(thickness),
-            np.nanmax(thickness),
-            thickness.shape[0],
-            sum(np.isnan(thickness)),
-        )
-
-        shared_dict["thickness"] = thickness
+            shared_dict[var_name] = data
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -184,6 +200,8 @@ class Algorithm(BaseAlgorithm):
             stage,
             self.filenum,
         )
+        # pylint:disable=pointless-string-statement
+
         # ---------------------------------------------------------------------
         # Add finalization steps here /
         # ---------------------------------------------------------------------

@@ -1,5 +1,5 @@
 """pytest for algorithm
-clev2er.algorithms.seaice_stage_3.alg_add_region_mask
+clev2er.algorithms.seaice_stage_3_volume.alg_add_cell_area
 """
 
 import logging
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
-from clev2er.algorithms.seaice_stage_3.alg_add_region_mask import Algorithm
+from clev2er.algorithms.seaice_stage_3_volume.alg_add_cell_area import Algorithm
 from clev2er.utils.config.load_config_settings import load_config_files
 
 logger = logging.getLogger(__name__)
@@ -78,27 +78,27 @@ merge_file_test = [(0), (1)]
 
 
 @pytest.mark.parametrize("file_num", merge_file_test)
-def test_add_region_mask(
+def test_add_cell_area_sar(
     file_num,
     previous_steps: Dict,
     thisalg: Algorithm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """test alg_add_region_mask.py
+    """test alg_add_cell_area.py
 
     Test plan:
     Load a merge file
     run Algorithm.process() on each
     test that the files return (True, "")
-    test that 'region_mask' is in shared_dict, it is an array of bools
+    test that 'cell_area' is in shared_dict, it is an array of floats
     """
 
     base_dir = Path(os.environ["CLEV2ER_BASE_DIR"])
     assert base_dir is not None
 
-    # ==================================  FILE TESTING ==========================================
-    logger.info("Testing  file:")
+    # ================================== MERGE FILE TESTING ========================================
+    logger.info("Testing merge file:")
 
-    # load  file
+    # load merge file
     l1b_merge_file = list(
         (base_dir / "testdata" / "cs2" / "l1bfiles" / "arctic" / "merge_modes").glob("*.nc")
     )[file_num]
@@ -114,18 +114,18 @@ def test_add_region_mask(
     for title, step in previous_steps.items():
         success, err_str = step.process(l1b, shared_dict)  # type: ignore[attr-defined]
         if not success:
-            logger.error("Error with previous step: %s\n%s", title, err_str)
+            logger.error(" Error with previous step: %s\n%s", title, err_str)
 
     success, err_str = thisalg.process(l1b, shared_dict)
 
-    assert success, f"Algorithm failed due to: {err_str}"
+    assert success, f" Algorithm failed due to: {err_str}"
 
     # Algorithm tests
-    assert "region_mask" in shared_dict, "'region_mask' not in shared_dict."
+    assert "cell_area" in shared_dict, "'cell_area' not in shared_dict."
 
     assert isinstance(
-        shared_dict["region_mask"], np.ndarray
-    ), f"'region_mask' is {type(shared_dict['region_mask'])}, not ndarray."
+        shared_dict["cell_area"], np.ndarray
+    ), f"'cell_area' is {type(shared_dict['cell_area'])}, not ndarray."
 
-    mask_dtype = str(shared_dict["region_mask"].dtype)
-    assert "bool" in mask_dtype.lower(), f"Dtype of 'region_mask' is {mask_dtype}, not bool."
+    elev_dtype = str(shared_dict["cell_area"].dtype)
+    assert "float" in elev_dtype.lower(), f"Dtype of 'cell_area' is {elev_dtype}, not float."
