@@ -37,8 +37,9 @@ None (Chain ends)
 Author: Ben Palmer
 Date: 22 Jul 2024
 """
-
+import fcntl
 import os
+import signal
 from datetime import datetime
 from typing import Tuple
 
@@ -47,6 +48,11 @@ from codetiming import Timer
 from netCDF4 import Dataset, stringtochar  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+
+
+def timeout_handler(signum, frame):
+    """Handler function to raise an Error when we timeout"""
+    raise TimeoutError("Lock acquisition failed after waiting for timeout duration")
 
 
 class Algorithm(BaseAlgorithm):
@@ -93,6 +99,7 @@ class Algorithm(BaseAlgorithm):
         # --- Add your initialization steps below here ---
 
         self.merge_file_dir = self.config["alg_merge_modes"]["merge_file_dir"]
+        self.timeout = self.config["alg_merge_modes"]["mp_file_timeout"]
 
         if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
             raise FileNotFoundError("Specified merge file directory does not exist")
@@ -182,102 +189,141 @@ class Algorithm(BaseAlgorithm):
             self.log.info("Creating directory %s", output_dir)
             os.makedirs(output_dir, exist_ok=True)
         output_file_path = os.path.join(output_dir, output_file_name)
+        output_lock_file_path = os.path.join(output_dir, "." + output_file_name + ".lock")
 
-        # If output file does not already exist, create new file
-        # Else, load up the output file
-        if not os.path.exists(output_file_path):
-            output_nc: Dataset = Dataset(output_file_path, mode="w")
-            output_nc.createDimension("n_samples", None)
-            output_nc.createDimension("n_files", None)
-            output_nc.createDimension("file_id_len", 17)
+        # Acquire lock file to stop other processes from trying to add to the file
+        with open(output_lock_file_path, "w", encoding="utf-8") as lock:
+            # Handle timeouts if we fail to acquire the lock for a set period
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(self.timeout)
 
-            output_nc.createVariable("packet_count", "i4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("block_number", "i4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("measurement_time", "f8", ("n_samples",), compression="zlib")
-            output_nc.createVariable("andy_time", "f8", ("n_samples",), compression="zlib")
-            output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("lead_floe_class", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
-            output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("gaussexp_sigma", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("gaussexp_err", "f4", ("n_samples",), compression="zlib")
-            output_nc.createVariable("files_used", "S1", ("n_files", "file_id_len"))
-        else:
-            output_nc = Dataset(output_file_path, mode="a")
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                signal.alarm(0)
 
-        # append data from the current file to data within the merge file
-        packet_count = np.concatenate((output_nc["packet_count"][:], shared_dict["packet_count"]))
-        block_number = np.concatenate((output_nc["block_number"][:], shared_dict["block_number"]))
-        measurement_time = np.concatenate(
-            (output_nc["measurement_time"][:], shared_dict["measurement_time"])
-        )
-        andy_time = np.concatenate((output_nc["andy_time"][:], shared_dict["andy_time"]))
-        sat_lat = np.concatenate((output_nc["sat_lat"][:], shared_dict["sat_lat"]))
-        sat_lon = np.concatenate((output_nc["sat_lon"][:], shared_dict["sat_lon"]))
-        elevation = np.concatenate((output_nc["elevation"][:], shared_dict["elevation"]))
-        lead_floe_class = np.concatenate(
-            (output_nc["lead_floe_class"][:], shared_dict["lead_floe_class"])
-        )
-        valid = np.concatenate((output_nc["valid"][:], shared_dict["valid"]))
-        seaice_conc = np.concatenate(
-            (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
-        )
-        gaussexp_sigma = np.concatenate(
-            (output_nc["gaussexp_sigma"][:], shared_dict["gaussexp_sigma"])
-        )
-        gaussexp_err = np.concatenate((output_nc["gaussexp_err"][:], shared_dict["gaussexp_err"]))
+                # If output file does not already exist, create new file
+                # Else, load up the output file
+                if not os.path.exists(output_file_path):
+                    output_nc: Dataset = Dataset(output_file_path, mode="w")
+                    output_nc.createDimension("n_samples", None)
+                    output_nc.createDimension("n_files", None)
+                    output_nc.createDimension("file_id_len", 17)
 
-        if "files_used" in output_nc.variables:
-            input_files = ["".join(row).strip() for row in output_nc["files_used"][:].astype(str)]
-        else:
-            input_files = []
+                    output_nc.createVariable(
+                        "packet_count", "i4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable(
+                        "block_number", "i4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable(
+                        "measurement_time", "f8", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable("andy_time", "f8", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable(
+                        "lead_floe_class", "f4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
+                    output_nc.createVariable(
+                        "seaice_conc", "f4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable(
+                        "gaussexp_sigma", "f4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable(
+                        "gaussexp_err", "f4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable("files_used", "S1", ("n_files", "file_id_len"))
+                else:
+                    output_nc = Dataset(output_file_path, mode="a")
 
-        # create file id
-        id_mode = str(l1b.sir_op_mode).strip()
-        if id_mode == "SARIN":
-            id_mode = "SIN"
-        id_time_str = l1b.first_record_time.split("=")[-1]
-        id_date = "".join(id_time_str.rsplit("T")[0].split("-"))
-        id_time = "".join(id_time_str.rsplit("T")[1].split(".")[0].split(":"))
+                # append data from the current file to data within the merge file
+                packet_count = np.concatenate(
+                    (output_nc["packet_count"][:], shared_dict["packet_count"])
+                )
+                block_number = np.concatenate(
+                    (output_nc["block_number"][:], shared_dict["block_number"])
+                )
+                measurement_time = np.concatenate(
+                    (output_nc["measurement_time"][:], shared_dict["measurement_time"])
+                )
+                andy_time = np.concatenate((output_nc["andy_time"][:], shared_dict["andy_time"]))
+                sat_lat = np.concatenate((output_nc["sat_lat"][:], shared_dict["sat_lat"]))
+                sat_lon = np.concatenate((output_nc["sat_lon"][:], shared_dict["sat_lon"]))
+                elevation = np.concatenate((output_nc["elevation"][:], shared_dict["elevation"]))
+                lead_floe_class = np.concatenate(
+                    (output_nc["lead_floe_class"][:], shared_dict["lead_floe_class"])
+                )
+                valid = np.concatenate((output_nc["valid"][:], shared_dict["valid"]))
+                seaice_conc = np.concatenate(
+                    (output_nc["seaice_conc"][:], shared_dict["seaice_concentration"])
+                )
+                gaussexp_sigma = np.concatenate(
+                    (output_nc["gaussexp_sigma"][:], shared_dict["gaussexp_sigma"])
+                )
+                gaussexp_err = np.concatenate(
+                    (output_nc["gaussexp_err"][:], shared_dict["gaussexp_err"])
+                )
 
-        # sort data by measurement time
-        sort_order = np.argsort(measurement_time)
+                if "files_used" in output_nc.variables:
+                    input_files = [
+                        "".join(row).strip() for row in output_nc["files_used"][:].astype(str)
+                    ]
+                else:
+                    input_files = []
 
-        packet_count = packet_count[sort_order]
-        block_number = block_number[sort_order]
-        measurement_time = measurement_time[sort_order]
-        andy_time = andy_time[sort_order]
-        sat_lat = sat_lat[sort_order]
-        sat_lon = sat_lon[sort_order]
-        elevation = elevation[sort_order]
-        lead_floe_class = lead_floe_class[sort_order]
-        valid = valid[sort_order]
-        seaice_conc = seaice_conc[sort_order]
-        gaussexp_sigma = gaussexp_sigma[sort_order]
-        gaussexp_err = gaussexp_err[sort_order]
+                # create file id
+                id_mode = str(l1b.sir_op_mode).strip()
+                if id_mode == "SARIN":
+                    id_mode = "SIN"
+                id_time_str = l1b.first_record_time.split("=")[-1]
+                id_date = "".join(id_time_str.rsplit("T")[0].split("-"))
+                id_time = "".join(id_time_str.rsplit("T")[1].split(".")[0].split(":"))
 
-        input_files.append(f"{id_mode}{id_date}{id_time}")
+                # sort data by measurement time
+                sort_order = np.argsort(measurement_time)
 
-        # add the data to the merge file
-        output_nc["packet_count"][:] = packet_count
-        output_nc["block_number"][:] = block_number
-        output_nc["measurement_time"][:] = measurement_time
-        output_nc["andy_time"][:] = andy_time
-        output_nc["sat_lat"][:] = sat_lat
-        output_nc["sat_lon"][:] = sat_lon
-        output_nc["elevation"][:] = elevation
-        output_nc["lead_floe_class"][:] = lead_floe_class
-        output_nc["valid"][:] = valid
-        output_nc["seaice_conc"][:] = seaice_conc
-        output_nc["gaussexp_sigma"][:] = gaussexp_sigma
-        output_nc["gaussexp_err"][:] = gaussexp_err
-        for i, file_id in enumerate(input_files):
-            output_nc["files_used"][i, :] = stringtochar(np.array([file_id.ljust(17)], "S17"))
+                packet_count = packet_count[sort_order]
+                block_number = block_number[sort_order]
+                measurement_time = measurement_time[sort_order]
+                andy_time = andy_time[sort_order]
+                sat_lat = sat_lat[sort_order]
+                sat_lon = sat_lon[sort_order]
+                elevation = elevation[sort_order]
+                lead_floe_class = lead_floe_class[sort_order]
+                valid = valid[sort_order]
+                seaice_conc = seaice_conc[sort_order]
+                gaussexp_sigma = gaussexp_sigma[sort_order]
+                gaussexp_err = gaussexp_err[sort_order]
 
-        # close file
-        output_nc.close()
+                input_files.append(f"{id_mode}{id_date}{id_time}")
+
+                # add the data to the merge file
+                output_nc["packet_count"][:] = packet_count
+                output_nc["block_number"][:] = block_number
+                output_nc["measurement_time"][:] = measurement_time
+                output_nc["andy_time"][:] = andy_time
+                output_nc["sat_lat"][:] = sat_lat
+                output_nc["sat_lon"][:] = sat_lon
+                output_nc["elevation"][:] = elevation
+                output_nc["lead_floe_class"][:] = lead_floe_class
+                output_nc["valid"][:] = valid
+                output_nc["seaice_conc"][:] = seaice_conc
+                output_nc["gaussexp_sigma"][:] = gaussexp_sigma
+                output_nc["gaussexp_err"][:] = gaussexp_err
+                for i, file_id in enumerate(input_files):
+                    output_nc["files_used"][i, :] = stringtochar(
+                        np.array([file_id.ljust(17)], "S17")
+                    )
+
+                # close file
+                output_nc.close()
+            finally:
+                # release lock when we're done with the file
+                signal.alarm(0)
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
         self.log.info("Appended data to %s", output_file_name)
         # -------------------------------------------------------------------
