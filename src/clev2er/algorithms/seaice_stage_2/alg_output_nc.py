@@ -169,6 +169,7 @@ class Algorithm(BaseAlgorithm):
                 "sat_lat",
                 "sat_lon",
                 "valid",
+                "elevation",
             ]:
                 self.log.error("   %s - size=%d", var_name, l1b[var_name].size)
 
@@ -192,6 +193,7 @@ class Algorithm(BaseAlgorithm):
         elev_valid = l1b["valid"][:].data.astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
+        elevation = l1b["elevation"][:].data
         floe_chord_length = shared_dict["floe_chord_length"]
         surface_type = l1b["lead_floe_class"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
@@ -209,6 +211,7 @@ class Algorithm(BaseAlgorithm):
         elev_valid = elev_valid[sort_order]
         sat_lat = sat_lat[sort_order]
         sat_lon = sat_lon[sort_order]
+        elevation = elevation[sort_order]
         floe_chord_length = floe_chord_length[sort_order]
         surface_type = surface_type[sort_order]
         seaice_conc = seaice_conc[sort_order]
@@ -252,10 +255,10 @@ class Algorithm(BaseAlgorithm):
             output_nc.createVariable("measurement_time", "f8", ("n_samples",), compression="zlib")
             output_nc.createVariable("thk_valid", "b", ("n_samples",), compression="zlib")
             output_nc.createVariable("elev_valid", "b", ("n_samples",), compression="zlib")
-
             output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("surface_type", "i4", ("n_samples",), compression="zlib")
+            output_nc.createVariable("elevation", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("thickness", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("freeboard", "f4", ("n_samples",), compression="zlib")
             output_nc.createVariable("seaice_conc", "f4", ("n_samples",), compression="zlib")
@@ -273,6 +276,7 @@ class Algorithm(BaseAlgorithm):
             output_nc["sat_lat"][:] = sat_lat
             output_nc["sat_lon"][:] = sat_lon
             output_nc["surface_type"][:] = surface_type
+            output_nc["elevation"][:] = elevation
             output_nc["thickness"][:] = thickness
             output_nc["freeboard"][:] = freeboard
             output_nc["seaice_conc"][:] = seaice_conc
