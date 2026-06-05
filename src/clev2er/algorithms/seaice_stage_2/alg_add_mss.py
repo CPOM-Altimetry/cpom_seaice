@@ -174,7 +174,7 @@ class Algorithm(BaseAlgorithm):
 
         # remove out of bounds values
         in_bounds = ~(
-            (fdxlat < 0) & (fdxlat >= self.nlats - 1) & (fdxlon < 0) & (fdxlon >= self.nlons - 1)
+            (fdxlat < 0) | (fdxlat >= self.nlats - 1) | (fdxlon < 0) | (fdxlon >= self.nlons - 1)
         )
 
         fdxlat = fdxlat[in_bounds]
