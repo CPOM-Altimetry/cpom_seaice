@@ -194,7 +194,7 @@ class Algorithm(BaseAlgorithm):
         for index in range(len(sat_lat)):
             if (
                 not valid[index]
-                or (self.include_bad and np.isnan(shared_dict["freeboard_corr"][index]))
+                or (self.include_bad and np.isnan(shared_dict["freeboard"][index]))
                 or not self.include_all
             ):
                 continue
