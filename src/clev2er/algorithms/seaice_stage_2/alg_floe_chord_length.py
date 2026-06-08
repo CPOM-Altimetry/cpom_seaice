@@ -193,9 +193,11 @@ class Algorithm(BaseAlgorithm):
 
         for index in range(len(sat_lat)):
             if (
-                not valid[index]
-                or (self.include_bad and np.isnan(shared_dict["freeboard"][index]))
-                or not self.include_all
+                (
+                    not valid[index]  # if a sample is not valid
+                    or (self.include_bad and np.isnan(shared_dict["freeboard"][index]))
+                )  # or if a sample's freeboard is not valid
+                and not self.include_all  # or if all samples should not be included
             ):
                 continue
 
