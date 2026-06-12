@@ -42,6 +42,7 @@ alg_ingest_along_track:
     - snow_depth
     - seaice_type
     - sea_level_anomaly
+    - freeboard
   filtering_on: True
 
 alg_grid_average:
@@ -59,6 +60,7 @@ alg_grid_average:
     - snow_depth
     - seaice_type
     - sea_level_anomaly
+    - freeboard
 
 alg_output_maps:
   output_directory: ${HOME}/sea_ice_processor/output_map_files
@@ -71,6 +73,8 @@ alg_output_maps:
     - snow_depth
     - seaice_type
     - sea_level_anomaly
+    - freeboard
+    - floe_chord_length
 
 alg_output_ascii:
   output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii
@@ -83,3 +87,5 @@ alg_output_ascii:
     - snow_depth
     - seaice_type
     - sea_level_anomaly
+    - freeboard
+    - floe_chord_length
