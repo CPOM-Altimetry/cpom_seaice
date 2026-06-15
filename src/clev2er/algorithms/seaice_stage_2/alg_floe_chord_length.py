@@ -1,21 +1,37 @@
-"""clev2er.algorithms.seaice.alg_ingest_along_track.py
+"""clev2er.algorithms.seaice.floe_chord_length.py
+
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Ingest data from along track input file and add it to shared dictionary
+Grids points using latitude and longitude by finding all points within a set radius of each
+grid cell. Uses the mean of found points.
+Uses a grid defined by an external file.
 
 #Main initialization (init() function) steps/resources required
 
-Get variables to be ingested from config
+Get config parameters
 
 #Main process() function steps
 
-For each variable in config:
-    Read variable data
-    Apply filtering
-    Add to shared dict
+make floe chord length array
+for each index in alongtrack data:
+    skip if not valid
+    if first valid thickness sample:
+        save index
+
+    if found first valid thickness:
+        check distance vs first index lat/lon
+        if under max distance:
+            keep running total of thicknesses
+            keep running number of thicknesses
+        if larger than max distance:
+            calculate mean thickness from running totals
+            set first index to distance
+            reset running totals, including current values
+
+
 
 #Main finalize() function steps
 
@@ -23,14 +39,14 @@ None
 
 #Contribution to shared_dict
 
-Variable as named in config
+floe_chord_length
 
 #Requires from shared_dict
 
 None
 
 Author: Ben Palmer
-Date: 23 Feb 2026
+Date: 20 Feb 2026
 """
 
 from typing import Tuple
@@ -38,11 +54,13 @@ from typing import Tuple
 import numpy as np
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from sklearn.metrics.pairwise import haversine_distances
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -88,25 +106,30 @@ class Algorithm(BaseAlgorithm):
 
         """ 
         Get config parameters
-        Check that output directory exists
         """
 
-        self.variables = self.config["alg_ingest_along_track"]["variables"]
-        self.filtering_on = bool(self.config["alg_ingest_along_track"]["filtering_on"])
+        self.max_distance = self.config["alg_floe_chord_length"]["max_distance"]
+        self.earth_radius = self.config["geophysical"]["earth_radius"]
+        self.include_bad = self.config["alg_floe_chord_length"]["include_bad"]
+        self.include_all = self.config["alg_floe_chord_length"]["include_all"]
+
+        if self.include_all:
+            self.log.warning(
+                "Using include all is left as experimental"
+                " for looking at landfast ice floes. Don't use this"
+                " unless you're absolutely sure."
+            )
 
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
-    def process(
-        self,
-        l1b: Dataset,
-        shared_dict: dict,  # pylint:disable=unused-argument
-    ) -> Tuple[bool, str]:
+    def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
-        # pylint:disable=pointless-string-statement
+        # pylint: disable=pointless-string-statement
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -139,60 +162,66 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         """ 
-        For each variable in config:
-            Read variable data
-            Apply filtering if necessary
-            Add to shared dict
+        make floe chord length array
+        for each index in alongtrack data:
+            skip if not valid
+            if first valid thickness sample:
+                save index
+            
+            if found first valid thickness:
+                check distance vs first index lat/lon
+                if under max distance:
+                    keep running total of thicknesses
+                    keep running number of thicknesses
+                if larger than max distance:
+                    calculate mean thickness from running totals
+                    set first index to distance
+                    reset running totals, including current values
         """
 
-        for var_name in self.variables:
-            if var_name not in l1b.variables:
-                raise RuntimeError(f"Cannot find variable {var_name} in input file.")
+        sat_lat = l1b["sat_lat"][:].data
+        sat_lon = ((l1b["sat_lon"][:].data + 180) % 360) - 180
+        r_lats = (sat_lat * np.pi) / 180
+        r_lons = (sat_lon * np.pi) / 180
+        r_points = np.transpose([r_lats, r_lons])
+        valid = shared_dict["valid"]
 
-            data = l1b[var_name][:].data
+        floe_chord_length = np.full_like(sat_lat, np.nan)
 
-            # Variable specific filtering
-            if self.filtering_on:
-                try:
-                    match var_name:
-                        case "thickness":
-                            if "thk_valid" not in l1b.variables:
-                                raise RuntimeError(
-                                    "Input file must contain thk_valid if filtering thickness"
-                                )
-                            sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
-                            data[~sample_valid] = np.nan
-                        case "freeboard":
-                            outside_range = (data < -0.3) | (data > 3)
-                            data[outside_range] = np.nan
-                        case "seaice_conc":
-                            outside_range = data < 15.0
-                            data[outside_range] = np.nan
-                        case "snow_depth":
-                            if "freeboard" not in l1b.variables:
-                                raise RuntimeError(
-                                    "Input file must contain freeboard if filtering snow_depth"
-                                )
-                            freeboard = l1b["freeboard"][:].data.flatten()
-                            outside_range = (freeboard < -0.3) | (freeboard > 3)
-                            data[outside_range] = np.nan
-                        case "seaice_type":
-                            sample_valid = (data == 2) | (data == 3)
-                            data = data.astype(np.float32)
-                            data[~sample_valid] = np.nan
-                            data -= 2  # we subtract 2 so that 0=fyi and 1=myi
-                        case "sea_level_anomaly":
-                            outside_range = (data < -3) | (data > 3)
-                            data[outside_range] = np.nan
-                        case _:
-                            self.log.info(
-                                "Variable %s does not have a unique filtering step.", var_name
-                            )
-                except Exception as e:
-                    self.log.error("Issue found while processing variable %s", var_name)
-                    raise e
+        first_floe_index = None
+        last_floe_index = None
 
-            shared_dict[var_name] = data
+        for index in range(len(sat_lat)):
+            if (
+                (
+                    not valid[index]  # if a sample is not valid
+                    or (self.include_bad and np.isnan(shared_dict["freeboard"][index]))
+                )  # or if a sample's freeboard is not valid
+                and not self.include_all  # or if all samples should not be included
+            ):
+                continue
+
+            if first_floe_index is None:
+                first_floe_index = index
+            else:
+                distance = (
+                    haversine_distances([r_points[last_floe_index, :]], [r_points[index, :]])[0][0]
+                    * self.earth_radius
+                )
+
+                if distance > self.max_distance:
+                    floe_length = (
+                        haversine_distances(
+                            [r_points[first_floe_index, :]], [r_points[last_floe_index, :]]
+                        )[0][0]
+                        * self.earth_radius
+                    )
+                    floe_chord_length[first_floe_index] = floe_length
+                    first_floe_index = index
+
+            last_floe_index = index
+
+        shared_dict["floe_chord_length"] = floe_chord_length
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success

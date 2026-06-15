@@ -1,21 +1,29 @@
-"""clev2er.algorithms.seaice.alg_ingest_along_track.py
+"""clev2er.algorithms.seaice.alg_surface_type_fraction.py
+
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Ingest data from along track input file and add it to shared dictionary
+Grids points using latitude and longitude by finding all points within a set radius of each
+grid cell. Uses the mean of found points.
+Uses a grid defined by an external file.
 
 #Main initialization (init() function) steps/resources required
 
-Get variables to be ingested from config
+Get config parameters
 
 #Main process() function steps
 
-For each variable in config:
-    Read variable data
-    Apply filtering
-    Add to shared dict
+make an array of unique packet ids
+make empty arrays of lead, floe, ocean and unknown counts
+for each unique packet id:
+    get indices of samples with that packet id
+    get number of floe, lead, ocean and unknown samples
+    divide each by 20 (number of blocks in a packet)
+    save where block 9 is
+save data to shared dict
+
 
 #Main finalize() function steps
 
@@ -23,14 +31,17 @@ None
 
 #Contribution to shared_dict
 
-Variable as named in config
+floe_fraction
+lead_fraction
+ocean_fraction
+unknown_fraction
 
 #Requires from shared_dict
 
 None
 
 Author: Ben Palmer
-Date: 23 Feb 2026
+Date: 20 Feb 2026
 """
 
 from typing import Tuple
@@ -43,6 +54,7 @@ from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -91,22 +103,16 @@ class Algorithm(BaseAlgorithm):
         Check that output directory exists
         """
 
-        self.variables = self.config["alg_ingest_along_track"]["variables"]
-        self.filtering_on = bool(self.config["alg_ingest_along_track"]["filtering_on"])
-
         # --- End of initialization steps ---
 
         return (True, "")
 
     @Timer(name=__name__, text="", logger=None)
-    def process(
-        self,
-        l1b: Dataset,
-        shared_dict: dict,  # pylint:disable=unused-argument
-    ) -> Tuple[bool, str]:
+    def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
-        # pylint:disable=pointless-string-statement
+        # pylint: disable=pointless-string-statement
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -139,60 +145,65 @@ class Algorithm(BaseAlgorithm):
         # -------------------------------------------------------------------
 
         """ 
-        For each variable in config:
-            Read variable data
-            Apply filtering if necessary
-            Add to shared dict
+        make an array of unique packet ids
+        make empty arrays of lead, floe, ocean and unknown counts
+        for each unique packet id:
+            get indices of samples with that packet id
+            get number of floe, lead, ocean and unknown samples
+            divide each by 20 (number of blocks in a packet)
+            save where block 9 is 
+        save data to shared dict
         """
 
-        for var_name in self.variables:
-            if var_name not in l1b.variables:
-                raise RuntimeError(f"Cannot find variable {var_name} in input file.")
+        packet_count = l1b["packet_count"][:].data.flatten()
+        block_number = l1b["block_number"][:].data.flatten()
+        surface_type = l1b["surface_type"][:].data.flatten()
+        concentration = l1b["seaice_conc"][:].data.flatten()
+        valid = l1b["elev_valid"][:].data.flatten().astype(np.bool_) & (concentration > 15.0)
 
-            data = l1b[var_name][:].data
+        changes = np.concatenate(([True], packet_count[1:] != packet_count[:-1]))
+        unique_packet_id = np.cumsum(changes) - 1
+        self.log.info("Found %d packets", np.max(unique_packet_id))
 
-            # Variable specific filtering
-            if self.filtering_on:
-                try:
-                    match var_name:
-                        case "thickness":
-                            if "thk_valid" not in l1b.variables:
-                                raise RuntimeError(
-                                    "Input file must contain thk_valid if filtering thickness"
-                                )
-                            sample_valid = l1b["thk_valid"][:].data.flatten().astype(bool)
-                            data[~sample_valid] = np.nan
-                        case "freeboard":
-                            outside_range = (data < -0.3) | (data > 3)
-                            data[outside_range] = np.nan
-                        case "seaice_conc":
-                            outside_range = data < 15.0
-                            data[outside_range] = np.nan
-                        case "snow_depth":
-                            if "freeboard" not in l1b.variables:
-                                raise RuntimeError(
-                                    "Input file must contain freeboard if filtering snow_depth"
-                                )
-                            freeboard = l1b["freeboard"][:].data.flatten()
-                            outside_range = (freeboard < -0.3) | (freeboard > 3)
-                            data[outside_range] = np.nan
-                        case "seaice_type":
-                            sample_valid = (data == 2) | (data == 3)
-                            data = data.astype(np.float32)
-                            data[~sample_valid] = np.nan
-                            data -= 2  # we subtract 2 so that 0=fyi and 1=myi
-                        case "sea_level_anomaly":
-                            outside_range = (data < -3) | (data > 3)
-                            data[outside_range] = np.nan
-                        case _:
-                            self.log.info(
-                                "Variable %s does not have a unique filtering step.", var_name
-                            )
-                except Exception as e:
-                    self.log.error("Issue found while processing variable %s", var_name)
-                    raise e
+        block_nine = block_number == 9
+        floe_samples = (surface_type == 3) & valid
+        lead_samples = (surface_type == 2) & valid
+        ocean_samples = (surface_type == 1) & valid
+        unknown_samples = (surface_type == 0) & ~valid
 
-            shared_dict[var_name] = data
+        n_floe = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_lead = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_ocean = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_unknown = np.full_like(packet_count, np.nan, dtype=np.float64)
+
+        # Sum per-packet counts for each surface type
+        n_floe_counts = np.bincount(unique_packet_id, weights=floe_samples.astype(float))
+        n_lead_counts = np.bincount(unique_packet_id, weights=lead_samples.astype(float))
+        n_ocean_counts = np.bincount(unique_packet_id, weights=ocean_samples.astype(float))
+        n_unknown_counts = np.bincount(unique_packet_id, weights=unknown_samples.astype(float))
+
+        # Assign back only to block_nine positions
+        block_nine_mask = block_nine  # boolean array
+        n_floe[block_nine_mask] = n_floe_counts[unique_packet_id[block_nine_mask]]
+        n_lead[block_nine_mask] = n_lead_counts[unique_packet_id[block_nine_mask]]
+        n_ocean[block_nine_mask] = n_ocean_counts[unique_packet_id[block_nine_mask]]
+        n_unknown[block_nine_mask] = n_unknown_counts[unique_packet_id[block_nine_mask]]
+
+        # work out fractions and save to shared_dict
+        floe_frac = n_floe / 20
+        lead_frac = n_lead / 20
+        ocean_frac = n_ocean / 20
+        unknown_frac = n_unknown / 20
+
+        self.log.info("Mean floe frac - %0.2f", np.nanmean(floe_frac))
+        self.log.info("Mean leads frac - %0.2f", np.nanmean(lead_frac))
+        self.log.info("Mean ocean frac - %0.2f", np.nanmean(ocean_frac))
+        self.log.info("Mean unknown frac - %0.2f", np.nanmean(unknown_frac))
+
+        shared_dict["floe_fraction"] = floe_frac
+        shared_dict["lead_fraction"] = lead_frac
+        shared_dict["ocean_fraction"] = ocean_frac
+        shared_dict["unknown_fraction"] = unknown_frac
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
