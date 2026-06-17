@@ -50,6 +50,13 @@ alg_add_si_type:
   type_file_dir: ${HOME}/sea_ice_processor/aux_files/si_type
   input_projection: epsg:4326
 
+alg_dynamic_snow_load:
+  data_dir: /home/andyridout/src/dynamic_snowload/compute_snowload/DATA/links_results_Climat/
+  grid_xymin  : -5800
+  grid_xymax  : 5800
+  grid_xystep : 10
+  cog_max: 30.0
+
 alg_sla_calculations:
   raw_sla_clip_value: 3.0
   sla_track_limit: 0.5
