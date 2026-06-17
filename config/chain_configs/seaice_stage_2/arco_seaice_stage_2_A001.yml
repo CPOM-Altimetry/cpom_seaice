@@ -61,6 +61,7 @@ alg_sla_calculations:
 alg_fbd_calculations:
   fb_min: -0.3
   fb_max: 3.0
+  correction_method: snow_depth
 
 alg_thk_calculations:
   rho_fyi: 916.7

@@ -67,6 +67,9 @@ alg_sla_calculations:
 alg_fbd_calculations:
   fb_min: -0.3
   fb_max: 3.0
+  correction_method: penetration
+  mfit: 0.2268
+  cfit: 0.0901
 
 alg_thk_calculations:
   rho_fyi: 916.7
