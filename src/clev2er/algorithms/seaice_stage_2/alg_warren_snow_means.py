@@ -103,6 +103,12 @@ class Algorithm(BaseAlgorithm):
         # read file data to memory
         # Close file
 
+        self.enabled = (
+            self.config["alg_warren_snow_means"]["enabled"]
+            if "alg_warren_snow_means" in self.config
+            else False
+        )
+
         warren_means_file_path = os.path.join(
             self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
         )

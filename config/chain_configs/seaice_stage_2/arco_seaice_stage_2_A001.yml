@@ -51,6 +51,9 @@ alg_add_si_type:
   type_file_dir: ${HOME}/sea_ice_processor/aux_files/si_type
   input_projection: epsg:4326
 
+alg_warren_snow_means:
+  enabled: True
+
 alg_sla_calculations:
   raw_sla_clip_value: 3.0
   sla_track_limit: 0.5

@@ -104,33 +104,43 @@ class Algorithm(BaseAlgorithm):
         # read file data to memory
         # Close file
 
-        self.data_dir = Path(self.config["alg_dynamic_snow_load"]["data_dir"])
-        self.grid_xymin = self.config["alg_dynamic_snow_load"]["grid_xymin"]
-        self.grid_xymax = self.config["alg_dynamic_snow_load"]["grid_xymax"]
-        self.grid_xystep = self.config["alg_dynamic_snow_load"]["grid_xystep"]
-        self.grid_xynum = ((self.grid_xymax - self.grid_xymin) / self.grid_xystep) + 1
-        self.cog_max = self.config["alg_dynamic_snow_load"]["cog_max"]
-
-        self.log.info("\tLoading warren_means.dat...")
-        if not self.data_dir.exists():
-            raise FileNotFoundError(
-                f"Cannot find data directory {self.config['shared']['aux_file_path']}"
-            )
-
-        input_projection = self.config["alg_add_si_type"]["input_projection"]
-        output_projection = self.config["shared"]["output_projection"]
-
-        self.log.info(
-            "Transforming projection from %s to %s for value reading",
-            input_projection,
-            output_projection,
+        # Arctic processing might not have this in config file
+        self.enabled = (
+            self.config["alg_dynamic_snow_load"]["enabled"]
+            if "alg_dynamic_snow_load" in self.config
+            else False
         )
 
-        crs_input = Proj(input_projection)
-        crs_output = Proj(output_projection)
-        self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
+        if self.enabled:
+            self.data_dir = Path(self.config["alg_dynamic_snow_load"]["data_dir"])
+            self.grid_xymin = self.config["alg_dynamic_snow_load"]["grid_xymin"]
+            self.grid_xymax = self.config["alg_dynamic_snow_load"]["grid_xymax"]
+            self.grid_xystep = self.config["alg_dynamic_snow_load"]["grid_xystep"]
+            self.grid_xynum = ((self.grid_xymax - self.grid_xymin) / self.grid_xystep) + 1
+            self.cog_max = self.config["alg_dynamic_snow_load"]["cog_max"]
 
-        self.log.info("\tLoaded data successfully!")
+            self.hemi = self.config["shared"]["hemisphere"]
+
+            self.log.info("\tLoading warren_means.dat...")
+            if not self.data_dir.exists():
+                raise FileNotFoundError(
+                    f"Cannot find data directory {self.config['shared']['aux_file_path']}"
+                )
+
+            input_projection = self.config["alg_add_si_type"]["input_projection"]
+            output_projection = self.config["shared"]["output_projection"]
+
+            self.log.info(
+                "Transforming projection from %s to %s for value reading",
+                input_projection,
+                output_projection,
+            )
+
+            crs_input = Proj(input_projection)
+            crs_output = Proj(output_projection)
+            self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
+
+            self.log.info("\tLoaded data successfully!")
 
         # --- End of initialization steps ---
 
@@ -173,6 +183,9 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
+        if not self.enabled:
+            return (success, error_str)
+
         snow_depth = np.full(l1b["sat_lat"][:].data.size, np.nan, dtype=np.float64)
         snow_load = np.full(l1b["sat_lat"][:].data.size, np.nan, dtype=np.float64)
 
@@ -191,7 +204,7 @@ class Algorithm(BaseAlgorithm):
 
                 file_path = (
                     self.data_dir
-                    / f"{file_date.year:04d}"
+                    / f"{file_date.year:04d}_{self.hemi}"
                     / f"{file_date.year:04d}{file_date.month:02d}{file_date.day:02d}"
                 )
 
