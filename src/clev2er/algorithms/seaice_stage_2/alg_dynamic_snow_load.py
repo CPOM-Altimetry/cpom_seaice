@@ -52,6 +52,7 @@ from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 from pyproj import Proj, Transformer
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
+from clev2er.utils.gridding.locators import proj_ll2xy_s
 
 
 class Algorithm(BaseAlgorithm):
@@ -116,18 +117,15 @@ class Algorithm(BaseAlgorithm):
             self.grid_xymin = self.config["alg_dynamic_snow_load"]["grid_xymin"]
             self.grid_xymax = self.config["alg_dynamic_snow_load"]["grid_xymax"]
             self.grid_xystep = self.config["alg_dynamic_snow_load"]["grid_xystep"]
-            self.grid_xynum = ((self.grid_xymax - self.grid_xymin) / self.grid_xystep) + 1
+            self.grid_xynum = ((self.grid_xymax - self.grid_xymin) // self.grid_xystep) + 1
             self.cog_max = self.config["alg_dynamic_snow_load"]["cog_max"]
 
             self.hemi = self.config["shared"]["hemisphere"]
 
-            self.log.info("\tLoading warren_means.dat...")
             if not self.data_dir.exists():
-                raise FileNotFoundError(
-                    f"Cannot find data directory {self.config['shared']['aux_file_path']}"
-                )
+                raise FileNotFoundError(f"Cannot find data directory {self.data_dir}")
 
-            input_projection = self.config["alg_add_si_type"]["input_projection"]
+            input_projection = self.config["alg_dynamic_snow_load"]["input_projection"]
             output_projection = self.config["shared"]["output_projection"]
 
             self.log.info(
@@ -140,7 +138,13 @@ class Algorithm(BaseAlgorithm):
             crs_output = Proj(output_projection)
             self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
 
-            self.log.info("\tLoaded data successfully!")
+            self.log.info(
+                "Grid config: xymin=%s xymax=%s xystep=%s cog_max=%s",
+                self.grid_xymin,
+                self.grid_xymax,
+                self.grid_xystep,
+                self.cog_max,
+            )
 
         # --- End of initialization steps ---
 
@@ -193,7 +197,12 @@ class Algorithm(BaseAlgorithm):
 
         sat_time = Time(l1b["measurement_time"][:].data, format="unix_tai")
 
-        sat_x, sat_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
+        # sat_x, sat_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
+        # sat_x /= 1000
+        # sat_y /= 1000
+        sat_x, sat_y = proj_ll2xy_s(
+            l1b["sat_lat"][:].data, ((l1b["sat_lon"][:].data + 180) % 360) - 180
+        )
 
         for i, (sample_time, sample_x, sample_y) in enumerate(zip(sat_time, sat_x, sat_y)):
             file_date: date = sample_time.to_datetime().date()
@@ -213,49 +222,69 @@ class Algorithm(BaseAlgorithm):
                     self.log.error("Cannot find depth file at %s", depth_path)
                     raise FileNotFoundError(f"Cannot find depth file at {depth_path}")
 
-                load_path = file_path.with_suffix(".Depth")
+                load_path = file_path.with_suffix(".Load")
                 if not load_path.exists():
                     self.log.error("Cannot find load file at %s", load_path)
                     raise FileNotFoundError(f"Cannot find load file at {load_path}")
 
                 # load snow depth file
-                file_depth = np.full((self.grid_xynum, self.grid_xynum), np.nan, dtype=np.float64)
-                snow_depth_data = np.transpose(np.genfromtxt(str()))
+                file_depth = np.full((self.grid_xynum, self.grid_xynum), 0, dtype=np.float64)
+                snow_depth_data = np.transpose(np.genfromtxt(str(depth_path)))
                 cog_in_bounds = snow_depth_data[7] < self.cog_max
                 file_x = snow_depth_data[0][cog_in_bounds]
                 file_y = snow_depth_data[1][cog_in_bounds]
                 depth_data = snow_depth_data[4][cog_in_bounds]
 
-                x_index = (file_x - self.grid_xymin) / self.grid_xystep
-                y_index = (file_y - self.grid_xymin) / self.grid_xystep
+                x_index = ((file_x - self.grid_xymin) / self.grid_xystep).astype(int)
+                y_index = ((file_y - self.grid_xymin) / self.grid_xystep).astype(int)
 
-                file_depth[x_index][y_index] = depth_data
+                if ((0 > x_index) | (x_index >= self.grid_xynum)).any():
+                    raise RuntimeError("Invalid x index while loading depth file")
+
+                if ((0 > y_index) | (y_index >= self.grid_xynum)).any():
+                    raise RuntimeError("Invalid y index while loading depth file")
+
+                file_depth[x_index, y_index] = depth_data
 
                 # load snow load file
-                file_load = np.full((self.grid_xynum, self.grid_xynum), np.nan, dtype=np.float64)
-                snow_load_data = np.transpose(np.genfromtxt(str(file_path.with_suffix(".Load"))))
+                file_load = np.full((self.grid_xynum, self.grid_xynum), 0, dtype=np.float64)
+                snow_load_data = np.transpose(np.genfromtxt(str(load_path)))
                 cog_in_bounds = snow_load_data[7] < self.cog_max
                 file_x = snow_load_data[0][cog_in_bounds]
                 file_y = snow_load_data[1][cog_in_bounds]
                 load_data = snow_load_data[4][cog_in_bounds]
 
-                x_index = (file_x - self.grid_xymin) / self.grid_xystep
-                y_index = (file_y - self.grid_xymin) / self.grid_xystep
+                x_index = ((file_x - self.grid_xymin) / self.grid_xystep).astype(int)
+                y_index = ((file_y - self.grid_xymin) / self.grid_xystep).astype(int)
 
-                file_load[x_index][y_index] = load_data
+                if ((0 > x_index) | (x_index >= self.grid_xynum)).any():
+                    raise RuntimeError("Invalid x index while loading load file")
+
+                if ((0 > y_index) | (y_index >= self.grid_xynum)).any():
+                    raise RuntimeError("Invalid y index while loading load file")
+
+                file_load[x_index, y_index] = load_data
 
                 current_date = file_date
-
             fx = (sample_x - self.grid_xymin) / self.grid_xystep
             fy = (sample_y - self.grid_xymin) / self.grid_xystep
 
             fx_r, fx_i = np.modf(fx)
             fy_r, fy_i = np.modf(fy)
 
-            v1 = file_depth[fx_i][fy_i]
-            v2 = file_depth[fx_i + 1][fy_i]
-            v3 = file_depth[fx_i][fy_i + 1]
-            v4 = file_depth[fx_i + 1][fy_i + 1]
+            fx_i = int(fx_i)
+            fy_i = int(fy_i)
+
+            if 0 > fx_i or fx_i >= self.grid_xynum:
+                raise RuntimeError(f"Invalid x index - {fx_i}")
+
+            if 0 > fy_i or fy_i >= self.grid_xynum:
+                raise RuntimeError(f"Invalid y index - {fy_i}")
+
+            v1 = file_depth[fx_i, fy_i]
+            v2 = file_depth[fx_i + 1, fy_i]
+            v3 = file_depth[fx_i, fy_i + 1]
+            v4 = file_depth[fx_i + 1, fy_i + 1]
             snow_depth[i] = (
                 ((1 - fx_r) * (1 - fy_r) * v1)
                 + (fx_r * (1 - fy_r) * v2)
@@ -263,18 +292,33 @@ class Algorithm(BaseAlgorithm):
                 + (fx_r * fy_r * v4)
             ) / 1000
 
-            v1 = file_load[fx_i][fy_i]
-            v2 = file_load[fx_i + 1][fy_i]
-            v3 = file_load[fx_i][fy_i + 1]
-            v4 = file_load[fx_i + 1][fy_i + 1]
+            v1 = file_load[fx_i, fy_i]
+            v2 = file_load[fx_i + 1, fy_i]
+            v3 = file_load[fx_i, fy_i + 1]
+            v4 = file_load[fx_i + 1, fy_i + 1]
             snow_load[i] = (
                 ((1 - fx_r) * (1 - fy_r) * v1)
                 + (fx_r * (1 - fy_r) * v2)
                 + ((1 - fx_r) * fy_r * v3)
                 + (fx_r * fy_r * v4)
-            ) / 1000
+            )
 
         snow_density = snow_load / snow_depth
+
+        self.log.info(
+            "Snow depth: min=%0.2f max=%0.2f mean=%0.2f n=%04d",
+            np.nanmin(snow_depth),
+            np.nanmax(snow_depth),
+            np.nanmean(snow_depth),
+            np.sum(np.isfinite(snow_depth)),
+        )
+        self.log.info(
+            "Snow density: min=%0.2f max=%0.2f mean=%0.2f n=%04d",
+            np.nanmin(snow_density),
+            np.nanmax(snow_density),
+            np.nanmean(snow_density),
+            np.sum(np.isfinite(snow_density)),
+        )
 
         # save to shared_dict
         shared_dict["snow_depth"] = snow_depth

@@ -58,12 +58,10 @@ import warnings
 from typing import Dict, Tuple
 
 import numpy as np
-import pyproj as proj
 from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
-from pyproj import Transformer
-from scipy.spatial import KDTree
+from sklearn.neighbors import BallTree
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -118,22 +116,10 @@ class Algorithm(BaseAlgorithm):
 
         self.type_file_dir = self.config["alg_add_si_type"]["type_file_dir"]
 
-        input_projection = self.config["alg_add_si_type"]["input_projection"]
-        output_projection = self.config["shared"]["output_projection"]
-
-        self.log.info(
-            "Transforming projection from %s to %s for value reading",
-            input_projection,
-            output_projection,
-        )
-
-        crs_input = proj.Proj(input_projection)
-        crs_output = proj.Proj(output_projection)
-        self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
-
         self.hemisphere = self.config["shared"]["hemisphere"]
 
         self.radius = 6356.752
+        self.distance_max = self.config["alg_add_si_type"]["max_distance"]
 
         # --- End of initialization steps ---
 
@@ -143,6 +129,7 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=too-many-return-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -175,7 +162,14 @@ class Algorithm(BaseAlgorithm):
         # \/    down the chain in the 'shared_dict' dict     \/
         # -------------------------------------------------------------------
 
-        si_type = np.full(l1b["sat_lat"][:].size, np.nan)
+        # !!!! Antarctic support matching original script !!!!
+        # Original ice type script had "very basic Antarcitc support" where all samples
+        # are set to have an ice type of 2. This might be worse than the below method,
+        # but for consistency in testing it will have to do.
+        if self.hemisphere == "south":
+            si_type = np.full(l1b["sat_lat"][:].data.size, 2)
+            shared_dict["seaice_type"] = si_type
+            return (success, error_str)
 
         file_date = Time(l1b["measurement_time"][:].data[0], format="unix_tai").strftime("%Y%m%d")
 
@@ -183,13 +177,10 @@ class Algorithm(BaseAlgorithm):
             # If date is the same as the most recent file date, get values from dict
             file_point_tree = self.most_recent_file["tree"]
             file_values = self.most_recent_file["values"]
-            file_lats = self.most_recent_file["lats"]
-            file_lons = self.most_recent_file["lons"]
 
         else:
             # Else, read the file, create the KDTree and store the values
             # in most recent file dict for later use
-            self.log.info("Loading new type data file  - %s", file_date)
 
             # Find the correct file for the data
 
@@ -219,6 +210,8 @@ class Algorithm(BaseAlgorithm):
 
             file_path = file_paths[0]
 
+            self.log.info("Loading new type data file  - %s", file_path)
+
             # Read the external file
 
             sea_ice_type_file = np.transpose(np.genfromtxt(file_path))
@@ -226,19 +219,20 @@ class Algorithm(BaseAlgorithm):
             # convert to 0..360 to match shared_dict values
             file_lons = sea_ice_type_file[1] % 360.0
             file_values = sea_ice_type_file[2]
+            file_values_valid = file_values != 255
+            file_values = file_values[file_values_valid]
+            file_lats = file_lats[file_values_valid]
+            file_lons = file_lons[file_values_valid]
 
             # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
-            file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
-            file_points = np.transpose((file_x, file_y))
-            file_point_tree = KDTree(file_points)
+            file_coords_rad = np.radians(np.column_stack((file_lats, file_lons)))
+            file_point_tree = BallTree(file_coords_rad, metric="haversine")
 
             # Save the loaded date, KDTree, and values
             # Faster to save the tree than save the lon + lat values and recreate
             # the tree every time
 
             self.most_recent_file["date"] = file_date
-            self.most_recent_file["lats"] = file_lats
-            self.most_recent_file["lons"] = file_lons
             self.most_recent_file["tree"] = file_point_tree
             self.most_recent_file["values"] = file_values
 
@@ -247,37 +241,19 @@ class Algorithm(BaseAlgorithm):
             return (False, "SKIP_OK")
 
         # convert l1b file lat and lons to x y
-        wv_x, wv_y = self.lonlat_to_xy.transform(l1b["sat_lon"][:].data, l1b["sat_lat"][:].data)
+        wv_coords_rad = np.radians(
+            np.column_stack((l1b["sat_lat"][:].data, l1b["sat_lon"][:].data))
+        )
 
         # query tree for the nearest points to each sample
-        _, file_neighbouring_indices = file_point_tree.query(np.transpose((wv_x, wv_y)), k=10)
+        file_neighbouring_distances, file_neighbouring_indices = file_point_tree.query(
+            wv_coords_rad, k=1
+        )
 
-        # convert to radians
-        # NOTE: Andy does degree*pi/180, this isn't as accurate as np.radians but we don't
-        # care for now
-        wv_rlats = (l1b["sat_lat"][:].data * np.pi) / 180
-        wv_rlons = (l1b["sat_lon"][:].data * np.pi) / 180
+        file_neighbouring_distances_m = file_neighbouring_distances[:, 0] * self.radius * 1000
 
-        file_rlats = (file_lats * np.pi) / 180
-        file_rlons = (file_lons * np.pi) / 180
-
-        # for each sample, find the nearest grid cell and get
-        for i, neighbours in enumerate(file_neighbouring_indices):
-            tmp1 = np.sin(wv_rlats[i]) * np.sin(file_rlats[neighbours])
-            tmp2 = np.cos(wv_rlats[i]) * np.cos(file_rlats[neighbours])
-            tmp3 = np.cos(wv_rlons[i] - file_rlons[neighbours])
-            tmp4 = tmp1 + (tmp2 * tmp3)
-
-            # This is very unstable as results in a RuntimeWarning, don't worry about it
-            distances = self.radius * np.arccos(tmp4)
-
-            si_type[i] = file_values[neighbours[np.argmin(distances)]]
-
-        si_type[
-            si_type == 255
-        ] = (
-            np.nan
-        )  # 255 is used as a value for invalid measurements in the external file, set them to NaN
+        si_type = file_values[file_neighbouring_indices[:, 0]]
+        si_type[file_neighbouring_distances_m > self.distance_max] = np.nan
 
         self.log.info("Ice type counts:")
         for i_type in sorted(np.unique(si_type)):
@@ -291,6 +267,7 @@ class Algorithm(BaseAlgorithm):
             return (False, "SKIP_OK")
 
         shared_dict["seaice_type"] = si_type
+        shared_dict["point_distances"] = file_neighbouring_distances_m
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -318,6 +295,5 @@ class Algorithm(BaseAlgorithm):
 
         # clear file memory and remove lonlat transformer
         self.most_recent_file.clear()
-        del self.lonlat_to_xy
 
         # ---------------------------------------------------------------------

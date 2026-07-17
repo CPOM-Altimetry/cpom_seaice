@@ -166,6 +166,7 @@ class Algorithm(BaseAlgorithm):
             case "snow_depth":
                 zs = shared_dict["snow_depth"]
             case "penetration":
+                # calculate zs as the modelled penetration depth
                 zs = (self.mfit * shared_dict["snow_depth"]) + self.cfit
                 zs = np.where(zs < shared_dict["snow_depth"], zs, shared_dict["snow_depth"])
             case _:
@@ -184,6 +185,9 @@ class Algorithm(BaseAlgorithm):
                 )
             case "south":
                 invalid_measurements = (freeboard < self.fb_min) | (freeboard > self.fb_max)
+                # anto processing needs snow layer stripped
+                freeboard_corr -= shared_dict["snow_depth"] - zs
+
             case _:
                 self.log.error("Invalid hemisphere selected - %s", self.hemi)
                 raise RuntimeError(f"Invalid hemisphere selected - {self.hemi}")
