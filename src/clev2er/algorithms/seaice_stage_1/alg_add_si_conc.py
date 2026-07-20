@@ -128,6 +128,7 @@ class Algorithm(BaseAlgorithm):
         crs_input = proj.Proj(input_projection)
         crs_output = proj.Proj(output_projection)
         self.lonlat_to_xy = Transformer.from_proj(crs_input, crs_output, always_xy=True)
+        self.xy_to_lonlat = Transformer.from_proj(crs_output, crs_input, always_xy=True)
 
         # --- End of initialization steps ---
 
@@ -137,6 +138,8 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -186,39 +189,73 @@ class Algorithm(BaseAlgorithm):
                 # in most recent file dict for later use
                 self.log.info("Loading new concentration data file  - %s", file_date)
 
-                # Find the correct file for the data
+                file_path: str | None = None
 
+                # Find files that match the date
                 file_paths = glob.glob(
-                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*.dat")
+                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*")
                 )
 
-                # There should be 1 match for each date. If not, return an error
-                if len(file_paths) < 1:
-                    self.log.error("Could not locate file matching - %s", file_date)
-                    return (False, "CONC_FILE_NOT_FOUND")
-                if len(file_paths) > 1:
-                    self.log.error(
-                        "Too many files found that match - %s. Only one should be found.", file_date
-                    )
-                    return (False, "CONC_FILE_TOO_MANY_FOUND")
+                # part 1: try nc first, if not then try dat
+                nc_paths = [x for x in file_paths if x.endswith(".nc")]
+                if len(nc_paths) > 1:
+                    self.log.error("Found too many concentration netcdf files")
+                    return (False, "CONC_TOO_MANY_FILES")
+                if len(nc_paths) == 1:
+                    file_path = nc_paths[0]
 
-                file_path = file_paths[0]
+                # if a netcdf hasn't been found, try to find a .dat file
+                if file_path is None:
+                    dat_paths = [x for x in file_paths if x.endswith(".dat")]
+                    if len(dat_paths) > 1:
+                        self.log.error("Found too many concentration netcdf files")
+                        return (False, "CONC_TOO_MANY_FILES")
+                    if len(dat_paths) == 1:
+                        file_path = dat_paths[0]
 
-                # Read the external file
+                # if a file has still not been found, skip
+                if file_path is None:
+                    self.log.error("Cannot find a matching concentration file for this date")
+                    return (False, "SKIP_OK")
 
-                sea_ice_conc = np.transpose(np.genfromtxt(file_path))
-                file_lats = sea_ice_conc[2]
-                # convert to 0..360 to match shared_dict values
-                file_lons = sea_ice_conc[3] % 360.0
-                file_values = sea_ice_conc[4]
-                # file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+                self.log.info("Found file %s", file_path)
 
+                # part 2: read in the data from the file if found
+                if file_path.endswith(".dat"):
+                    # Read the dat file
+                    sea_ice_conc = np.transpose(np.genfromtxt(file_path))
+                    file_lats = sea_ice_conc[2]
+                    # convert to 0..360 to match shared_dict values
+                    file_lons = sea_ice_conc[3] % 360.0
+                    file_values = sea_ice_conc[4]
+                    # file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+                    file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
+
+                elif file_path.endswith(".nc"):
+                    with Dataset(file_path, mode="r") as nc:
+                        file_values_frac = nc["F18_ICECON"][:].data.flatten()
+                        file_x_1d = nc["x"][:].data
+                        file_y_1d = nc["y"][:].data
+
+                    # file values are read in as fractions (0->1) with flags for invalid values
+                    # convert all flags to -999.0
+                    file_values_frac[file_values_frac < 250] = -999.0
+                    # convert fraction to percentage
+                    file_values = file_values_frac * 100
+                    # x and y need to be in equal length to values
+                    file_x, file_y = np.meshgrid(file_x_1d, file_y_1d)
+                    file_x = file_x.flatten()
+                    file_y = file_y.flatten()
+                    # need lat if using filling method below
+                    _, file_lats = self.xy_to_lonlat.transform(file_x, file_y)
+
+                # part 3: fill above a latitude threshold if set (arctic only)
                 if self.fill_conc:
                     # Fill NaN values above lat threshold to mean of all lats above threshold
                     lats_above_threshold = (
                         file_lats > self.fill_lat_threshold
                     )  # get points above threshold
-                    values_to_fill = file_values == -999.0  # get unknowns
+                    values_to_fill: np.ndarray = file_values == -999.0  # get unknowns
                     fill_value = np.max(
                         (np.mean(file_values[lats_above_threshold & ~values_to_fill]), 0)
                     )  # get mean of known above threshold
@@ -226,7 +263,6 @@ class Algorithm(BaseAlgorithm):
                     file_values[lats_above_threshold & values_to_fill] = fill_value
 
                 # Convert the longitudes and latitudes to (x, y) pairs and create a KDTree of points
-                file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
                 file_points = np.transpose((file_x, file_y))
                 file_point_tree = cKDTree(file_points)
 
