@@ -228,7 +228,7 @@ class Algorithm(BaseAlgorithm):
                     # convert to 0..360 to match shared_dict values
                     file_lons = sea_ice_conc[3] % 360.0
                     file_values = sea_ice_conc[4]
-                    # file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+                    file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
                     file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
 
                 elif file_path.endswith(".nc"):
@@ -238,10 +238,10 @@ class Algorithm(BaseAlgorithm):
                         file_y_1d = nc["y"][:].data
 
                     # file values are read in as fractions (0->1) with flags for invalid values
-                    # convert all flags to -999.0
-                    file_values_frac[file_values_frac < 250] = -999.0
+                    # convert all flags to nan
+                    file_values_frac[file_values_frac > 1] = np.nan
                     # convert fraction to percentage
-                    file_values = file_values_frac * 100
+                    file_values = np.round((file_values_frac * 100), decimals=4)
                     # x and y need to be in equal length to values
                     file_x, file_y = np.meshgrid(file_x_1d, file_y_1d)
                     file_x = file_x.flatten()
@@ -255,7 +255,7 @@ class Algorithm(BaseAlgorithm):
                     lats_above_threshold = (
                         file_lats > self.fill_lat_threshold
                     )  # get points above threshold
-                    values_to_fill: np.ndarray = file_values == -999.0  # get unknowns
+                    values_to_fill: np.ndarray = np.isnan(file_values)  # get unknowns
                     fill_value = np.max(
                         (np.mean(file_values[lats_above_threshold & ~values_to_fill]), 0)
                     )  # get mean of known above threshold
@@ -276,8 +276,13 @@ class Algorithm(BaseAlgorithm):
 
             wv_x, wv_y = self.lonlat_to_xy.transform(wv_lon, wv_lat)
 
-            file_neighbouring_indices = int(file_point_tree.query((wv_x, wv_y), k=1)[1])
-            si_concentration[wv_num] = file_values[file_neighbouring_indices]
+            file_neighbouring_dist, file_neighbouring_indices = file_point_tree.query(
+                (wv_x, wv_y), k=1, distance_upper_bound=18000
+            )
+            if not np.isfinite(file_neighbouring_dist):
+                si_concentration[wv_num] = 0
+            else:
+                si_concentration[wv_num] = file_values[file_neighbouring_indices]
 
         self.log.info("NaNs in concentration array - %d", sum(np.isnan(si_concentration)))
         if all(np.isnan(si_concentration)):
