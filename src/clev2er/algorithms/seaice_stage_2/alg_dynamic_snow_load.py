@@ -1,4 +1,4 @@
-"""clev2er.algorithms.seaice.alg_dynamic_snow_load.py
+"""clev2er.algorithms.seaice_stage_2.alg_dynamic_snow_load.py
 
 Algorithm class module, used to implement a single chain algorithm
 
