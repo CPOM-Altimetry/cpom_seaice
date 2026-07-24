@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
+from datetime import date, timedelta
 from glob import glob
 from typing import List
 
@@ -98,6 +99,7 @@ class FileFinder(BaseFinder):
     # def __init__(self, log: logging.Logger | None = None, config: dict = {}):
 
     def find_files(self, flat_search=False) -> list[str]:
+        # pylint: disable=too-many-statements
         """Search for L1b file according to pattern
 
         Args:
@@ -135,40 +137,79 @@ class FileFinder(BaseFinder):
         if "l1b_base_dir" not in self.config["stage_1_file_finder"]:
             raise KeyError("l1b_base_dir missing from config")
 
-        l1b_base_dir = self.config["stage_1_file_finder"]["l1b_base_dir"]
+        l1b_base_dir = self.config["stage_1_file_finder"][R"l1b_base_dir"]
 
         if not os.path.isdir(l1b_base_dir):
             raise FileNotFoundError(f"Cannot find input base directory {l1b_base_dir}")
 
-        if len(self.years) < 1:
-            raise ValueError("Empty year list. Use .add_years first.")
+        nrt_mode = bool(self.config["stage_1_file_finder"]["nrt"])
 
-        if len(self.months) == 0:
-            self.log.info("No months specified, using all months.")
-            self.months: list[int] = list(range(1, 13))
+        if nrt_mode:
+            self.log.info("Finding files for NRT processing")
+            # If NRT processing, fine all files within the NRT duration
 
-        for year in self.years:
-            self.log.info("Finding files for year: %d", year)
-            for month in self.months:
-                self.log.info("Finding files for month: %d", month)
+            nrt_max_duration = 28
+            today = date.today()
+
+            self.log.info(
+                "Finding files from %s to %s",
+                today.strftime("%Y-%m-%d"),
+                (today - timedelta(days=-nrt_max_duration)).strftime("%Y-%m-%d"),
+            )
+
+            for day_diff in range(nrt_max_duration + 1):
+                i_date = today - timedelta(days=day_diff)
+
                 for mode in modes:
                     file_mode = mode if mode != "SAR" else "SAR-A"
                     self.log.info("Finding files for mode: %s", mode)
                     file_search_string = (
-                        f"CS_*SIR_{mode}_1B_{year:4d}{month:02d}*[{l1b_baselines}]???.nc"
+                        f"CS_*SIR_{mode}_1B_{i_date.year:4d}"
+                        f"{i_date.month:02d}*[{l1b_baselines}]???.nc"
                     )
 
                     if flat_search:
                         search_string = os.path.join(l1b_base_dir, file_search_string)
                     else:
                         search_string = os.path.join(
-                            l1b_base_dir, file_mode, str(year), f"{month:02d}"
+                            l1b_base_dir, file_mode, str(i_date.year), f"{i_date.month:02d}"
                         )
 
                     files: list[str] = glob(search_string)
 
                     if len(files) > 0:
                         file_list.extend(files)
+
+        else:
+            if len(self.years) < 1:
+                raise ValueError("Empty year list. Use .add_years first.")
+
+            if len(self.months) == 0:
+                self.log.info("No months specified, using all months.")
+                self.months: list[int] = list(range(1, 13))
+
+            for year in self.years:
+                self.log.info("Finding files for year: %d", year)
+                for month in self.months:
+                    self.log.info("Finding files for month: %d", month)
+                    for mode in modes:
+                        file_mode = mode if mode != "SAR" else "SAR-A"
+                        self.log.info("Finding files for mode: %s", mode)
+                        file_search_string = (
+                            f"CS_*SIR_{mode}_1B_{year:4d}{month:02d}*[{l1b_baselines}]???.nc"
+                        )
+
+                        if flat_search:
+                            search_string = os.path.join(l1b_base_dir, file_search_string)
+                        else:
+                            search_string = os.path.join(
+                                l1b_base_dir, file_mode, str(year), f"{month:02d}"
+                            )
+
+                        files = glob(search_string)
+
+                        if len(files) > 0:
+                            file_list.extend(files)
 
         self.log.info("Total number of files found: %d", len(file_list))
 
