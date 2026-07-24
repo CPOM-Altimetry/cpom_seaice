@@ -10,8 +10,9 @@ l1b_file_selectors:
 algorithms:
   - alg_add_mss
   - alg_add_si_type
-  - alg_warren_snow_means
+  - alg_dynamic_snow_load
   - alg_sla_calculations
   - alg_fbd_calculations
   - alg_thk_calculations
+  - alg_floe_chord_length
   - alg_merge_months

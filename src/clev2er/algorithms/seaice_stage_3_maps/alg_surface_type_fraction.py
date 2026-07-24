@@ -1,31 +1,29 @@
-"""clev2er.algorithms.seaice.alg_warren_snow_means.py
+"""clev2er.algorithms.seaice.alg_surface_type_fraction.py
+
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Adds snow depth and density values for each record to shared_mem. These values are precomputed
-and loaded from an auxilliary file 'warren_means.dat'.
-
+Grids points using latitude and longitude by finding all points within a set radius of each
+grid cell. Uses the mean of found points.
+Uses a grid defined by an external file.
 
 #Main initialization (init() function) steps/resources required
 
-Check warren_means.dat exists and is readable
-Open file
-read file data to memory
-Close file
+Get config parameters
 
 #Main process() function steps
 
-Determine which records have an ice type of 2 (First year ice)
-and which have a type of 3 (Multi-year ice)
-Create snow_depth array of np.nans (all records with ice types other than 2 or 3 will remain np.nan)
-Create snow_density array of np.nans
-Determine the month of each measurement from the time
-Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-If ice_type is 2, divide snow_depth by 2
-Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-Save snow_depth and snow_density to shared_mem
+make an array of unique packet ids
+make empty arrays of lead, floe, ocean and unknown counts
+for each unique packet id:
+    get indices of samples with that packet id
+    get number of floe, lead, ocean and unknown samples
+    divide each by 20 (number of blocks in a packet)
+    save where block 9 is
+save data to shared dict
+
 
 #Main finalize() function steps
 
@@ -33,22 +31,22 @@ None
 
 #Contribution to shared_dict
 
-snow_depth : np.ndarray[float] = Precomputed mean snow depth
-snow_density : np.ndarray[float] = Precomputed mean snow density
+floe_fraction
+lead_fraction
+ocean_fraction
+unknown_fraction
 
 #Requires from shared_dict
 
-seaice_type
+None
 
 Author: Ben Palmer
-Date: 04 Sep 2024
+Date: 20 Feb 2026
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
-from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
@@ -56,6 +54,7 @@ from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -93,35 +92,16 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=pointless-string-statement
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
 
-        # Check warren_means.dat exists and is readable
-        # Open file
-        # read file data to memory
-        # Close file
-
-        self.enabled = (
-            self.config["alg_warren_snow_means"]["enabled"]
-            if "alg_warren_snow_means" in self.config
-            else False
-        )
-
-        warren_means_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
-        )
-
-        self.log.info("\tLoading warren_means.dat...")
-        if not os.path.exists(warren_means_file_path):
-            raise FileNotFoundError(
-                f"Cannot find warren_means.dat in {self.config['shared']['aux_file_path']}"
-            )
-
-        _, self.wm_depth, self.wm_density = np.transpose(np.genfromtxt(warren_means_file_path))
-
-        self.log.info("\tLoaded data successfully!")
+        """ 
+        Get config parameters
+        Check that output directory exists
+        """
 
         # --- End of initialization steps ---
 
@@ -131,6 +111,8 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=pointless-string-statement
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -162,38 +144,66 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Determine which records have an ice type of 2 (First year ice)
-        # and which have a type of 3 (Multi-year ice)
-        # Create snow_depth array of np.nans (all records with ice types other than 2
-        # or 3 will remain np.nan)
-        # Create snow_density array of np.nans
-        # Determine the month of each measurement from the time
-        # Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-        # If ice_type is 2, divide snow_depth by 2
-        # Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-        # Save snow_depth and snow_density to shared_mem
+        """ 
+        make an array of unique packet ids
+        make empty arrays of lead, floe, ocean and unknown counts
+        for each unique packet id:
+            get indices of samples with that packet id
+            get number of floe, lead, ocean and unknown samples
+            divide each by 20 (number of blocks in a packet)
+            save where block 9 is 
+        save data to shared dict
+        """
 
-        has_fyi = shared_dict["seaice_type"] == 2
-        has_mfi = shared_dict["seaice_type"] == 3
+        packet_count = l1b["packet_count"][:].data.flatten()
+        block_number = l1b["block_number"][:].data.flatten()
+        surface_type = l1b["surface_type"][:].data.flatten()
+        concentration = l1b["seaice_conc"][:].data.flatten()
+        valid = l1b["elev_valid"][:].data.flatten().astype(np.bool_) & (concentration > 15.0)
 
-        # set all values to nans, anything that isnt fyi or mfi will remain unset
-        snow_depth = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
-        snow_density = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
+        changes = np.concatenate(([True], packet_count[1:] != packet_count[:-1]))
+        unique_packet_id = np.cumsum(changes) - 1
+        self.log.info("Found %d packets", np.max(unique_packet_id))
 
-        measurement_months = (
-            Time(l1b["measurement_time"][:].data, format="unix_tai").strftime("%m").astype(int) - 1
-        )
-        # Subtract 1 from the month so they match the indexes for the depth and density
+        block_nine = block_number == 9
+        floe_samples = (surface_type == 3) & valid
+        lead_samples = (surface_type == 2) & valid
+        ocean_samples = (surface_type == 1) & valid
+        unknown_samples = (surface_type == 0) & ~valid
 
-        # get the depth values for fyi and myi
-        snow_depth[(has_fyi | has_mfi)] = self.wm_depth[measurement_months][(has_fyi | has_mfi)]
-        snow_depth[has_fyi] /= 2  # if fyi, divide depth by 2
-        # get the density values for fyi and myi
-        snow_density[(has_fyi | has_mfi)] = self.wm_density[measurement_months][(has_fyi | has_mfi)]
+        n_floe = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_lead = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_ocean = np.full_like(packet_count, np.nan, dtype=np.float64)
+        n_unknown = np.full_like(packet_count, np.nan, dtype=np.float64)
 
-        # save to shared_dict
-        shared_dict["snow_depth"] = snow_depth
-        shared_dict["snow_density"] = snow_density
+        # Sum per-packet counts for each surface type
+        n_floe_counts = np.bincount(unique_packet_id, weights=floe_samples.astype(float))
+        n_lead_counts = np.bincount(unique_packet_id, weights=lead_samples.astype(float))
+        n_ocean_counts = np.bincount(unique_packet_id, weights=ocean_samples.astype(float))
+        n_unknown_counts = np.bincount(unique_packet_id, weights=unknown_samples.astype(float))
+
+        # Assign back only to block_nine positions
+        block_nine_mask = block_nine  # boolean array
+        n_floe[block_nine_mask] = n_floe_counts[unique_packet_id[block_nine_mask]]
+        n_lead[block_nine_mask] = n_lead_counts[unique_packet_id[block_nine_mask]]
+        n_ocean[block_nine_mask] = n_ocean_counts[unique_packet_id[block_nine_mask]]
+        n_unknown[block_nine_mask] = n_unknown_counts[unique_packet_id[block_nine_mask]]
+
+        # work out fractions and save to shared_dict
+        floe_frac = n_floe / 20
+        lead_frac = n_lead / 20
+        ocean_frac = n_ocean / 20
+        unknown_frac = n_unknown / 20
+
+        self.log.info("Mean floe frac - %0.2f", np.nanmean(floe_frac))
+        self.log.info("Mean leads frac - %0.2f", np.nanmean(lead_frac))
+        self.log.info("Mean ocean frac - %0.2f", np.nanmean(ocean_frac))
+        self.log.info("Mean unknown frac - %0.2f", np.nanmean(unknown_frac))
+
+        shared_dict["floe_fraction"] = floe_frac
+        shared_dict["lead_fraction"] = lead_frac
+        shared_dict["ocean_fraction"] = ocean_frac
+        shared_dict["unknown_fraction"] = unknown_frac
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -215,10 +225,12 @@ class Algorithm(BaseAlgorithm):
             stage,
             self.filenum,
         )
+        # pylint:disable=pointless-string-statement
+
         # ---------------------------------------------------------------------
         # Add finalization steps here /
         # ---------------------------------------------------------------------
 
-        # None
+        """ None """
 
         # ---------------------------------------------------------------------

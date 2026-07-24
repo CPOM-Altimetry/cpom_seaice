@@ -1,31 +1,37 @@
-"""clev2er.algorithms.seaice.alg_warren_snow_means.py
+"""clev2er.algorithms.seaice.floe_chord_length.py
+
 
 Algorithm class module, used to implement a single chain algorithm
 
 #Description of this Algorithm's purpose
 
-Adds snow depth and density values for each record to shared_mem. These values are precomputed
-and loaded from an auxilliary file 'warren_means.dat'.
-
+Grids points using latitude and longitude by finding all points within a set radius of each
+grid cell. Uses the mean of found points.
+Uses a grid defined by an external file.
 
 #Main initialization (init() function) steps/resources required
 
-Check warren_means.dat exists and is readable
-Open file
-read file data to memory
-Close file
+Get config parameters
 
 #Main process() function steps
 
-Determine which records have an ice type of 2 (First year ice)
-and which have a type of 3 (Multi-year ice)
-Create snow_depth array of np.nans (all records with ice types other than 2 or 3 will remain np.nan)
-Create snow_density array of np.nans
-Determine the month of each measurement from the time
-Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-If ice_type is 2, divide snow_depth by 2
-Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-Save snow_depth and snow_density to shared_mem
+make floe chord length array
+for each index in alongtrack data:
+    skip if not valid
+    if first valid thickness sample:
+        save index
+
+    if found first valid thickness:
+        check distance vs first index lat/lon
+        if under max distance:
+            keep running total of thicknesses
+            keep running number of thicknesses
+        if larger than max distance:
+            calculate mean thickness from running totals
+            set first index to distance
+            reset running totals, including current values
+
+
 
 #Main finalize() function steps
 
@@ -33,29 +39,28 @@ None
 
 #Contribution to shared_dict
 
-snow_depth : np.ndarray[float] = Precomputed mean snow depth
-snow_density : np.ndarray[float] = Precomputed mean snow density
+floe_chord_length
 
 #Requires from shared_dict
 
-seaice_type
+None
 
 Author: Ben Palmer
-Date: 04 Sep 2024
+Date: 20 Feb 2026
 """
 
-import os
 from typing import Tuple
 
 import numpy as np
-from astropy.time import Time
 from codetiming import Timer
 from netCDF4 import Dataset  # pylint:disable=no-name-in-module
+from sklearn.metrics.pairwise import haversine_distances
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint:disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -93,35 +98,27 @@ class Algorithm(BaseAlgorithm):
         - log using self.log.info(), or self.log.error() or self.log.debug()
 
         """
+        # pylint:disable=pointless-string-statement
         self.alg_name = __name__
         self.log.info("Algorithm %s initializing", self.alg_name)
 
         # --- Add your initialization steps below here ---
 
-        # Check warren_means.dat exists and is readable
-        # Open file
-        # read file data to memory
-        # Close file
+        """ 
+        Get config parameters
+        """
 
-        self.enabled = (
-            self.config["alg_warren_snow_means"]["enabled"]
-            if "alg_warren_snow_means" in self.config
-            else False
-        )
+        self.max_distance = self.config["alg_floe_chord_length"]["max_distance"]
+        self.earth_radius = self.config["geophysical"]["earth_radius"]
+        self.include_bad = self.config["alg_floe_chord_length"]["include_bad"]
+        self.include_all = self.config["alg_floe_chord_length"]["include_all"]
 
-        warren_means_file_path = os.path.join(
-            self.config["shared"]["aux_file_path"], "warren_means", "warren_means.dat"
-        )
-
-        self.log.info("\tLoading warren_means.dat...")
-        if not os.path.exists(warren_means_file_path):
-            raise FileNotFoundError(
-                f"Cannot find warren_means.dat in {self.config['shared']['aux_file_path']}"
+        if self.include_all:
+            self.log.warning(
+                "Using include all is left as experimental"
+                " for looking at landfast ice floes. Don't use this"
+                " unless you're absolutely sure."
             )
-
-        _, self.wm_depth, self.wm_density = np.transpose(np.genfromtxt(warren_means_file_path))
-
-        self.log.info("\tLoaded data successfully!")
 
         # --- End of initialization steps ---
 
@@ -131,6 +128,8 @@ class Algorithm(BaseAlgorithm):
     def process(self, l1b: Dataset, shared_dict: dict) -> Tuple[bool, str]:
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
+        # pylint: disable=pointless-string-statement
+        # pylint: disable=too-many-statements
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -162,38 +161,67 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # Determine which records have an ice type of 2 (First year ice)
-        # and which have a type of 3 (Multi-year ice)
-        # Create snow_depth array of np.nans (all records with ice types other than 2
-        # or 3 will remain np.nan)
-        # Create snow_density array of np.nans
-        # Determine the month of each measurement from the time
-        # Set records with type 2 or 3 ice to the corresponding month's snow_depth mean
-        # If ice_type is 2, divide snow_depth by 2
-        # Set records with type 2 or 3 ice to the corresponding month's snow_density mean
-        # Save snow_depth and snow_density to shared_mem
+        """ 
+        make floe chord length array
+        for each index in alongtrack data:
+            skip if not valid
+            if first valid thickness sample:
+                save index
+            
+            if found first valid thickness:
+                check distance vs first index lat/lon
+                if under max distance:
+                    keep running total of thicknesses
+                    keep running number of thicknesses
+                if larger than max distance:
+                    calculate mean thickness from running totals
+                    set first index to distance
+                    reset running totals, including current values
+        """
 
-        has_fyi = shared_dict["seaice_type"] == 2
-        has_mfi = shared_dict["seaice_type"] == 3
+        sat_lat = l1b["sat_lat"][:].data
+        sat_lon = ((l1b["sat_lon"][:].data + 180) % 360) - 180
+        r_lats = (sat_lat * np.pi) / 180
+        r_lons = (sat_lon * np.pi) / 180
+        r_points = np.transpose([r_lats, r_lons])
+        valid = shared_dict["valid"]
 
-        # set all values to nans, anything that isnt fyi or mfi will remain unset
-        snow_depth = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
-        snow_density = np.zeros(l1b["measurement_time"].shape[0]) * np.nan
+        floe_chord_length = np.full_like(sat_lat, np.nan)
 
-        measurement_months = (
-            Time(l1b["measurement_time"][:].data, format="unix_tai").strftime("%m").astype(int) - 1
-        )
-        # Subtract 1 from the month so they match the indexes for the depth and density
+        first_floe_index = None
+        last_floe_index = None
 
-        # get the depth values for fyi and myi
-        snow_depth[(has_fyi | has_mfi)] = self.wm_depth[measurement_months][(has_fyi | has_mfi)]
-        snow_depth[has_fyi] /= 2  # if fyi, divide depth by 2
-        # get the density values for fyi and myi
-        snow_density[(has_fyi | has_mfi)] = self.wm_density[measurement_months][(has_fyi | has_mfi)]
+        for index in range(len(sat_lat)):
+            if (
+                (
+                    not valid[index]  # if a sample is not valid
+                    or (self.include_bad and np.isnan(shared_dict["freeboard"][index]))
+                )  # or if a sample's freeboard is not valid
+                and not self.include_all  # or if all samples should not be included
+            ):
+                continue
 
-        # save to shared_dict
-        shared_dict["snow_depth"] = snow_depth
-        shared_dict["snow_density"] = snow_density
+            if first_floe_index is None:
+                first_floe_index = index
+            else:
+                distance = (
+                    haversine_distances([r_points[last_floe_index, :]], [r_points[index, :]])[0][0]
+                    * self.earth_radius
+                )
+
+                if distance > self.max_distance:
+                    floe_length = (
+                        haversine_distances(
+                            [r_points[first_floe_index, :]], [r_points[last_floe_index, :]]
+                        )[0][0]
+                        * self.earth_radius
+                    )
+                    floe_chord_length[first_floe_index] = floe_length
+                    first_floe_index = index
+
+            last_floe_index = index
+
+        shared_dict["floe_chord_length"] = floe_chord_length
 
         # -------------------------------------------------------------------
         # Returns (True,'') if success
@@ -215,10 +243,12 @@ class Algorithm(BaseAlgorithm):
             stage,
             self.filenum,
         )
+        # pylint:disable=pointless-string-statement
+
         # ---------------------------------------------------------------------
         # Add finalization steps here /
         # ---------------------------------------------------------------------
 
-        # None
+        """ None """
 
         # ---------------------------------------------------------------------

@@ -33,25 +33,23 @@ shared: # Shared config parameters for multiple algorithms to use
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
   aux_file_path: ${HOME}/sea_ice_processor/aux_files
+  hemisphere: south
 
 alg_grid_average:
   input_projection: epsg:4326
-  output_projection: epsg:3413
+  output_projection: epsg:3031
   search_radius: 25000 # 25km in m
-  grid_file: ${HOME}/sea_ice_processor/5km_grid.npz
+  grid_file: ${HOME}/sea_ice_processor/grid_definitions/anto/5km_grid.npz
   variables:
-    - thickness
-    - seaice_conc
+    - freeboard
 
 
 alg_output_maps:
-  output_directory: ${HOME}/sea_ice_processor/output_map_files
+  output_directory: ${HOME}/sea_ice_processor/output_map_files/south
   variables:
-    - thickness
-    - seaice_conc
+    - freeboard
 
 alg_output_ascii:
-  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii
+  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii/south
   variables:
-    - thickness
-    - seaice_conc
+    - freeboard
