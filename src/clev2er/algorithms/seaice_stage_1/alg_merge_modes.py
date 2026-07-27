@@ -37,6 +37,7 @@ None (Chain ends)
 Author: Ben Palmer
 Date: 22 Jul 2024
 """
+
 import fcntl
 import os
 import signal
@@ -100,6 +101,7 @@ class Algorithm(BaseAlgorithm):
 
         self.merge_file_dir = self.config["alg_merge_modes"]["merge_file_dir"]
         self.timeout = self.config["alg_merge_modes"]["mp_file_timeout"]
+        self.nrt: bool = self.config["alg_merge_modes"]["nrt"]
 
         if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
             raise FileNotFoundError("Specified merge file directory does not exist")
@@ -113,6 +115,7 @@ class Algorithm(BaseAlgorithm):
         # pylint: disable=too-many-locals
         # pylint: disable=unpacking-non-sequence
         # pylint: disable=too-many-statements
+        # pylint: disable=too-many-branches
         """Main algorithm processing function, called for every L1b file
 
         Args:
@@ -179,15 +182,21 @@ class Algorithm(BaseAlgorithm):
             self.log.info("No valid samples left in file. Skipping...")
             return (False, "SKIP_OK")
 
+        if self.nrt:
+            output_file_name = f"merge_NRT_{l1b.abs_orbit_number:06d}.nc"
+            output_dir = os.path.join(self.merge_file_dir, datetime.now().strftime("NRT-%Y%m%d"))
+        else:
+            sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
+            output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
+            output_dir = os.path.join(
+                self.merge_file_dir, f"{sensing_start.year:04d}", f"{sensing_start.month:02d}"
+            )
+
         # Create output file locations
-        sensing_start = datetime.strptime(l1b.sensing_start, "%d-%b-%Y %H:%M:%S.%f")
-        output_file_name = f"merge_{l1b.abs_orbit_number:06d}.nc"
-        output_dir = os.path.join(
-            self.merge_file_dir, f"{sensing_start.year:04d}", f"{sensing_start.month:02d}"
-        )
         if not os.path.isdir(output_dir):
             self.log.info("Creating directory %s", output_dir)
             os.makedirs(output_dir, exist_ok=True)
+
         output_file_path = os.path.join(output_dir, output_file_name)
         output_lock_file_path = os.path.join(output_dir, "." + output_file_name + ".lock")
 
