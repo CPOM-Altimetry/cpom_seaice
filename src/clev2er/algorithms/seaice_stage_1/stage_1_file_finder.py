@@ -20,7 +20,10 @@ from clev2er.algorithms.base.base_finder import BaseFinder
 log = logging.getLogger(__name__)
 
 date_re = re.compile(r"\d{8}T\{6}")
-# CS_LTA__SIR_SAR_1B_20120109T112146_20120109T112146_E001.nc
+
+# If a mode is named differently in the filesystem than used in the settings,
+# map the setting name to the filesystem name
+FILE_MODES: dict[str, str] = {"SAR": "SAR-A"}
 
 
 def time_sort_key(input_str):
@@ -142,9 +145,21 @@ class FileFinder(BaseFinder):
         if not os.path.isdir(l1b_base_dir):
             raise FileNotFoundError(f"Cannot find input base directory {l1b_base_dir}")
 
-        nrt_mode = bool(self.config["shared"]["nrt"])
+        nrt_mode = bool(self.config["shared"]["nrt"]) if "nrt" in self.config["shared"] else False
 
-        if nrt_mode:
+        file_search_string = f"CS_*SIR_*_1B_*[{''.join(l1b_baselines)}]???.nc"
+
+        self.log.info("Finding files for mode: %s", ",".join(modes))
+        file_modes: list[str] = [FILE_MODES.get(mode, mode) for mode in modes]
+
+        if flat_search:
+            search_string = os.path.join(l1b_base_dir, file_search_string)
+            files: list[str] = glob(search_string)
+
+            if len(files) > 0:
+                file_list.extend(files)
+
+        elif nrt_mode:
             self.log.info("Finding files for NRT processing")
             # If NRT processing, fine all files within the NRT duration
 
@@ -160,26 +175,24 @@ class FileFinder(BaseFinder):
             for day_diff in range(nrt_max_duration + 1):
                 i_date = today - timedelta(days=day_diff)
 
-                for mode in modes:
-                    file_mode = mode if mode != "SAR" else "SAR-A"
-                    self.log.info("Finding files for mode: %s", mode)
-                    file_search_string = (
-                        f"CS_*SIR_{mode}_1B_{i_date.year:4d}"
-                        f"{i_date.month:02d}*[{l1b_baselines}]???.nc"
+                for mode in file_modes:
+                    nrt_file_search_string = (
+                        f"CS_*SIR_*_1B_{i_date.year:4d}"
+                        f"{i_date.month:02d}{i_date.day:02d}*[{l1b_baselines}]???.nc"
                     )
 
-                    if flat_search:
-                        search_string = os.path.join(l1b_base_dir, file_search_string)
-                    else:
-                        search_string = os.path.join(
-                            l1b_base_dir, file_mode, str(i_date.year), f"{i_date.month:02d}"
-                        )
+                    search_string = os.path.join(
+                        l1b_base_dir,
+                        mode,
+                        str(i_date.year),
+                        f"{i_date.month:02d}",
+                        nrt_file_search_string,
+                    )
 
-                    files: list[str] = glob(search_string)
+                    files = glob(search_string)
 
                     if len(files) > 0:
                         file_list.extend(files)
-
         else:
             if len(self.years) < 1:
                 raise ValueError("Empty year list. Use .add_years first.")
@@ -192,23 +205,14 @@ class FileFinder(BaseFinder):
                 self.log.info("Finding files for year: %d", year)
                 for month in self.months:
                     self.log.info("Finding files for month: %d", month)
-                    for mode in modes:
-                        file_mode = mode if mode != "SAR" else "SAR-A"
-                        self.log.info("Finding files for mode: %s", mode)
-                        file_search_string = (
-                            f"CS_*SIR_{mode}_1B_{year:4d}{month:02d}*[{l1b_baselines}]???.nc"
+                    for mode in file_modes:
+                        search_string = os.path.join(
+                            l1b_base_dir,
+                            mode,
+                            str(year),
+                            f"{month:02d}",
+                            file_search_string,
                         )
-
-                        if flat_search:
-                            search_string = os.path.join(l1b_base_dir, file_search_string)
-                        else:
-                            search_string = os.path.join(
-                                l1b_base_dir,
-                                file_mode,
-                                str(year),
-                                f"{month:02d}",
-                                file_search_string,
-                            )
 
                         files = glob(search_string)
 
