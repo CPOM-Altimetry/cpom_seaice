@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 from concurrent.futures import ProcessPoolExecutor
 from glob import glob
 from typing import List
@@ -17,24 +16,6 @@ from clev2er.algorithms.base.base_finder import BaseFinder
 # pylint: disable=too-many-locals
 
 log = logging.getLogger(__name__)
-
-date_re = re.compile(r"\d{8}T\{6}")
-# CS_LTA__SIR_SAR_1B_20120109T112146_20120109T112146_E001.nc
-
-
-def time_sort_key(input_str):
-    """Gets the first date and time from a filename to use within a sort function
-
-    Args:
-        input_str (str): input filename
-
-    Returns:
-        str: first datetime found within the filename
-    """
-    found_items = date_re.findall(input_str)
-    if len(found_items) > 0:
-        return found_items[0]
-    return -1
 
 
 class FileFinder(BaseFinder):
@@ -117,36 +98,39 @@ class FileFinder(BaseFinder):
         #   note these are lists of strings (so could contain more than
         #   one month or year) or None if not set
 
-        if "l1b_base_dir" not in self.config["stage_2_file_finder"]:
-            raise KeyError("l1b_base_dir missing from config")
+        if "merge_base_dir" not in self.config["stage_2_file_finder"]:
+            raise KeyError("merge_base_dir missing from config")
 
         merge_base_dir = self.config["stage_2_file_finder"]["merge_base_dir"]
 
-        if len(self.years) < 1:
-            raise ValueError("Empty year list. Use .add_years first.")
+        file_search_string = "merge?(_NRT)_??????.nc"
 
-        if len(self.months) == 0:
-            self.log.info("No months specified, using all months.")
-            self.months: list[int] = list(range(1, 13))
+        if flat_search:
+            search_string = os.path.join(merge_base_dir, file_search_string)
+            files = glob(search_string)
 
-        for year in self.years:
-            self.log.info("Finding files for year: %d", year)
-            for month in self.months:
-                self.log.info("Finding files for month: %d", month)
+            if len(files) > 0:
+                file_list.extend(files)
+        else:
+            if len(self.years) < 1:
+                raise ValueError("Empty year list. Use .add_years first.")
 
-                file_search_string = "merge?(_NRT)_??????.nc"
+            if len(self.months) == 0:
+                self.log.info("No months specified, using all months.")
+                self.months: list[int] = list(range(1, 13))
 
-                if flat_search:
-                    search_string = os.path.join(merge_base_dir, file_search_string)
-                else:
+            for year in self.years:
+                self.log.info("Finding files for year: %d", year)
+                for month in self.months:
+                    self.log.info("Finding files for month: %d", month)
                     search_string = os.path.join(
                         merge_base_dir, str(year), f"{month:02d}", file_search_string
                     )
 
-                files = glob(search_string)
+                    files = glob(search_string)
 
-                if len(files) > 0:
-                    file_list.extend(files)
+                    if len(files) > 0:
+                        file_list.extend(files)
 
         self.log.info("Total number of files found: %d", len(file_list))
 
@@ -176,6 +160,6 @@ class FileFinder(BaseFinder):
             "sort_files" in self.config["stage_2_file_finder"]
             and self.config["stage_2_file_finder"]["sort_files"]
         ):
-            file_list = sorted(file_list, key=time_sort_key)
+            file_list = sorted(file_list)
 
         return file_list
