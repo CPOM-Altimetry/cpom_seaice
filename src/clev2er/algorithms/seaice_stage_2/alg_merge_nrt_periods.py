@@ -1,4 +1,4 @@
-"""clev2er.algorithms.seaice_stage_1..py
+"""clev2er.algorithms.seaice_stage_1.merge_nrt_periods.py
 
 Algorithm class module, used to implement a single chain algorithm
 
@@ -37,10 +37,10 @@ None (Chain ends)
 Author: Ben Palmer
 Date: 22 Jul 2024
 """
-
 import fcntl
 import os
 import signal
+from datetime import datetime, timedelta
 from typing import Tuple
 
 import numpy as np
@@ -99,9 +99,17 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.merge_file_dir = self.config["alg_merge_months"]["merge_file_dir"]
-        self.timeout = self.config["alg_merge_months"]["mp_file_timeout"]
+        self.merge_file_dir = self.config["alg_merge_nrt_periods"]["merge_file_dir"]
+        self.timeout = self.config["alg_merge_nrt_periods"]["mp_file_timeout"]
+        self.day_periods = self.config["alg_merge_nrt_periods"]["period_lengths"]
         self.nrt: bool = self.config["shared"]["nrt"]
+
+        if (
+            not isinstance(self.day_periods, list)
+            or len(self.day_periods) == 0
+            or isinstance(self.day_periods[0], int)
+        ):
+            raise RuntimeError("day_periods should be a list of integers")
 
         if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
             raise FileNotFoundError("Specified merge file directory does not exist")
@@ -146,9 +154,9 @@ class Algorithm(BaseAlgorithm):
         # /    down the chain in the 'shared_dict' dict     /
         # -------------------------------------------------------------------
 
-        # If processing NRT data, skip this algorithm
-        # This is for NTC only
-        if self.nrt:
+        # If not processing NRT data, skip this algorithm
+        # This is for NRT only
+        if not self.nrt:
             return (success, error_str)
 
         # check all variables being deposited in the merge file are of equal length
@@ -189,91 +197,107 @@ class Algorithm(BaseAlgorithm):
         freeboard = shared_dict["freeboard_corr"]
         seaice_type = shared_dict["seaice_type"]
 
+        # group files by year
+        output_dir = os.path.join(self.merge_file_dir, datetime.now().strftime("%Y-%m-%d"))
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+
         # Create output file locations
         # Set up output file
-        f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
+        file_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").to_datetime()
 
-        # group files by year
-        year_dir = os.path.join(self.merge_file_dir, f_time[:4])
-        if not os.path.isdir(year_dir):
-            os.mkdir(year_dir)
+        for period in self.day_periods:
+            period_start_time = datetime.now().replace(hour=0, minute=0, second=0) - timedelta(
+                days=period
+            )
 
-        merge_file_name = f"{f_time}_merge.nc"
-        output_file_path = os.path.join(year_dir, merge_file_name)
-        output_lock_file_path = os.path.join(year_dir, "." + merge_file_name + ".lock")
+            if period_start_time > file_time:
+                continue
 
-        # Acquire lock file to stop other processes from trying to add to the file
-        with open(output_lock_file_path, "w", encoding="utf-8") as lock:
-            # Handle timeouts if we fail to acquire the lock for a set period
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(self.timeout)
+            merge_file_name = f"{datetime.now():%Y%m%d)}_{period:02d}_merge.nc"
+            output_file_path = os.path.join(output_dir, merge_file_name)
+            output_lock_file_path = os.path.join(output_dir, "." + merge_file_name + ".lock")
 
-            try:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-                signal.alarm(0)
+            # Acquire lock file to stop other processes from trying to add to the file
+            with open(output_lock_file_path, "w", encoding="utf-8") as lock:
+                # Handle timeouts if we fail to acquire the lock for a set period
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(self.timeout)
 
-                # If output file does not already exist, create new file
-                # Else, load up the output file
-                if not os.path.exists(output_file_path):
-                    output_nc: Dataset = Dataset(output_file_path, mode="w")
-                    output_nc.createDimension("n_samples", None)
+                try:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                    signal.alarm(0)
 
-                    output_nc.createVariable(
-                        "packet_count", "i4", ("n_samples",), compression="zlib"
+                    # If output file does not already exist, create new file
+                    # Else, load up the output file
+                    if not os.path.exists(output_file_path):
+                        output_nc: Dataset = Dataset(output_file_path, mode="w")
+                        output_nc.createDimension("n_samples", None)
+
+                        output_nc.createVariable(
+                            "packet_count", "i4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "block_number", "i4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "measurement_time", "f8", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
+
+                        output_nc.createVariable(
+                            "sat_lat", "f4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "sat_lon", "f4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "thickness", "f4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "freeboard", "f4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "seaice_conc", "f4", ("n_samples",), compression="zlib"
+                        )
+                        output_nc.createVariable(
+                            "seaice_type", "i4", ("n_samples",), compression="zlib"
+                        )
+                    else:
+                        output_nc = Dataset(output_file_path, mode="a")
+
+                    # append data from the current file to data within the merge file
+                    packet_count = np.concatenate((output_nc["packet_count"][:], packet_count))
+                    block_number = np.concatenate((output_nc["block_number"][:], block_number))
+                    measurement_time = np.concatenate(
+                        (output_nc["measurement_time"][:], measurement_time)
                     )
-                    output_nc.createVariable(
-                        "block_number", "i4", ("n_samples",), compression="zlib"
-                    )
-                    output_nc.createVariable(
-                        "measurement_time", "f8", ("n_samples",), compression="zlib"
-                    )
-                    output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
+                    sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
+                    sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
+                    sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
+                    thickness = np.concatenate((output_nc["thickness"][:], thickness))
+                    freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
+                    seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
+                    seaice_type = np.concatenate((output_nc["seaice_type"][:], seaice_type))
 
-                    output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
-                    output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
-                    output_nc.createVariable("thickness", "f4", ("n_samples",), compression="zlib")
-                    output_nc.createVariable("freeboard", "f4", ("n_samples",), compression="zlib")
-                    output_nc.createVariable(
-                        "seaice_conc", "f4", ("n_samples",), compression="zlib"
-                    )
-                    output_nc.createVariable(
-                        "seaice_type", "i4", ("n_samples",), compression="zlib"
-                    )
-                else:
-                    output_nc = Dataset(output_file_path, mode="a")
+                    # add the data to the merge file
+                    output_nc["packet_count"][:] = packet_count
+                    output_nc["block_number"][:] = block_number
+                    output_nc["measurement_time"][:] = measurement_time
+                    output_nc["valid"][:] = sample_valid
+                    output_nc["sat_lat"][:] = sat_lat
+                    output_nc["sat_lon"][:] = sat_lon
+                    output_nc["thickness"][:] = thickness
+                    output_nc["freeboard"][:] = freeboard
+                    output_nc["seaice_conc"][:] = seaice_conc
+                    output_nc["seaice_type"][:] = seaice_type
 
-                # append data from the current file to data within the merge file
-                packet_count = np.concatenate((output_nc["packet_count"][:], packet_count))
-                block_number = np.concatenate((output_nc["block_number"][:], block_number))
-                measurement_time = np.concatenate(
-                    (output_nc["measurement_time"][:], measurement_time)
-                )
-                sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
-                sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
-                sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
-                thickness = np.concatenate((output_nc["thickness"][:], thickness))
-                freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
-                seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
-                seaice_type = np.concatenate((output_nc["seaice_type"][:], seaice_type))
-
-                # add the data to the merge file
-                output_nc["packet_count"][:] = packet_count
-                output_nc["block_number"][:] = block_number
-                output_nc["measurement_time"][:] = measurement_time
-                output_nc["valid"][:] = sample_valid
-                output_nc["sat_lat"][:] = sat_lat
-                output_nc["sat_lon"][:] = sat_lon
-                output_nc["thickness"][:] = thickness
-                output_nc["freeboard"][:] = freeboard
-                output_nc["seaice_conc"][:] = seaice_conc
-                output_nc["seaice_type"][:] = seaice_type
-
-                # close file
-                output_nc.close()
-            finally:
-                # release lock when we're done with the file
-                signal.alarm(0)
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+                    # close file
+                    output_nc.close()
+                finally:
+                    # release lock when we're done with the file
+                    signal.alarm(0)
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
         self.log.info("Appended data to %s", output_file_path)
         # -------------------------------------------------------------------
