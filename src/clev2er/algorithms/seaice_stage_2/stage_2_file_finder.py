@@ -4,7 +4,6 @@ import logging
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
-from datetime import date, timedelta
 from glob import glob
 from typing import List
 
@@ -118,108 +117,42 @@ class FileFinder(BaseFinder):
         #   note these are lists of strings (so could contain more than
         #   one month or year) or None if not set
 
-        modes: list[str] = []
-        if (
-            "use_sin" in self.config["stage_1_file_finder"]
-            and self.config["stage_1_file_finder"]["use_sin"]
-        ):
-            modes.append("SIN")
-        elif (
-            "use_sar" in self.config["stage_1_file_finder"]
-            and self.config["stage_1_file_finder"]["use_sar"]
-        ):
-            modes.append("SAR")
-
-        if "l1b_baseline" not in self.config["stage_1_file_finder"]:
-            raise KeyError("l1b_baselines missing from config")
-        l1b_baselines = self.config["stage_1_file_finder"]["l1b_baselines"]
-
-        if "l1b_base_dir" not in self.config["stage_1_file_finder"]:
+        if "l1b_base_dir" not in self.config["stage_2_file_finder"]:
             raise KeyError("l1b_base_dir missing from config")
 
-        l1b_base_dir = self.config["stage_1_file_finder"]["l1b_base_dir"]
+        merge_base_dir = self.config["stage_2_file_finder"]["merge_base_dir"]
 
-        if not os.path.isdir(l1b_base_dir):
-            raise FileNotFoundError(f"Cannot find input base directory {l1b_base_dir}")
+        if len(self.years) < 1:
+            raise ValueError("Empty year list. Use .add_years first.")
 
-        nrt_mode = bool(self.config["shared"]["nrt"])
+        if len(self.months) == 0:
+            self.log.info("No months specified, using all months.")
+            self.months: list[int] = list(range(1, 13))
 
-        if nrt_mode:
-            self.log.info("Finding files for NRT processing")
-            # If NRT processing, fine all files within the NRT duration
+        for year in self.years:
+            self.log.info("Finding files for year: %d", year)
+            for month in self.months:
+                self.log.info("Finding files for month: %d", month)
 
-            nrt_max_duration = 28
-            today = date.today()
+                file_search_string = "merge_??????.nc"
 
-            self.log.info(
-                "Finding files from %s to %s",
-                today.strftime("%Y-%m-%d"),
-                (today - timedelta(days=-nrt_max_duration)).strftime("%Y-%m-%d"),
-            )
-
-            for day_diff in range(nrt_max_duration + 1):
-                i_date = today - timedelta(days=day_diff)
-
-                for mode in modes:
-                    file_mode = mode if mode != "SAR" else "SAR-A"
-                    self.log.info("Finding files for mode: %s", mode)
-                    file_search_string = (
-                        f"CS_*SIR_{mode}_1B_{i_date.year:4d}"
-                        f"{i_date.month:02d}*[{l1b_baselines}]???.nc"
+                if flat_search:
+                    search_string = os.path.join(merge_base_dir, file_search_string)
+                else:
+                    search_string = os.path.join(
+                        merge_base_dir, str(year), f"{month:02d}", file_search_string
                     )
 
-                    if flat_search:
-                        search_string = os.path.join(l1b_base_dir, file_search_string)
-                    else:
-                        search_string = os.path.join(
-                            l1b_base_dir, file_mode, str(i_date.year), f"{i_date.month:02d}"
-                        )
+                files = glob(search_string)
 
-                    files: list[str] = glob(search_string)
-
-                    if len(files) > 0:
-                        file_list.extend(files)
-
-        else:
-            if len(self.years) < 1:
-                raise ValueError("Empty year list. Use .add_years first.")
-
-            if len(self.months) == 0:
-                self.log.info("No months specified, using all months.")
-                self.months: list[int] = list(range(1, 13))
-
-            for year in self.years:
-                self.log.info("Finding files for year: %d", year)
-                for month in self.months:
-                    self.log.info("Finding files for month: %d", month)
-                    for mode in modes:
-                        file_mode = mode if mode != "SAR" else "SAR-A"
-                        self.log.info("Finding files for mode: %s", mode)
-                        file_search_string = (
-                            f"CS_*SIR_{mode}_1B_{year:4d}{month:02d}*[{l1b_baselines}]???.nc"
-                        )
-
-                        if flat_search:
-                            search_string = os.path.join(l1b_base_dir, file_search_string)
-                        else:
-                            search_string = os.path.join(
-                                l1b_base_dir,
-                                file_mode,
-                                str(year),
-                                f"{month:02d}",
-                                file_search_string,
-                            )
-
-                        files = glob(search_string)
-
-                        if len(files) > 0:
-                            file_list.extend(files)
+                if len(files) > 0:
+                    file_list.extend(files)
 
         self.log.info("Total number of files found: %d", len(file_list))
 
         if (
-            "filter_by_area" in self.config["stage_1_file_finder"]
-            and self.config["stage_1_file_finder"]["filter_by_area"]
+            "filter_by_area" in self.config["stage_2_file_finder"]
+            and self.config["stage_2_file_finder"]["filter_by_area"]
         ):
             self.log.info("Filtering file list to contain only the target area")
 
@@ -240,8 +173,8 @@ class FileFinder(BaseFinder):
         # some of the chain is optimised to process files from similar time periods more
         # efficiently, so sort them by time to try to encourage this
         if (
-            "sort_files" in self.config["stage_1_file_finder"]
-            and self.config["stage_1_file_finder"]["sort_files"]
+            "sort_files" in self.config["stage_2_file_finder"]
+            and self.config["stage_2_file_finder"]["sort_files"]
         ):
             file_list = sorted(file_list, key=time_sort_key)
 
