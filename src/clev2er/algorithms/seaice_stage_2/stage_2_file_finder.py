@@ -134,7 +134,7 @@ class FileFinder(BaseFinder):
             for month in self.months:
                 self.log.info("Finding files for month: %d", month)
 
-                file_search_string = "merge_??????.nc"
+                file_search_string = "merge?(_NRT)_??????.nc"
 
                 if flat_search:
                     search_string = os.path.join(merge_base_dir, file_search_string)
