@@ -37,6 +37,7 @@ Author: Ben Palmer
 Date: 23 Feb 2026
 """
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple
 
@@ -101,6 +102,8 @@ class Algorithm(BaseAlgorithm):
 
         self.variables = self.config["alg_output_ascii"]["variables"]
 
+        self.nrt = self.config["shared"]["nrt"]
+
         if not self.output_directory.exists():
             os.makedirs(self.output_directory)
 
@@ -154,14 +157,19 @@ class Algorithm(BaseAlgorithm):
         Write line containing relevant information
         """
 
-        f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
+        if self.nrt:
+            nrt_dt = datetime.strptime(shared_dict["nrt_date"], "%Y-%m-%d")
+            output_folder = self.output_directory / shared_dict["nrt_date"]
+            filename_format = f"{nrt_dt:%Y%m%d}_NRT_{shared_dict['nrt_period']:02d}"
+        else:
+            f_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").strftime("%Y%m")
 
-        # check if year folder exists
-        year_folder = self.output_directory / f_time[:4]
-        if not year_folder.exists():
-            os.makedirs(year_folder)
+            # check if year folder exists
+            output_folder = self.output_directory / f_time[:4]
+            filename_format = f"{f_time[:4]}_{f_time[4:]}"
 
-        filename_date = f"{f_time[:4]}_{f_time[4:]}"
+        if not output_folder.exists():
+            os.makedirs(output_folder)
 
         lats = l1b["sat_lat"][:].data.flatten()
         lons = l1b["sat_lon"][:].data.flatten()
@@ -170,7 +178,7 @@ class Algorithm(BaseAlgorithm):
             output_varname = "".join([x.capitalize() for x in var_name.split("_")])
             self.log.info("Writing output for %s", var_name)
 
-            out_file = os.path.join(year_folder, filename_date + "." + output_varname)
+            out_file = os.path.join(output_folder, filename_format + "." + output_varname)
 
             out_values = shared_dict[var_name].flatten()
 

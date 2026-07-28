@@ -93,6 +93,7 @@ class Algorithm(BaseAlgorithm):
 
         self.variables = self.config["alg_ingest_along_track"]["variables"]
         self.filtering_on = bool(self.config["alg_ingest_along_track"]["filtering_on"])
+        self.nrt: bool = self.config["shared"]["nrt"]
 
         # --- End of initialization steps ---
 
@@ -144,6 +145,15 @@ class Algorithm(BaseAlgorithm):
             Apply filtering if necessary
             Add to shared dict
         """
+
+        if self.nrt:
+            shared_dict["nrt_period"] = l1b.nrt_period
+            shared_dict["nrt_date"] = l1b.nrt_date
+            self.log.info(
+                "Found NRT processing from %s with %d day period",
+                shared_dict["nrt_date"],
+                shared_dict["nrt_period"],
+            )
 
         for var_name in self.variables:
             if var_name not in l1b.variables:
