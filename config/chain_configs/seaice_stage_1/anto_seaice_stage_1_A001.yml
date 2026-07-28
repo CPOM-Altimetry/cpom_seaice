@@ -31,6 +31,7 @@ shared: # Shared config parameters for multiple algorithms to use
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3031 # projection used within chain
+  nrt: False
 
 alg_ingest:
   allow_lrm: false

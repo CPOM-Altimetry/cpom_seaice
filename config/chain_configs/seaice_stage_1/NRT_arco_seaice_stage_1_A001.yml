@@ -31,13 +31,13 @@ shared: # Shared config parameters for multiple algorithms to use
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
   output_projection: epsg:3413 # projection used within chain
-  nrt: False
+  nrt: True
 
 # file finder
 stage_1_file_finder:
-  l1b_base_dir:
-  use_sar:
-  use_sin:
+  l1b_base_dir: $CPDATA_DIR/SATS/RA/CRY/L1B/
+  use_sar: True
+  use_sin: True
 
 alg_ingest:
   allow_lrm: false
@@ -98,6 +98,6 @@ alg_elev_calculations:
   tracking_bin : 64
 
 alg_merge_modes:
-  merge_file_dir: $HOME/sea_ice_processor/elev_merge_north
+  merge_file_dir: /home/benpalmer/sea_ice_processor/NRT_data/north/
 # Resource Locators
 
