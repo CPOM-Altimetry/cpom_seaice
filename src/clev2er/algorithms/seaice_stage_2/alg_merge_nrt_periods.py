@@ -37,6 +37,7 @@ None (Chain ends)
 Author: Ben Palmer
 Date: 22 Jul 2024
 """
+
 import fcntl
 import os
 import signal
@@ -186,6 +187,10 @@ class Algorithm(BaseAlgorithm):
 
             return (False, "VarLengthError")
 
+        today_dt = datetime.now()
+        today_fmt = today_dt.strftime("%Y-%m-%d")
+        processing_time = today_dt.strftime("%Y-%m-%dT%H:%M:%S")
+
         packet_count = l1b["packet_count"][:].data
         block_number = l1b["block_number"][:].data
         measurement_time = l1b["measurement_time"][:].data
@@ -198,7 +203,7 @@ class Algorithm(BaseAlgorithm):
         seaice_type = shared_dict["seaice_type"]
 
         # group files by year
-        output_dir = os.path.join(self.merge_file_dir, datetime.now().strftime("%Y-%m-%d"))
+        output_dir = os.path.join(self.merge_file_dir, today_dt.strftime("%Y-%m-%d"))
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
 
@@ -207,14 +212,14 @@ class Algorithm(BaseAlgorithm):
         file_time = Time(np.min(l1b["measurement_time"]), format="unix_tai").to_datetime()
 
         for period in self.day_periods:
-            period_start_time = datetime.now().replace(hour=0, minute=0, second=0) - timedelta(
+            period_start_time = today_dt.replace(hour=0, minute=0, second=0) - timedelta(
                 days=period
             )
 
             if period_start_time > file_time:
                 continue
 
-            merge_file_name = f"{datetime.now():%Y%m%d)}_{period:02d}_merge.nc"
+            merge_file_name = f"{today_dt:%Y%m%d)}_{period:02d}_merge.nc"
             output_file_path = os.path.join(output_dir, merge_file_name)
             output_lock_file_path = os.path.join(output_dir, "." + merge_file_name + ".lock")
 
@@ -263,6 +268,10 @@ class Algorithm(BaseAlgorithm):
                         output_nc.createVariable(
                             "seaice_type", "i4", ("n_samples",), compression="zlib"
                         )
+
+                        output_nc.processing_time = processing_time
+                        output_nc.nrt_date = today_fmt
+                        output_nc.nrt_period = period
                     else:
                         output_nc = Dataset(output_file_path, mode="a")
 
