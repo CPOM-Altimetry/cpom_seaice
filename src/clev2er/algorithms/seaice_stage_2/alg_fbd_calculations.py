@@ -44,6 +44,7 @@ from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
 class Algorithm(BaseAlgorithm):
+    # pylint: disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -91,6 +92,14 @@ class Algorithm(BaseAlgorithm):
 
         self.fb_min = self.config["alg_fbd_calculations"]["fb_min"]
         self.fb_max = self.config["alg_fbd_calculations"]["fb_max"]
+
+        self.correction_method = self.config["alg_fbd_calculations"]["correction_method"]
+
+        if self.correction_method == "penetration":
+            self.mfit = self.config["alg_fbd_calculations"]["mfit"]
+            self.cfit = self.config["alg_fbd_calculations"]["cfit"]
+
+        self.hemi = self.config["shared"]["hemisphere"]
         # --- End of initialization steps ---
 
         return (True, "")
@@ -153,17 +162,38 @@ class Algorithm(BaseAlgorithm):
             sum(np.isnan(freeboard)),
         )
 
-        # calculate the corrected freeboard of the ice
-        freeboard_corr = freeboard + (
-            shared_dict["snow_depth"] * ((self.speed_light_vacuum / self.speed_light_snow) - 1)
-        )
+        match self.correction_method:
+            case "snow_depth":
+                zs = shared_dict["snow_depth"]
+            case "penetration":
+                # calculate zs as the modelled penetration depth
+                zs = (self.mfit * shared_dict["snow_depth"]) + self.cfit
+                zs = np.where(zs < shared_dict["snow_depth"], zs, shared_dict["snow_depth"])
+            case _:
+                raise RuntimeError(
+                    f"Unknown method specified for correction - {self.correction_method}"
+                )
 
-        # discard any samples outside of sensible range
-        invalid_corrected_freeboard = (freeboard_corr < self.fb_min) | (
-            freeboard_corr > self.fb_max
-        )
-        freeboard_corr[invalid_corrected_freeboard] = np.nan
-        shared_dict["valid"][invalid_corrected_freeboard] = False
+        # calculate the corrected freeboard of the ice
+        freeboard_corr = freeboard + (zs * ((self.speed_light_vacuum / self.speed_light_snow) - 1))
+
+        match self.hemi:
+            case "north":
+                # discard any samples outside of sensible range
+                invalid_measurements = (freeboard_corr < self.fb_min) | (
+                    freeboard_corr > self.fb_max
+                )
+            case "south":
+                invalid_measurements = (freeboard < self.fb_min) | (freeboard > self.fb_max)
+                # anto processing needs snow layer stripped
+                freeboard_corr -= shared_dict["snow_depth"] - zs
+
+            case _:
+                self.log.error("Invalid hemisphere selected - %s", self.hemi)
+                raise RuntimeError(f"Invalid hemisphere selected - {self.hemi}")
+
+        freeboard_corr[invalid_measurements] = np.nan
+        shared_dict["valid"][invalid_measurements] = False
 
         if np.isnan(freeboard_corr).all():
             self.log.info("No valid freeboard measurements")

@@ -156,9 +156,14 @@ class Algorithm(BaseAlgorithm):
             l1b["block_number"].size
             == l1b["packet_count"].size
             == l1b["measurement_time"].size
+            == l1b["lead_floe_class"].size
             == l1b["sat_lat"].size
             == l1b["sat_lon"].size
+            == l1b["valid"].size
             == shared_dict["thickness"].size
+            == shared_dict["floe_chord_length"].size
+            == shared_dict["snow_depth"].size
+            == shared_dict["smoothed_sea_level_anomaly"].size
             == shared_dict["freeboard"].size
             == shared_dict["seaice_type"].size
         ):
@@ -168,12 +173,22 @@ class Algorithm(BaseAlgorithm):
                 "block_number",
                 "packet_count",
                 "measurement_time",
+                "lead_floe_class",
                 "sat_lat",
                 "sat_lon",
+                "valid",
             ]:
                 self.log.error("   %s - size=%d", var_name, l1b[var_name].size)
 
-            for var_name in ["thickness", "freeboard", "seaice_type"]:
+            for var_name in [
+                "thickness",
+                "freeboard",
+                "seaice_type",
+                "floe_chord_length",
+                "snow_depth",
+                "smoothed_sea_level_anomaly",
+                "valid",
+            ]:
                 self.log.error("   %s - size=%d", var_name, shared_dict[var_name].size)
 
             return (False, "VarLengthError")
@@ -181,13 +196,18 @@ class Algorithm(BaseAlgorithm):
         packet_count = l1b["packet_count"][:].data
         block_number = l1b["block_number"][:].data
         measurement_time = l1b["measurement_time"][:].data
-        sample_valid = shared_dict["valid"].astype(np.bool_)
+        thk_valid = shared_dict["valid"].astype(np.bool_)
+        elev_valid = l1b["valid"][:].data.astype(np.bool_)
         sat_lat = l1b["sat_lat"][:].data
         sat_lon = l1b["sat_lon"][:].data
+        floe_chord_length = shared_dict["floe_chord_length"]
+        surface_type = l1b["lead_floe_class"][:].data
         seaice_conc = l1b["seaice_conc"][:].data
         thickness = shared_dict["thickness"]
         freeboard = shared_dict["freeboard_corr"]
         seaice_type = shared_dict["seaice_type"]
+        snow_depth = shared_dict["snow_depth"]
+        sea_level_anomaly = shared_dict["smoothed_sea_level_anomaly"]
 
         # Create output file locations
         # Set up output file
@@ -227,10 +247,14 @@ class Algorithm(BaseAlgorithm):
                     output_nc.createVariable(
                         "measurement_time", "f8", ("n_samples",), compression="zlib"
                     )
-                    output_nc.createVariable("valid", "b", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("thk_valid", "b", ("n_samples",), compression="zlib")
+                    output_nc.createVariable("elev_valid", "b", ("n_samples",), compression="zlib")
 
                     output_nc.createVariable("sat_lat", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable("sat_lon", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable(
+                        "surface_type", "i4", ("n_samples",), compression="zlib"
+                    )
                     output_nc.createVariable("thickness", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable("freeboard", "f4", ("n_samples",), compression="zlib")
                     output_nc.createVariable(
@@ -238,6 +262,13 @@ class Algorithm(BaseAlgorithm):
                     )
                     output_nc.createVariable(
                         "seaice_type", "i4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable(
+                        "floe_chord_length", "f4", ("n_samples",), compression="zlib"
+                    )
+                    output_nc.createVariable("snow_depth", "f4", ("n_samples",), compression="zlib")
+                    output_nc.createVariable(
+                        "sea_level_anomaly", "f4", ("n_samples",), compression="zlib"
                     )
                 else:
                     output_nc = Dataset(output_file_path, mode="a")
@@ -248,25 +279,39 @@ class Algorithm(BaseAlgorithm):
                 measurement_time = np.concatenate(
                     (output_nc["measurement_time"][:], measurement_time)
                 )
-                sample_valid = np.concatenate((output_nc["valid"][:], sample_valid))
+                thk_valid = np.concatenate((output_nc["thk_valid"][:], thk_valid))
+                elev_valid = np.concatenate((output_nc["elev_valid"][:], elev_valid))
                 sat_lat = np.concatenate((output_nc["sat_lat"][:], sat_lat))
                 sat_lon = np.concatenate((output_nc["sat_lon"][:], sat_lon))
+                surface_type = np.concatenate((output_nc["surface_type"][:], surface_type))
                 thickness = np.concatenate((output_nc["thickness"][:], thickness))
                 freeboard = np.concatenate((output_nc["freeboard"][:], freeboard))
                 seaice_conc = np.concatenate((output_nc["seaice_conc"][:], seaice_conc))
                 seaice_type = np.concatenate((output_nc["seaice_type"][:], seaice_type))
+                floe_chord_length = np.concatenate(
+                    (output_nc["floe_chord_length"][:], floe_chord_length)
+                )
+                snow_depth = np.concatenate((output_nc["snow_depth"][:], snow_depth))
+                sea_level_anomaly = np.concatenate(
+                    (output_nc["sea_level_anomaly"][:], sea_level_anomaly)
+                )
 
                 # add the data to the merge file
                 output_nc["packet_count"][:] = packet_count
                 output_nc["block_number"][:] = block_number
                 output_nc["measurement_time"][:] = measurement_time
-                output_nc["valid"][:] = sample_valid
+                output_nc["thk_valid"][:] = thk_valid
+                output_nc["elev_valid"][:] = elev_valid
                 output_nc["sat_lat"][:] = sat_lat
                 output_nc["sat_lon"][:] = sat_lon
+                output_nc["surface_type"][:] = surface_type
                 output_nc["thickness"][:] = thickness
                 output_nc["freeboard"][:] = freeboard
                 output_nc["seaice_conc"][:] = seaice_conc
                 output_nc["seaice_type"][:] = seaice_type
+                output_nc["floe_chord_length"][:] = floe_chord_length
+                output_nc["snow_depth"][:] = snow_depth
+                output_nc["sea_level_anomaly"][:] = sea_level_anomaly
 
                 # close file
                 output_nc.close()
