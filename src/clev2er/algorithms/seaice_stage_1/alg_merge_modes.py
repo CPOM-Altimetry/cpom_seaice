@@ -46,7 +46,7 @@ from typing import Tuple
 
 import numpy as np
 from codetiming import Timer
-from netCDF4 import Dataset, stringtochar  # pylint:disable=no-name-in-module
+from netCDF4 import Dataset  # pylint:disable=no-name-in-module
 
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
@@ -101,7 +101,7 @@ class Algorithm(BaseAlgorithm):
 
         self.merge_file_dir = self.config["alg_merge_modes"]["merge_file_dir"]
         self.timeout = self.config["alg_merge_modes"]["mp_file_timeout"]
-        self.nrt: bool = self.config["alg_merge_modes"]["nrt"]
+        self.nrt: bool = self.config["shared"]["nrt"]
 
         if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
             raise FileNotFoundError("Specified merge file directory does not exist")
@@ -323,9 +323,7 @@ class Algorithm(BaseAlgorithm):
                 output_nc["gaussexp_sigma"][:] = gaussexp_sigma
                 output_nc["gaussexp_err"][:] = gaussexp_err
                 for i, file_id in enumerate(input_files):
-                    output_nc["files_used"][i, :] = stringtochar(
-                        np.array([file_id.ljust(17)], "S17")
-                    )
+                    output_nc["files_used"][i, :] = file_id.ljust(17)
 
                 # close file
                 output_nc.close()
