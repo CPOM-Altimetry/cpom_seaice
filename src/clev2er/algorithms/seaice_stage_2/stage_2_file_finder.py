@@ -1,8 +1,8 @@
 """my_file_selector"""
-
 import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
+from datetime import date, timedelta
 from glob import glob
 from typing import List
 
@@ -103,14 +103,39 @@ class FileFinder(BaseFinder):
 
         merge_base_dir = self.config["stage_2_file_finder"]["merge_base_dir"]
 
-        file_search_string = "merge?(_NRT)_??????.nc"
+        file_search_string = "merge_??????.nc"
 
-        if flat_search:
+        if flat_search or self.config["stage_2_file_finder"]["flat_search"]:
             search_string = os.path.join(merge_base_dir, file_search_string)
             files = glob(search_string)
 
             if len(files) > 0:
                 file_list.extend(files)
+        elif self.config["shared"]["nrt"]:
+            file_search_string = "merge_NRT_??????.nc"
+
+            # folders are marked by the day they are processed
+            # search for today or yesterday
+            today = date.today()
+            search_folder = os.path.join(merge_base_dir, f"NRT-{today:%Y%m%d}")
+            self.log.info("Trying folder %s", search_folder)
+            if not os.path.exists(search_folder):
+                # if today doesn't exist, try yesterday
+                self.log.warning("Could not find %s, trying day before", search_folder)
+                yesterday = date.today() - timedelta(days=1)
+                search_folder = os.path.join(merge_base_dir, f"NRT-{yesterday:%Y%m%d}")
+                self.log.info("Trying folder %s", search_folder)
+                if not os.path.exists(search_folder):
+                    self.log.error("Cannot find NRT folder for today or yesterday")
+                    return []
+
+            search_string = os.path.join(search_folder, file_search_string)
+
+            files = glob(search_string)
+
+            if len(files) > 0:
+                file_list.extend(files)
+
         else:
             if len(self.years) < 1:
                 raise ValueError("Empty year list. Use .add_years first.")
