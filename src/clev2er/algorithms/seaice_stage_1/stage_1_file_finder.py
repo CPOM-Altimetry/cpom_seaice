@@ -24,6 +24,7 @@ date_re = re.compile(r"\d{8}T\{6}")
 # If a mode is named differently in the filesystem than used in the settings,
 # map the setting name to the filesystem name
 FILE_MODES: dict[str, str] = {"SAR": "SAR-A"}
+NRT_FILE_MODES: dict[str, str] = {"SIN": "SARIN"}
 
 
 def time_sort_key(input_str):
@@ -133,9 +134,13 @@ class FileFinder(BaseFinder):
         ):
             modes.append("SAR")
 
-        if "l1b_baseline" not in self.config["stage_1_file_finder"]:
+        if "l1b_baselines" not in self.config["stage_1_file_finder"]:
             raise KeyError("l1b_baselines missing from config")
         l1b_baselines = self.config["stage_1_file_finder"]["l1b_baselines"]
+
+        baseline_pattern = (
+            "[" + "".join(l1b_baselines) + "]" if len(l1b_baselines) == 0 else l1b_baselines[0]
+        )
 
         if "l1b_base_dir" not in self.config["stage_1_file_finder"]:
             raise KeyError("l1b_base_dir missing from config")
@@ -147,10 +152,9 @@ class FileFinder(BaseFinder):
 
         nrt_mode = bool(self.config["shared"]["nrt"]) if "nrt" in self.config["shared"] else False
 
-        file_search_string = f"CS_*SIR_*_1B_*[{''.join(l1b_baselines)}]???.nc"
+        file_search_string = f"CS_*SIR_*_1B_*{baseline_pattern}???.nc"
 
         self.log.info("Finding files for mode: %s", ",".join(modes))
-        file_modes: list[str] = [FILE_MODES.get(mode, mode) for mode in modes]
 
         if flat_search:
             search_string = os.path.join(l1b_base_dir, file_search_string)
@@ -166,6 +170,8 @@ class FileFinder(BaseFinder):
             nrt_max_duration = 28
             today = date.today()
 
+            file_modes: list[str] = [NRT_FILE_MODES.get(mode, mode) for mode in modes]
+
             self.log.info(
                 "Finding files from %s to %s",
                 today.strftime("%Y-%m-%d"),
@@ -174,18 +180,16 @@ class FileFinder(BaseFinder):
 
             for day_diff in range(nrt_max_duration + 1):
                 i_date = today - timedelta(days=day_diff)
-
                 for mode in file_modes:
                     nrt_file_search_string = (
-                        f"CS_*SIR_*_1B_{i_date.year:4d}"
-                        f"{i_date.month:02d}{i_date.day:02d}*[{l1b_baselines}]???.nc"
+                        f"CS_*SIR_*N1B_{i_date.year:4d}"
+                        f"{i_date.month:02d}{i_date.day:02d}*{baseline_pattern}???.nc"
                     )
 
                     search_string = os.path.join(
                         l1b_base_dir,
                         mode,
-                        str(i_date.year),
-                        f"{i_date.month:02d}",
+                        f"{i_date.year:04d}{i_date.month:02d}",
                         nrt_file_search_string,
                     )
 
@@ -200,6 +204,8 @@ class FileFinder(BaseFinder):
             if len(self.months) == 0:
                 self.log.info("No months specified, using all months.")
                 self.months: list[int] = list(range(1, 13))
+
+            file_modes = [FILE_MODES.get(mode, mode) for mode in modes]
 
             for year in self.years:
                 self.log.info("Finding files for year: %d", year)
