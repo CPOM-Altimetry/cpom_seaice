@@ -23,6 +23,7 @@ geophysical:
   eccentricity: 0.08181919078479198
   speed_light_vacuum: 299792458.0
   speed_light_snow:   240000000.0 #2.4e8
+  earth_radius: 6356.752
 
 # Algorithm configuration settings
 
@@ -39,12 +40,11 @@ shared: # Shared config parameters for multiple algorithms to use
   nrt: True
 
 stage_2_file_finder:
-  merge_base_dir: /home/benpalmer/sea_ice_processor/NRT_data/south/merge_files/NRT-20260113
-  flat_search: True
+  merge_base_dir: /home/benpalmer/sea_ice_processor/NRT_data/south/merge_files
   sort_files: True
 
 alg_add_mss:
-  mss_file: ${CPDATA_DIR}/MODELS/MSS/UCL01/CryosatMSS-anto-1yr-160316.txt
+  mss_file: /home/benpalmer/sea_ice_processor/CryosatMSS-anto-1yr-160316.zarr 
   input_projection: epsg:4326
   delta: 0.0625
   nlons: 5761
@@ -83,8 +83,23 @@ alg_thk_calculations:
   rho_myi: 882.0
   rho_sea: 1023.9
 
+alg_floe_chord_length:
+    max_distance: 0.8 # max distance in km
+    include_bad: True
+    include_all: False
+
+alg_output_nc:
+  output_dir: /home/benpalmer/sea_ice_processor/NRT_data/south/arc_files/
+
 alg_merge_months:
   merge_file_dir: /home/benpalmer/sea_ice_processor/NRT_data/south/period_files/
   mp_file_timeout: 60
 
+alg_merge_nrt_periods:
+  merge_file_dir: /home/benpalmer/sea_ice_processor/NRT_data/south/period_files/
+  mp_file_timeout: 60
+  period_lengths:
+    - 2
+    - 14
+    - 28
 # Resource Locators

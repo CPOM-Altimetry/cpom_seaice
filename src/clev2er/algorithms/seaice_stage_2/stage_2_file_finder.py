@@ -105,7 +105,7 @@ class FileFinder(BaseFinder):
 
         file_search_string = "merge_??????.nc"
 
-        if flat_search or self.config["stage_2_file_finder"]["flat_search"]:
+        if flat_search:
             search_string = os.path.join(merge_base_dir, file_search_string)
             files = glob(search_string)
 
