@@ -31,25 +31,62 @@ shared: # Shared config parameters for multiple algorithms to use
   max_latitude: 90.00 # maximum latitude in deg N
   min_longitude: 0.00 # minimum longitude in degs E
   max_longitude: 360.00 # maximum longitude in deg E
-  output_projection: epsg:3412 # projection used within chain
+  output_projection: epsg:3413 # projection used within chain
   aux_file_path: ${HOME}/sea_ice_processor/aux_files
-  hemisphere: south
+  hemisphere: north
+
+alg_ingest_along_track:
+  variables:
+    - thickness
+    - seaice_conc
+    - floe_chord_length
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
+    - freeboard
+  filtering_on: True
 
 alg_grid_average:
   input_projection: epsg:4326
-  output_projection: epsg:3031
+  output_projection: epsg:3413
   search_radius: 25000 # 25km in m
-  grid_file: ${HOME}/sea_ice_processor/grid_definitions/anto/5km_grid.npz
+  grid_file: ${HOME}/sea_ice_processor/grid_definitions/arco/5km_grid.npz
   variables:
+    - thickness
+    - seaice_conc
+    - floe_fraction
+    - lead_fraction
+    - unknown_fraction
+    - floe_chord_length
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
     - freeboard
-
 
 alg_output_maps:
-  output_directory: ${HOME}/sea_ice_processor/output_map_files/south
+  output_directory: ${HOME}/sea_ice_processor/output_map_files/north
   variables:
+    - thickness
+    - seaice_conc
+    - floe_fraction
+    - lead_fraction
+    - unknown_fraction
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
     - freeboard
+    - floe_chord_length
 
 alg_output_ascii:
-  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii/south
+  output_directory: ${HOME}/sea_ice_processor/alongtrack_ascii/north
   variables:
+    - thickness
+    - seaice_conc
+    - floe_fraction
+    - lead_fraction
+    - unknown_fraction
+    - snow_depth
+    - seaice_type
+    - sea_level_anomaly
     - freeboard
+    - floe_chord_length
