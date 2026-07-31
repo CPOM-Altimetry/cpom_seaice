@@ -219,7 +219,7 @@ class Algorithm(BaseAlgorithm):
             if period_start_time > file_time:
                 continue
 
-            merge_file_name = f"{today_dt:%Y%m%d)}_{period:02d}_merge.nc"
+            merge_file_name = f"{today_dt:%Y%m%d}_{period:02d}_merge.nc"
             output_file_path = os.path.join(output_dir, merge_file_name)
             output_lock_file_path = os.path.join(output_dir, "." + merge_file_name + ".lock")
 
@@ -308,7 +308,7 @@ class Algorithm(BaseAlgorithm):
                     signal.alarm(0)
                     fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
-        self.log.info("Appended data to %s", output_file_path)
+            self.log.info("Appended data to %s", output_file_path)
         # -------------------------------------------------------------------
         # Returns (True,'') if successful
         return (success, error_str)
