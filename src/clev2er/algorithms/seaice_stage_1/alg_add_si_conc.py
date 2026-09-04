@@ -53,8 +53,8 @@ Date: 01 Mar 2024
 
 import glob
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, Literal, Tuple
 
 import numpy as np
 import pyproj as proj
@@ -66,11 +66,13 @@ from scipy.spatial import cKDTree
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
-def _find_single_conc_file(glob_pattern):
+def _find_single_conc_file(glob_pattern, hemisphere: Literal["north", "south"]):
     file_path: str | None = None
 
     # Find files that match the date
     file_paths = glob.glob(glob_pattern)
+
+    file_paths = _filter_files_by_hemisphere(file_paths, hemisphere)
 
     # part 1: try nc first, if not then try dat
     # now it's more complicated. check which datasets we're using
@@ -96,6 +98,15 @@ def _find_single_conc_file(glob_pattern):
         raise FileNotFoundError(f"Cannot find nc or dat concentration file matching {glob_pattern}")
 
     return file_path
+
+
+def _filter_files_by_hemisphere(
+    file_list: list[str], hemisphere: Literal["north", "south"]
+) -> list[str]:
+    if hemisphere == "north":
+        return [f for f in file_list if "_nh_" in file_list or "_N" in file_list]
+
+    return [f for f in file_list if "_sh_" in file_list or "_S" in file_list]
 
 
 class Algorithm(BaseAlgorithm):
@@ -145,6 +156,7 @@ class Algorithm(BaseAlgorithm):
         # Store the data for the most recent file with this
         self.most_recent_file: Dict = {"date": ""}
 
+        self.hemi = self.config["shared"]["hemisphere"]
         self.fill_conc = self.config["alg_add_si_conc"]["fill_conc"]
         self.fill_lat_threshold = self.config["alg_add_si_conc"]["fill_lat_threshold"]
 
@@ -168,9 +180,14 @@ class Algorithm(BaseAlgorithm):
                 datetime.strptime(
                     self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["end_date"], "%d-%m-%Y"
                 )
-                - timedelta(seconds=1)
+                + timedelta(days=1, seconds=-1)
                 if self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["end_date"] is not None
                 else None
+            )
+            self.log.info(
+                "Using NSIDC SSMI dataset from %s to %s",
+                self.nsidc_ssmi_start_time,
+                self.nsidc_ssmi_end_time,
             )
 
         # OSISAF SSMI (used for 2025-onwards)
@@ -194,6 +211,11 @@ class Algorithm(BaseAlgorithm):
                 if self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"]["end_date"] is not None
                 else None
             )
+            self.log.info(
+                "Using OSISAF SSMI dataset from %s to %s",
+                self.osisaf_ssmi_start_time,
+                self.osisaf_ssmi_end_time,
+            )
 
         # OSISAF ASMR-2 (not used currently, adding as a placeholder)
         self.use_osisaf_asmr2 = (
@@ -212,10 +234,15 @@ class Algorithm(BaseAlgorithm):
                     self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"],
                     "%d-%m-%Y",
                 )
-                - timedelta(seconds=1)
+                + timedelta(days=1, seconds=-1)
                 if self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"]
                 is not None
                 else None
+            )
+            self.log.info(
+                "Using OSISAF ASMR-2 dataset from %s to %s",
+                self.osisaf_asmr2_start_time,
+                self.osisaf_asmr2_end_time,
             )
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
@@ -279,7 +306,7 @@ class Algorithm(BaseAlgorithm):
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
             zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
         ):
-            wv_datetime = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc)
+            wv_datetime = datetime.fromtimestamp(wv_timestamp)
             file_date = wv_datetime.strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
@@ -297,12 +324,13 @@ class Algorithm(BaseAlgorithm):
                         self.use_nsidc_ssmi
                         and self.nsidc_ssmi_start_time <= wv_datetime
                         and (
-                            self.nsidc_ssmi_end_time is not None
-                            and wv_datetime <= self.nsidc_ssmi_end_time
+                            self.nsidc_ssmi_end_time is None
+                            or wv_datetime <= self.nsidc_ssmi_end_time
                         )
                     ):
                         file_path = _find_single_conc_file(
-                            os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*")
+                            os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*"),
+                            self.hemi,
                         )
 
                         # if a file has been found, check the extension and load it
@@ -328,12 +356,13 @@ class Algorithm(BaseAlgorithm):
                         self.use_osisaf_ssmi
                         and self.osisaf_ssmi_start_time <= wv_datetime
                         and (
-                            self.osisaf_ssmi_end_time is not None
-                            and wv_datetime <= self.osisaf_ssmi_end_time
+                            self.osisaf_ssmi_end_time is None
+                            or wv_datetime <= self.osisaf_ssmi_end_time
                         )
                     ):
                         file_path = _find_single_conc_file(
-                            os.path.join(self.osisaf_ssmi_dir, file_date[:4], f"*{file_date}*")
+                            os.path.join(self.osisaf_ssmi_dir, file_date[:4], f"*{file_date}*"),
+                            self.hemi,
                         )
 
                         with Dataset(file_path, mode="r") as nc:
@@ -345,12 +374,13 @@ class Algorithm(BaseAlgorithm):
                         self.use_osisaf_asmr2
                         and self.osisaf_asmr2_start_time <= wv_datetime
                         and (
-                            self.osisaf_asmr2_end_time is not None
-                            and wv_datetime <= self.osisaf_asmr2_end_time
+                            self.osisaf_asmr2_end_time is None
+                            or wv_datetime <= self.osisaf_asmr2_end_time
                         )
                     ):
                         file_path = _find_single_conc_file(
-                            os.path.join(self.osisaf_asmr2_dir, file_date[:4], f"*{file_date}*")
+                            os.path.join(self.osisaf_asmr2_dir, file_date[:4], f"*{file_date}*"),
+                            self.hemi,
                         )
 
                         with Dataset(file_path, mode="r") as nc:
