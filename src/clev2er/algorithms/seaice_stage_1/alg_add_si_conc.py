@@ -104,9 +104,9 @@ def _filter_files_by_hemisphere(
     file_list: list[str], hemisphere: Literal["north", "south"]
 ) -> list[str]:
     if hemisphere == "north":
-        return [f for f in file_list if "_nh_" in file_list or "_N" in file_list]
+        return [f for f in file_list if "_nh_" in f or "_N" in f]
 
-    return [f for f in file_list if "_sh_" in file_list or "_S" in file_list]
+    return [f for f in file_list if "_sh_" in f or "_S" in f]
 
 
 class Algorithm(BaseAlgorithm):
