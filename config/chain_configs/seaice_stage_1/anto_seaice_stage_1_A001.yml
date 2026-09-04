@@ -81,10 +81,20 @@ alg_giles_retrack:
   gtol: 1.0e-8
 
 alg_add_si_conc:
-  conc_file_dir: $CPDATA_DIR/SATS/PM/SSMI/south/
   input_projection: epsg:4326
   fill_conc: False
   fill_lat_threshold: 0
+  datasets:
+    nsidc_ssmi:
+      active: true
+      start_date: 01-07-2010
+      end_date: 31-12-2024
+      base_dir: /cpdata/SATS/PM/SSMI/south
+    osisaf_ssmi:
+      active: true
+      start_date: 01-01-2025
+      end_date:
+      base_dir: /cpdata/SATS/PM/OSISAF-IceConc-SSMI/NetCDF/
 
 alg_elev_calculations:
   diffuse_retracker_bias: 0.1626
