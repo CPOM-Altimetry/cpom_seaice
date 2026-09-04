@@ -53,7 +53,7 @@ Date: 01 Mar 2024
 
 import glob
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
 
 import numpy as np
@@ -66,7 +66,40 @@ from scipy.spatial import cKDTree
 from clev2er.algorithms.base.base_alg import BaseAlgorithm
 
 
+def _find_single_conc_file(glob_pattern):
+    file_path: str | None = None
+
+    # Find files that match the date
+    file_paths = glob.glob(glob_pattern)
+
+    # part 1: try nc first, if not then try dat
+    # now it's more complicated. check which datasets we're using
+    nc_paths = [x for x in file_paths if x.endswith(".nc")]
+    if len(nc_paths) > 1:
+        raise RuntimeError(f"Found too many nc concentration files that matched {glob_pattern}")
+    if len(nc_paths) == 1:
+        file_path = nc_paths[0]
+
+    # if a netcdf hasn't been found, try to find a .dat file
+    if file_path is None:
+        dat_paths = [x for x in file_paths if x.endswith(".dat")]
+        if len(dat_paths) > 1:
+            raise RuntimeError(
+                f"Found too many dat concentration files that matched {glob_pattern}"
+            )
+
+        if len(dat_paths) == 1:
+            file_path = dat_paths[0]
+
+    # if a file has still not been found, raise an error
+    if file_path is None:
+        raise FileNotFoundError(f"Cannot find nc or dat concentration file matching {glob_pattern}")
+
+    return file_path
+
+
 class Algorithm(BaseAlgorithm):
+    # pylint: disable=too-many-instance-attributes
     """CLEV2ER Algorithm class
 
     contains:
@@ -112,9 +145,78 @@ class Algorithm(BaseAlgorithm):
         # Store the data for the most recent file with this
         self.most_recent_file: Dict = {"date": ""}
 
-        self.conc_file_dir = self.config["alg_add_si_conc"]["conc_file_dir"]
         self.fill_conc = self.config["alg_add_si_conc"]["fill_conc"]
         self.fill_lat_threshold = self.config["alg_add_si_conc"]["fill_lat_threshold"]
+
+        # since we use different datasets for conc depending on the date...
+        # use config to decide which we run and for which dates
+        # NOTE: OSISAF files are all for .nc reading only, NSIDC can be .nc or .dat
+
+        # NSIDC SSMI (default for 2010-2024)
+        self.use_nsidc_ssmi = (
+            "nsidc_ssmi" in self.config["alg_add_si_conc"]["datasets"]
+            and self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["active"]
+        )
+        if self.use_nsidc_ssmi:
+            self.nsidc_ssmi_dir = self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"][
+                "base_dir"
+            ]
+            self.nsidc_ssmi_start_time = datetime.strptime(
+                self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["start_date"], "%d-%m-%Y"
+            )
+            self.nsidc_ssmi_end_time = (
+                datetime.strptime(
+                    self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["end_date"], "%d-%m-%Y"
+                )
+                - timedelta(seconds=1)
+                if self.config["alg_add_si_conc"]["datasets"]["nsidc_ssmi"]["end_date"] is not None
+                else None
+            )
+
+        # OSISAF SSMI (used for 2025-onwards)
+        self.use_osisaf_ssmi = (
+            "osisaf_ssmi" in self.config["alg_add_si_conc"]["datasets"]
+            and self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"]["active"]
+        )
+        if self.use_osisaf_ssmi:
+            self.osisaf_ssmi_dir = self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"][
+                "base_dir"
+            ]
+            self.osisaf_ssmi_start_time = datetime.strptime(
+                self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"]["start_date"], "%d-%m-%Y"
+            )
+            self.osisaf_ssmi_end_time = (
+                datetime.strptime(
+                    self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"]["end_date"],
+                    "%d-%m-%Y",
+                )
+                - timedelta(seconds=1)
+                if self.config["alg_add_si_conc"]["datasets"]["osisaf_ssmi"]["end_date"] is not None
+                else None
+            )
+
+        # OSISAF ASMR-2 (not used currently, adding as a placeholder)
+        self.use_osisaf_asmr2 = (
+            "osisaf_asmr2" in self.config["alg_add_si_conc"]["datasets"]
+            and self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["active"]
+        )
+        if self.use_osisaf_asmr2:
+            self.osisaf_asmr2_dir = self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"][
+                "base_dir"
+            ]
+            self.osisaf_asmr2_start_time = datetime.strptime(
+                self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["start_date"], "%d-%m-%Y"
+            )
+            self.osisaf_asmr2_end_time = (
+                datetime.strptime(
+                    self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"],
+                    "%d-%m-%Y",
+                )
+                - timedelta(seconds=1)
+                if self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"]
+                is not None
+                else None
+            )
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
         output_projection = self.config["shared"]["output_projection"]
@@ -177,7 +279,8 @@ class Algorithm(BaseAlgorithm):
         for wv_num, (wv_timestamp, wv_lat, wv_lon) in enumerate(
             zip(shared_dict["measurement_time"], shared_dict["sat_lat"], shared_dict["sat_lon"])
         ):
-            file_date = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc).strftime("%Y%m%d")
+            wv_datetime = datetime.fromtimestamp(wv_timestamp, tz=timezone.utc)
+            file_date = wv_datetime.strftime("%Y%m%d")
 
             if self.most_recent_file["date"] == file_date:
                 # If date is the same as the most recent file date, get values from dict
@@ -187,56 +290,86 @@ class Algorithm(BaseAlgorithm):
             else:
                 # Else, read the file, create the KDTree and store the values
                 # in most recent file dict for later use
-                self.log.info("Loading new concentration data file  - %s", file_date)
+                self.log.info("Loading new concentration data file - %s", file_date)
 
-                file_path: str | None = None
+                try:
+                    if (
+                        self.use_nsidc_ssmi
+                        and self.nsidc_ssmi_start_time <= wv_datetime
+                        and (
+                            self.nsidc_ssmi_end_time is not None
+                            and wv_datetime <= self.nsidc_ssmi_end_time
+                        )
+                    ):
+                        file_path = _find_single_conc_file(
+                            os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*")
+                        )
 
-                # Find files that match the date
-                file_paths = glob.glob(
-                    os.path.join(self.conc_file_dir, file_date[:4], f"*{file_date}*")
-                )
+                        # if a file has been found, check the extension and load it
+                        if file_path.endswith(".dat"):
+                            # Read the dat file
+                            sea_ice_conc = np.transpose(np.genfromtxt(file_path))
+                            file_lats = sea_ice_conc[2]
+                            # convert to 0..360 to match shared_dict values
+                            file_lons = sea_ice_conc[3] % 360.0
+                            file_values = sea_ice_conc[4]
+                            file_values[
+                                file_values == -999.0
+                            ] = np.nan  # Turn -999.0 values to NaNs
+                            file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
 
-                # part 1: try nc first, if not then try dat
-                nc_paths = [x for x in file_paths if x.endswith(".nc")]
-                if len(nc_paths) > 1:
-                    self.log.error("Found too many concentration netcdf files")
-                    return (False, "CONC_TOO_MANY_FILES")
-                if len(nc_paths) == 1:
-                    file_path = nc_paths[0]
+                        elif file_path.endswith(".nc"):
+                            with Dataset(file_path, mode="r") as nc:
+                                file_values_frac = nc["F18_ICECON"][:].data.flatten()
+                                file_x_1d = nc["x"][:].data
+                                file_y_1d = nc["y"][:].data
 
-                # if a netcdf hasn't been found, try to find a .dat file
-                if file_path is None:
-                    dat_paths = [x for x in file_paths if x.endswith(".dat")]
-                    if len(dat_paths) > 1:
-                        self.log.error("Found too many concentration netcdf files")
-                        return (False, "CONC_TOO_MANY_FILES")
-                    if len(dat_paths) == 1:
-                        file_path = dat_paths[0]
+                    elif (
+                        self.use_osisaf_ssmi
+                        and self.osisaf_ssmi_start_time <= wv_datetime
+                        and (
+                            self.osisaf_ssmi_end_time is not None
+                            and wv_datetime <= self.osisaf_ssmi_end_time
+                        )
+                    ):
+                        file_path = _find_single_conc_file(
+                            os.path.join(self.osisaf_ssmi_dir, file_date[:4], f"*{file_date}*")
+                        )
 
-                # if a file has still not been found, skip
-                if file_path is None:
-                    self.log.error("Cannot find a matching concentration file for this date")
+                        with Dataset(file_path, mode="r") as nc:
+                            file_values_frac = nc["ice_conc"][:].data.flatten()
+                            file_x_1d = nc["xc"][:].data
+                            file_y_1d = nc["yc"][:].data
+
+                    elif (
+                        self.use_osisaf_asmr2
+                        and self.osisaf_asmr2_start_time <= wv_datetime
+                        and (
+                            self.osisaf_asmr2_end_time is not None
+                            and wv_datetime <= self.osisaf_asmr2_end_time
+                        )
+                    ):
+                        file_path = _find_single_conc_file(
+                            os.path.join(self.osisaf_asmr2_dir, file_date[:4], f"*{file_date}*")
+                        )
+
+                        with Dataset(file_path, mode="r") as nc:
+                            file_values_frac = nc["ice_conc"][:].data.flatten()
+                            file_x_1d = nc["xc"][:].data
+                            file_y_1d = nc["yc"][:].data
+
+                    else:
+                        raise RuntimeError(
+                            "No suitable dataset found! Aglorithm requires at least one dataset"
+                            " active and to have a suitable date"
+                        )
+                except FileNotFoundError:
+                    self.log.error("Cannot find file for %s", file_date)
                     return (False, "SKIP_OK")
 
                 self.log.info("Found file %s", file_path)
 
-                # part 2: read in the data from the file if found
-                if file_path.endswith(".dat"):
-                    # Read the dat file
-                    sea_ice_conc = np.transpose(np.genfromtxt(file_path))
-                    file_lats = sea_ice_conc[2]
-                    # convert to 0..360 to match shared_dict values
-                    file_lons = sea_ice_conc[3] % 360.0
-                    file_values = sea_ice_conc[4]
-                    file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
-                    file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
-
-                elif file_path.endswith(".nc"):
-                    with Dataset(file_path, mode="r") as nc:
-                        file_values_frac = nc["F18_ICECON"][:].data.flatten()
-                        file_x_1d = nc["x"][:].data
-                        file_y_1d = nc["y"][:].data
-
+                if file_path.endswith(".nc"):
                     # file values are read in as fractions (0->1) with flags for invalid values
                     # convert all flags to nan
                     file_values_frac[file_values_frac > 1] = np.nan
@@ -259,6 +392,8 @@ class Algorithm(BaseAlgorithm):
                     fill_value = np.max(
                         (np.mean(file_values[lats_above_threshold & ~values_to_fill]), 0)
                     )  # get mean of known above threshold
+                    if np.isnan(fill_value):
+                        raise RuntimeError("Calculated fill value is NaN")
                     self.log.info("Filling concentrations using mean value - %0.3f", fill_value)
                     file_values[lats_above_threshold & values_to_fill] = fill_value
 
