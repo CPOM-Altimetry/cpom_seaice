@@ -328,6 +328,7 @@ class Algorithm(BaseAlgorithm):
                             or wv_datetime <= self.nsidc_ssmi_end_time
                         )
                     ):
+                        self.log.debug("Using NSIDC SSMI")
                         file_path = _find_single_conc_file(
                             os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*"),
                             self.hemi,
@@ -335,6 +336,7 @@ class Algorithm(BaseAlgorithm):
 
                         # if a file has been found, check the extension and load it
                         if file_path.endswith(".dat"):
+                            self.log.debug("Using .dat file")
                             # Read the dat file
                             sea_ice_conc = np.transpose(np.genfromtxt(file_path))
                             file_lats = sea_ice_conc[2]
@@ -347,6 +349,7 @@ class Algorithm(BaseAlgorithm):
                             file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
 
                         elif file_path.endswith(".nc"):
+                            self.log.debug("Using .nc file")
                             with Dataset(file_path, mode="r") as nc:
                                 file_values_frac = nc["F18_ICECON"][:].data.flatten()
                                 file_x_1d = nc["x"][:].data
@@ -360,6 +363,7 @@ class Algorithm(BaseAlgorithm):
                             or wv_datetime <= self.osisaf_ssmi_end_time
                         )
                     ):
+                        self.log.debug("Using OSISAF SSMI data")
                         file_path = _find_single_conc_file(
                             os.path.join(self.osisaf_ssmi_dir, file_date[:4], f"*{file_date}*"),
                             self.hemi,
@@ -378,6 +382,7 @@ class Algorithm(BaseAlgorithm):
                             or wv_datetime <= self.osisaf_asmr2_end_time
                         )
                     ):
+                        self.log.debug("Using OSISAF ASMR-2 data")
                         file_path = _find_single_conc_file(
                             os.path.join(self.osisaf_asmr2_dir, file_date[:4], f"*{file_date}*"),
                             self.hemi,
