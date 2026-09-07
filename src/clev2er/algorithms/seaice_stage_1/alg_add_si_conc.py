@@ -343,9 +343,6 @@ class Algorithm(BaseAlgorithm):
                             # convert to 0..360 to match shared_dict values
                             file_lons = sea_ice_conc[3] % 360.0
                             file_values = sea_ice_conc[4]
-                            file_values[
-                                file_values == -999.0
-                            ] = np.nan  # Turn -999.0 values to NaNs
                             file_x, file_y = self.lonlat_to_xy.transform(file_lons, file_lats)
 
                         elif file_path.endswith(".nc"):
@@ -354,6 +351,12 @@ class Algorithm(BaseAlgorithm):
                                 file_values_frac = nc["F18_ICECON"][:].data.flatten()
                                 file_x_1d = nc["x"][:].data
                                 file_y_1d = nc["y"][:].data
+
+                            # file values are read in as fractions (0->1) with
+                            # flags for invalid values, convert all flags to nan
+                            file_values_frac[file_values_frac > 1] = np.nan
+                            # convert fraction to percentage
+                            file_values = np.round((file_values_frac * 100), decimals=4)
 
                     elif (
                         self.use_osisaf_ssmi
@@ -370,9 +373,9 @@ class Algorithm(BaseAlgorithm):
                         )
 
                         with Dataset(file_path, mode="r") as nc:
-                            file_values_frac = nc["ice_conc"][:].data.flatten()
-                            file_x_1d = nc["xc"][:].data
-                            file_y_1d = nc["yc"][:].data
+                            file_values = nc["ice_conc"][:].data.flatten()
+                            file_x_1d = nc["xc"][:].data * 1000  # km to m
+                            file_y_1d = nc["yc"][:].data * 1000  # km to m
 
                     elif (
                         self.use_osisaf_asmr2
@@ -389,9 +392,9 @@ class Algorithm(BaseAlgorithm):
                         )
 
                         with Dataset(file_path, mode="r") as nc:
-                            file_values_frac = nc["ice_conc"][:].data.flatten()
-                            file_x_1d = nc["xc"][:].data
-                            file_y_1d = nc["yc"][:].data
+                            file_values = nc["ice_conc"][:].data.flatten()
+                            file_x_1d = nc["xc"][:].data * 1000  # km to m
+                            file_y_1d = nc["yc"][:].data * 1000  # km to m
 
                     else:
                         raise RuntimeError(
@@ -404,12 +407,9 @@ class Algorithm(BaseAlgorithm):
 
                 self.log.info("Found file %s", file_path)
 
+                file_values[file_values == -999.0] = np.nan  # Turn -999.0 values to NaNs
+
                 if file_path.endswith(".nc"):
-                    # file values are read in as fractions (0->1) with flags for invalid values
-                    # convert all flags to nan
-                    file_values_frac[file_values_frac > 1] = np.nan
-                    # convert fraction to percentage
-                    file_values = np.round((file_values_frac * 100), decimals=4)
                     # x and y need to be in equal length to values
                     file_x, file_y = np.meshgrid(file_x_1d, file_y_1d)
                     file_x = file_x.flatten()
