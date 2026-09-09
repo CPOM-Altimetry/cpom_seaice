@@ -124,9 +124,7 @@ class FileFinder(BaseFinder):
                 for month in self.months:
                     self.log.info("Finding files for month: %d", month)
 
-                    search_string = os.path.join(
-                        month_file_dir, str(year), f"{month:02d}", file_search_string
-                    )
+                    search_string = os.path.join(month_file_dir, str(year), file_search_string)
 
                     files = glob(search_string)
 
