@@ -72,7 +72,18 @@ def _find_single_conc_file(glob_pattern, hemisphere: Literal["north", "south"]):
     # Find files that match the date
     file_paths = glob.glob(glob_pattern)
 
+    if len(file_paths) == 0:
+        raise FileNotFoundError(
+            f"Cannot find nc or date concentration file matching {glob_pattern}" "- initial search"
+        )
+
     file_paths = _filter_files_by_hemisphere(file_paths, hemisphere)
+
+    if len(file_paths) == 0:
+        raise FileNotFoundError(
+            f"Cannot find nc or date concentration file matching {glob_pattern}"
+            " - hemisphere filter"
+        )
 
     # part 1: try nc first, if not then try dat
     # now it's more complicated. check which datasets we're using
@@ -95,7 +106,10 @@ def _find_single_conc_file(glob_pattern, hemisphere: Literal["north", "south"]):
 
     # if a file has still not been found, raise an error
     if file_path is None:
-        raise FileNotFoundError(f"Cannot find nc or dat concentration file matching {glob_pattern}")
+        raise FileNotFoundError(
+            f"Cannot find nc or dat concentration file matching {glob_pattern}"
+            " - extension filter"
+        )
 
     return file_path
 
@@ -401,8 +415,8 @@ class Algorithm(BaseAlgorithm):
                             "No suitable dataset found! Aglorithm requires at least one dataset"
                             " active and to have a suitable date"
                         )
-                except FileNotFoundError:
-                    self.log.error("Cannot find file for %s", file_date)
+                except FileNotFoundError as e:
+                    self.log.error(f"Cannot find file for %s - {str(e)}", file_date)
                     return (False, "SKIP_OK")
 
                 self.log.info("Found file %s", file_path)
