@@ -88,11 +88,11 @@ alg_add_si_conc:
     nsidc_ssmi:
       active: true
       start_date: 01-07-2010
-      end_date: 31-12-2024
+      end_date: 31-12-2025
       base_dir: /cpdata/SATS/PM/SSMI/south
     osisaf_ssmi:
       active: true
-      start_date: 01-01-2025
+      start_date: 01-01-2026
       end_date:
       base_dir: /cpdata/SATS/PM/OSISAF-IceConc-SSMI/NetCDF/
 
