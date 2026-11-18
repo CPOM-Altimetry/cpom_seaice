@@ -39,8 +39,12 @@ shared: # Shared config parameters for multiple algorithms to use
   hemisphere: north
   nrt: True
 
+stage_2_file_finder:
+    merge_base_dir: /home/benpalmer/sea_ice_processor/NRT_data/north/merge_files
+    sort_files: True
+
 alg_add_mss:
-  mss_file: ${CPDATA_DIR}/MODELS/MSS/UCL01/CryosatMSS-arco-2yr-140821.txt
+  mss_file: ${HOME}/sea_ice_processor/CryosatMSS-arco-2yr-140821_v2.zarr
   input_projection: epsg:4326
   delta: 0.0625
   nlons: 5761
@@ -77,8 +81,15 @@ alg_floe_chord_length:
   include_bad: True
   include_all: False
 
-alg_merge_months:
-  merge_file_dir: /home/benpalmer/sea_ice_processor/NRT_data/north/period_files/
-  mp_file_timeout: 60
+alg_output_nc:
+  output_dir: ${HOME}/sea_ice_processor/NRT_data/south/arc_files/
 
+
+alg_merge_nrt_periods:
+  merge_file_dir: ${HOME}/sea_ice_processor/NRT_data/south/period_files/
+  mp_file_timeout: 60
+  period_lengths:
+    - 2
+    - 14
+    - 28
 # Resource Locators

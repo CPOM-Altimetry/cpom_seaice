@@ -231,32 +231,32 @@ class Algorithm(BaseAlgorithm):
                 self.osisaf_ssmi_end_time,
             )
 
-        # OSISAF ASMR-2 (not used currently, adding as a placeholder)
-        self.use_osisaf_asmr2 = (
-            "osisaf_asmr2" in self.config["alg_add_si_conc"]["datasets"]
-            and self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["active"]
+        # OSISAF AMSR-2 (not used currently, adding as a placeholder)
+        self.use_osisaf_amsr2 = (
+            "osisaf_amsr2" in self.config["alg_add_si_conc"]["datasets"]
+            and self.config["alg_add_si_conc"]["datasets"]["osisaf_amsr2"]["active"]
         )
-        if self.use_osisaf_asmr2:
-            self.osisaf_asmr2_dir = self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"][
+        if self.use_osisaf_amsr2:
+            self.osisaf_amsr2_dir = self.config["alg_add_si_conc"]["datasets"]["osisaf_amsr2"][
                 "base_dir"
             ]
-            self.osisaf_asmr2_start_time = datetime.strptime(
-                self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["start_date"], "%d-%m-%Y"
+            self.osisaf_amsr2_start_time = datetime.strptime(
+                self.config["alg_add_si_conc"]["datasets"]["osisaf_amsr2"]["start_date"], "%d-%m-%Y"
             )
-            self.osisaf_asmr2_end_time = (
+            self.osisaf_amsr2_end_time = (
                 datetime.strptime(
-                    self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"],
+                    self.config["alg_add_si_conc"]["datasets"]["osisaf_amsr2"]["end_date"],
                     "%d-%m-%Y",
                 )
                 + timedelta(days=1, seconds=-1)
-                if self.config["alg_add_si_conc"]["datasets"]["osisaf_asmr2"]["end_date"]
+                if self.config["alg_add_si_conc"]["datasets"]["osisaf_amsr2"]["end_date"]
                 is not None
                 else None
             )
             self.log.info(
-                "Using OSISAF ASMR-2 dataset from %s to %s",
-                self.osisaf_asmr2_start_time,
-                self.osisaf_asmr2_end_time,
+                "Using OSISAF AMSR-2 dataset from %s to %s",
+                self.osisaf_amsr2_start_time,
+                self.osisaf_amsr2_end_time,
             )
 
         input_projection = self.config["alg_add_si_conc"]["input_projection"]
@@ -392,16 +392,16 @@ class Algorithm(BaseAlgorithm):
                             file_y_1d = nc["yc"][:].data * 1000  # km to m
 
                     elif (
-                        self.use_osisaf_asmr2
-                        and self.osisaf_asmr2_start_time <= wv_datetime
+                        self.use_osisaf_amsr2
+                        and self.osisaf_amsr2_start_time <= wv_datetime
                         and (
-                            self.osisaf_asmr2_end_time is None
-                            or wv_datetime <= self.osisaf_asmr2_end_time
+                            self.osisaf_amsr2_end_time is None
+                            or wv_datetime <= self.osisaf_amsr2_end_time
                         )
                     ):
-                        self.log.debug("Using OSISAF ASMR-2 data")
+                        self.log.debug("Using OSISAF AMSR-2 data")
                         file_path = _find_single_conc_file(
-                            os.path.join(self.osisaf_asmr2_dir, file_date[:4], f"*{file_date}*"),
+                            os.path.join(self.osisaf_amsr2_dir, file_date[:4], f"*{file_date}*"),
                             self.hemi,
                         )
 

@@ -100,20 +100,21 @@ class Algorithm(BaseAlgorithm):
 
         # --- Add your initialization steps below here ---
 
-        self.merge_file_dir = self.config["alg_merge_nrt_periods"]["merge_file_dir"]
-        self.timeout = self.config["alg_merge_nrt_periods"]["mp_file_timeout"]
-        self.day_periods = self.config["alg_merge_nrt_periods"]["period_lengths"]
-        self.nrt: bool = self.config["shared"]["nrt"]
+        self.nrt = self.config["shared"]["nrt"]
+        if self.nrt:
+            self.merge_file_dir = self.config["alg_merge_nrt_periods"]["merge_file_dir"]
+            self.timeout = self.config["alg_merge_nrt_periods"]["mp_file_timeout"]
+            self.day_periods = self.config["alg_merge_nrt_periods"]["period_lengths"]
 
-        if (
-            not isinstance(self.day_periods, list)
-            or len(self.day_periods) == 0
-            or isinstance(self.day_periods[0], int)
-        ):
-            raise RuntimeError("day_periods should be a list of integers")
+            if (
+                not isinstance(self.day_periods, list)
+                or len(self.day_periods) == 0
+                or not isinstance(self.day_periods[0], int)
+            ):
+                raise RuntimeError("day_periods should be a list of integers")
 
-        if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
-            raise FileNotFoundError("Specified merge file directory does not exist")
+            if not (os.path.exists(self.merge_file_dir) and os.path.isdir(self.merge_file_dir)):
+                raise FileNotFoundError("Specified merge file directory does not exist")
 
         # --- End of initialization steps ---
 
@@ -187,9 +188,9 @@ class Algorithm(BaseAlgorithm):
 
             return (False, "VarLengthError")
 
-        today_dt = datetime.now()
+        today_dt = datetime(2026, 4, 30)
         today_fmt = today_dt.strftime("%Y-%m-%d")
-        processing_time = today_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        processing_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         packet_count = l1b["packet_count"][:].data
         block_number = l1b["block_number"][:].data
@@ -220,6 +221,7 @@ class Algorithm(BaseAlgorithm):
             period_start_time = today_dt.replace(hour=0, minute=0, second=0) - timedelta(
                 days=period
             )
+            period_end_time = today_dt.replace(hour=23, minute=59, second=59) - timedelta(days=1)
 
             if period_start_time > file_time:
                 continue
@@ -275,7 +277,7 @@ class Algorithm(BaseAlgorithm):
                         output_nc.createVariable(
                             "freeboard", "f4", ("n_samples",), compression="zlib"
                         )
-                        output_nc.createVariable(
+                        output_nc.creafteVariable(
                             "seaice_conc", "f4", ("n_samples",), compression="zlib"
                         )
                         output_nc.createVariable(
@@ -294,6 +296,8 @@ class Algorithm(BaseAlgorithm):
                         output_nc.processing_time = processing_time
                         output_nc.nrt_date = today_fmt
                         output_nc.nrt_period = period
+                        output_nc.period_start = period_start_time.strftime("%Y-%m-%dT%H:%M:%S")
+                        output_nc.period_end = period_end_time.strftime("%Y-%m-%dT%H:%M:%S")
                     else:
                         output_nc = Dataset(output_file_path, mode="a")
 
@@ -336,8 +340,29 @@ class Algorithm(BaseAlgorithm):
                     output_nc["floe_chord_length"][:] = floe_chord_length
                     output_nc["snow_depth"][:] = snow_depth
                     output_nc["sea_level_anomaly"][:] = sea_level_anomaly
+
+                    data_start_time = (
+                        Time(np.min(measurement_time), format="unix_tai")
+                        .to_datetime()
+                        .strftime("%Y-%m-%dT%H:%M:%S")
+                    )
+                    data_end_time = (
+                        Time(np.max(measurement_time), format="unix_tai")
+                        .to_datetime()
+                        .strftime("%Y-%m-%dT%H:%M:%S")
+                    )
+                    output_nc.data_start_time = data_start_time
+                    output_nc.data_end_time = data_end_time
+
                     # close file
                     output_nc.close()
+
+                    with open(output_file_path + ".txt", mode="+a", encoding="utf-8") as fp:
+                        fp.write(
+                            l1b.filepath()
+                            + f" {np.sum(np.isfinite(shared_dict['thickness']))}"
+                            + "\n"
+                        )
                 finally:
                     # release lock when we're done with the file
                     signal.alarm(0)

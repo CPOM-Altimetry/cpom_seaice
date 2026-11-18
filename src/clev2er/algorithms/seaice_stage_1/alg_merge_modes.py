@@ -198,6 +198,7 @@ class Algorithm(BaseAlgorithm):
             os.makedirs(output_dir, exist_ok=True)
 
         output_file_path = os.path.join(output_dir, output_file_name)
+        output_text_file_path = os.path.join(output_dir, output_file_name + ".txt")
         output_lock_file_path = os.path.join(output_dir, "." + output_file_name + ".lock")
 
         # Acquire lock file to stop other processes from trying to add to the file
@@ -331,6 +332,9 @@ class Algorithm(BaseAlgorithm):
                 # release lock when we're done with the file
                 signal.alarm(0)
                 fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+        with open(output_text_file_path, mode="+a", encoding="utf-8") as fp:
+            fp.write(l1b.product_name + "\n")
 
         self.log.info("Appended data to %s", output_file_name)
         # -------------------------------------------------------------------

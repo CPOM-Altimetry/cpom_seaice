@@ -128,15 +128,19 @@ class FileFinder(BaseFinder):
             and self.config["stage_1_file_finder"]["use_sin"]
         ):
             modes.append("SIN")
-        elif (
+        if (
             "use_sar" in self.config["stage_1_file_finder"]
             and self.config["stage_1_file_finder"]["use_sar"]
         ):
             modes.append("SAR")
 
+        self.log.info("Finding modes - %s", str(modes))
+
         if "l1b_baselines" not in self.config["stage_1_file_finder"]:
             raise KeyError("l1b_baselines missing from config")
         l1b_baselines = self.config["stage_1_file_finder"]["l1b_baselines"]
+
+        self.log.info("Finding baselines - %s", str(l1b_baselines))
 
         baseline_pattern = (
             "[" + "".join(l1b_baselines) + "]" if len(l1b_baselines) == 0 else l1b_baselines[0]
@@ -168,17 +172,18 @@ class FileFinder(BaseFinder):
             # If NRT processing, fine all files within the NRT duration
 
             nrt_max_duration = 28
-            today = date.today()
+            # today = date.today()
+            today = date(2026, 4, 30)
 
             file_modes: list[str] = [NRT_FILE_MODES.get(mode, mode) for mode in modes]
 
             self.log.info(
                 "Finding files from %s to %s",
-                today.strftime("%Y-%m-%d"),
-                (today - timedelta(days=-nrt_max_duration)).strftime("%Y-%m-%d"),
+                (today - timedelta(days=1)).strftime("%Y-%m-%d"),
+                (today - timedelta(days=nrt_max_duration)).strftime("%Y-%m-%d"),
             )
 
-            for day_diff in range(nrt_max_duration + 1):
+            for day_diff in range(1, nrt_max_duration + 1):
                 i_date = today - timedelta(days=day_diff)
                 for mode in file_modes:
                     nrt_file_search_string = (
@@ -193,6 +198,7 @@ class FileFinder(BaseFinder):
                         nrt_file_search_string,
                     )
 
+                    self.log.debug("Search string - %s", search_string)
                     files = glob(search_string)
 
                     if len(files) > 0:
@@ -219,6 +225,7 @@ class FileFinder(BaseFinder):
                             f"{month:02d}",
                             file_search_string,
                         )
+                        self.log.debug("Search string - %s", search_string)
 
                         files = glob(search_string)
 
