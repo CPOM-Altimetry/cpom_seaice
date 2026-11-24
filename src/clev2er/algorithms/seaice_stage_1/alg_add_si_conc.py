@@ -118,9 +118,9 @@ def _filter_files_by_hemisphere(
     file_list: list[str], hemisphere: Literal["north", "south"]
 ) -> list[str]:
     if hemisphere == "north":
-        return [f for f in file_list if "_nh_" in f or "_N" in f]
+        return [f for f in file_list if "_nh_" in f or "_N" in f.upper()]
 
-    return [f for f in file_list if "_sh_" in f or "_S" in f]
+    return [f for f in file_list if "_sh_" in f or "_S" in f.upper()]
 
 
 class Algorithm(BaseAlgorithm):
@@ -343,10 +343,18 @@ class Algorithm(BaseAlgorithm):
                         )
                     ):
                         self.log.debug("Using NSIDC SSMI")
-                        file_path = _find_single_conc_file(
-                            os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*"),
-                            self.hemi,
-                        )
+                        try:
+                            file_path = _find_single_conc_file(
+                                os.path.join(self.nsidc_ssmi_dir, file_date[:4], f"*{file_date}*"),
+                                self.hemi,
+                            )
+                        except FileNotFoundError:
+                            file_path = _find_single_conc_file(
+                                os.path.join(
+                                    self.nsidc_ssmi_dir, f"{file_date[:4]}_nrt", f"*{file_date}*"
+                                ),
+                                self.hemi,
+                            )
 
                         # if a file has been found, check the extension and load it
                         if file_path.endswith(".dat"):
