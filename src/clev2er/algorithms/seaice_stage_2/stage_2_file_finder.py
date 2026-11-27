@@ -1,6 +1,7 @@
 """my_file_selector"""
 import logging
 import os
+import random
 from concurrent.futures import ProcessPoolExecutor
 from datetime import date, timedelta
 from glob import glob
@@ -179,12 +180,27 @@ class FileFinder(BaseFinder):
             file_list = [r for r in results if r is not None]
             self.log.info("Number of files found within target area: %d", len(file_list))
 
-        # some of the chain is optimised to process files from similar time periods more
-        # efficiently, so sort them by time to try to encourage this
-        if (
+        sort_files = (
             "sort_files" in self.config["stage_2_file_finder"]
             and self.config["stage_2_file_finder"]["sort_files"]
-        ):
+        )
+        shuffle_files = (
+            "shuffle_files" in self.config["stage_2_file_finder"]
+            and self.config["stage_2_file_finder"]["shuffle_files"]
+        )
+
+        if sort_files and shuffle_files:
+            raise RuntimeError("Cannot sort and shuffle file order at the same time")
+
+        # some of the chain is optimised to process files from similar time periods more
+        # efficiently, so sort them by time to try to encourage this
+        if sort_files:
             file_list = sorted(file_list)
+
+        # other times, it's actually more efficient to randomise the order so processing
+        # files from the same time period aren't processed together
+        # such as when multiprocessing is turned on
+        if shuffle_files:
+            random.shuffle(file_list)
 
         return file_list
